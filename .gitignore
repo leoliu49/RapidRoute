@@ -11,3 +11,4 @@ vivado.jou
 vivado.log
 .settings/
 .DS_STORE
+build/

@@ -113,7 +113,7 @@ public class TileIntPath {
 
     public void commitPIPsToNet(Design d, Net n) {
         for (int i = 0; i < nodePath.size() - 1; i++) {
-            //CustomRouter.findAndRoute(d, n, tileName, nodePath.get(i), nodePath.get(i + 1));
+            CustomRouter.findAndRoute(d, n, tileName, nodePath.get(i), nodePath.get(i + 1));
         }
     }
 

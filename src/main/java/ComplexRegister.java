@@ -1,4 +1,5 @@
 import com.xilinx.rapidwright.design.Design;
+import com.xilinx.rapidwright.design.Module;
 import org.ini4j.Wini;
 
 import java.io.File;
@@ -20,8 +21,24 @@ public class ComplexRegister {
     public static String bwKey = "bw";
 
 
+    public static String partName;
+
     public static HashMap<Integer, ComplexRegModule> typeToRegModuleMap = new HashMap<Integer, ComplexRegModule>();
 
+
+    public static Module newModuleFromDcp(String dcpFileName) {
+        Design regDesign = Design.readCheckpoint(dcpFileName);
+
+        partName = regDesign.getPartName();
+
+        Module regModule = new Module(regDesign);
+        regModule.setNetlist(regDesign.getNetlist());
+
+        RouterLog.log("Initialized register module anchored at <"
+                + regModule.getAnchor().getSiteName() + ">.", RouterLog.Level.VERBOSE);
+
+        return regModule;
+    }
 
     public static void loadRegModulesFromConfig() throws IOException {
         Wini ini = new Wini(new File(ComplexRegister.CONFIG_FILE_NAME));
@@ -45,14 +62,18 @@ public class ComplexRegister {
                 outPIPKey += 1;
             }
 
-            typeToRegModuleMap.put(typeKey, new ComplexRegModule(typeKey, bitWidth, inPIPNames, outPIPNames));
+            ComplexRegModule regModule = new ComplexRegModule(typeKey, bitWidth, inPIPNames, outPIPNames);
+            regModule.setModule(newModuleFromDcp(COMPONENTS_DIR + typeKeyPrefix + typeKey + ".dcp"));
+            typeToRegModuleMap.put(typeKey, regModule);
 
             typeKey += 1;
         }
     }
 
     public static void main(String[] args) throws IOException {
-        loadRegModulesFromConfig();
+        ComplexRegister.loadRegModulesFromConfig();
+
+
 
     }
 }

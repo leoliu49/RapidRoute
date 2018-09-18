@@ -16,7 +16,7 @@ public class ComplexRegModule {
     private ArrayList<String> inPIPNames;
     private ArrayList<String> outPIPNames;
 
-    private Module module;
+    private Module module = null;
 
 
     public ComplexRegModule(int type, int bitWidth, ArrayList<String> inPIPNames, ArrayList<String> outPIPNames) {
@@ -56,6 +56,10 @@ public class ComplexRegModule {
 
     public Module getModule() {
         return module;
+    }
+
+    public boolean isModuleSet() {
+        return (module == null);
     }
 
     public void setModule(Module module) {

@@ -8,7 +8,10 @@ import java.util.HashMap;
 
 public class ComplexRegister {
 
-    public static String CONFIG_FILE_NAME = "src/main/resources/complex_register.conf";
+    public static String RESOURCES_DIR = "src/main/resources/";
+
+    public static String COMPONENTS_DIR = RESOURCES_DIR + "components/";
+    public static String CONFIG_FILE_NAME = RESOURCES_DIR + "complex_register.conf";
 
     public static String typeKeyPrefix = "type";
     public static String inPIPKeyPrefix = "inPIP";

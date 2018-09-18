@@ -1,0 +1,38 @@
+plugins {
+    id 'groovy'
+    id 'java'
+}
+
+group 'uwaterloo_watcag'
+version '1.0-SNAPSHOT'
+
+sourceCompatibility = 1.8
+
+repositories {
+    mavenCentral()
+}
+
+tasks.withType(JavaCompile) {
+    options.compilerArgs << '-Xlint:unchecked'
+}
+
+jar {
+    archiveName = "rapidroute.jar"
+    from {
+        configurations.runtime.collect {
+            it.isDirectory() ? it : zipTree(it)
+        }
+        configurations.compile.collect {
+            it.isDirectory() ? it : zipTree(it)
+        }
+    }
+
+    manifest {
+        attributes 'Main-Class': 'com.uwaterloo.watcag.CustomDesign'
+    }
+}
+
+dependencies {
+    compile 'org.codehaus.groovy:groovy-all:2.3.11'
+    compile fileTree(dir: 'deps', include: ['*.jar'])
+}

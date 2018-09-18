@@ -1,0 +1,15 @@
+.idea/
+.gradle/
+*.class
+.Xil/
+.classpath
+*.xdef
+bin/
+.project
+*.dcp
+vivado.jou
+vivado.log
+.settings/
+.DS_STORE
+build/
+

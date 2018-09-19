@@ -3,6 +3,7 @@ import java.util.*;
 import com.xilinx.rapidwright.design.Design;
 import com.xilinx.rapidwright.design.Net;
 import com.xilinx.rapidwright.design.PIP;
+import com.xilinx.rapidwright.device.Site;
 import com.xilinx.rapidwright.device.Tile;
 import com.xilinx.rapidwright.edif.EDIFNetlist;
 import com.xilinx.rapidwright.edif.EDIFTools;
@@ -85,6 +86,79 @@ public class CustomRouter {
 
     }
     */
+
+    public static RoutingFootprint routeComplexRegisters(Design d, ComplexRegister startReg, ComplexRegister endReg) {
+
+        sanitizeNets(d);
+
+        RouterLog.log("Routing <" + startReg.getName() + "> --> <" + endReg.getName() + ">", RouterLog.Level.NORMAL);
+
+        RoutingFootprint footprint = new RoutingFootprint();
+
+        int bitWidth = startReg.getBitWidth();
+
+        // Stop router from using register input/output PIPs as buffers
+        for (RegisterComponent component : startReg.getComponents()) {
+            String intTileName = d.getDevice().getSite(component.getSiteName()).getIntTile().getName();
+            for (int i = 0; i < component.getBitWidth(); i++) {
+                globalNodeFootprint.add(intTileName + "/" + component.getInPIPName(i));
+                globalNodeFootprint.add(intTileName + "/" + component.getOutPIPName(i));
+            }
+        }
+
+        for (RegisterComponent component : endReg.getComponents()) {
+            String intTileName = d.getDevice().getSite(component.getSiteName()).getIntTile().getName();
+            for (int i = 0; i < component.getBitWidth(); i++) {
+                globalNodeFootprint.add(intTileName + "/" + component.getInPIPName(i));
+                globalNodeFootprint.add(intTileName + "/" + component.getOutPIPName(i));
+            }
+        }
+
+        ArrayList<EnteringTileJunction> srcJunctions = new ArrayList<EnteringTileJunction>();
+        ArrayList<ExitingTileJunction> snkJunctions = new ArrayList<ExitingTileJunction>();
+
+        for (RegisterComponent component : startReg.getComponents()) {
+            String intTileName = d.getDevice().getSite(component.getSiteName()).getIntTile().getName();
+            for (int i = 0; i < component.getBitWidth(); i++) {
+                srcJunctions.add(new EnteringTileJunction(intTileName, intTileName + "/" + component.getOutPIPName(i),
+                        component.getOutPIPName(i), 0, true, null));
+            }
+        }
+
+        for (RegisterComponent component : endReg.getComponents()) {
+            String intTileName = d.getDevice().getSite(component.getSiteName()).getIntTile().getName();
+            for (int i = 0; i < component.getBitWidth(); i++) {
+                snkJunctions.add(new ExitingTileJunction(intTileName, intTileName + "/" + component.getInPIPName(i),
+                        component.getInPIPName(i), 0, true, null));
+            }
+        }
+
+
+        ArrayList<ArrayList<CustomRoute>> allRoutes = new ArrayList<ArrayList<CustomRoute>>();
+        for (int i = 0; i < bitWidth; i++) {
+            allRoutes.add(CustomRoutingCalculator.createRouteTemplates(d, srcJunctions.get(i),
+                    snkJunctions.get(i)));
+        }
+
+
+        for (RegisterComponent component : startReg.getComponents()) {
+            String intTileName = d.getDevice().getSite(component.getSiteName()).getIntTile().getName();
+            for (int i = 0; i < component.getBitWidth(); i++) {
+                globalNodeFootprint.remove(intTileName + "/" + component.getInPIPName(i));
+                globalNodeFootprint.remove(intTileName + "/" + component.getOutPIPName(i));
+            }
+        }
+
+        for (RegisterComponent component : endReg.getComponents()) {
+            String intTileName = d.getDevice().getSite(component.getSiteName()).getIntTile().getName();
+            for (int i = 0; i < component.getBitWidth(); i++) {
+                globalNodeFootprint.remove(intTileName + "/" + component.getInPIPName(i));
+                globalNodeFootprint.remove(intTileName + "/" + component.getOutPIPName(i));
+            }
+        }
+
+        return footprint;
+    }
 
     /*
      * Bussed routes

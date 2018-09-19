@@ -1,6 +1,5 @@
 import com.xilinx.rapidwright.design.Design;
 import com.xilinx.rapidwright.device.Tile;
-import com.xilinx.rapidwright.router.Router;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -14,8 +13,29 @@ public class CustomRoutingCalculator {
      */
 
     // Used by determineBestLastPaths in conjunction with findBestRouteTemplates
-    private static class bestLastPathsTracer {
+    private static class BestLastPathsTracer {
         public static int bestLastPathsSkipCount = 0;
+    }
+
+    // Used by createRouteTemplates to track progress
+    private static class JunctionsTracer {
+        public ArrayList<EnteringTileJunction> enJuncs;
+        // Used to speed up search time in BFS
+        public int fastestX;
+        public int fastestY;
+
+        public JunctionsTracer(EnteringTileJunction enJunc, int fastestX, int fastestY) {
+            this.enJuncs = new ArrayList<EnteringTileJunction>();
+            enJuncs.add(enJunc);
+            this.fastestX = fastestX;
+            this.fastestY = fastestY;
+        }
+
+        public JunctionsTracer(ArrayList<EnteringTileJunction> enJuncs, int fastestX, int fastestY) {
+            this.enJuncs = new ArrayList<EnteringTileJunction>(enJuncs);
+            this.fastestX = fastestX;
+            this.fastestY = fastestY;
+        }
     }
 
     /*
@@ -173,7 +193,7 @@ public class CustomRoutingCalculator {
                 return bestRoutes;
             }
             else {
-                bestLastPathsTracer.bestLastPathsSkipCount = skipCount++;
+                BestLastPathsTracer.bestLastPathsSkipCount = skipCount++;
             }
         }
     }
@@ -188,10 +208,10 @@ public class CustomRoutingCalculator {
 
         // Return false only during findBestRouteTemplates skip counts
         if (depth == allPaths.size()) {
-            if (bestLastPathsTracer.bestLastPathsSkipCount == 0)
+            if (BestLastPathsTracer.bestLastPathsSkipCount == 0)
                 return true;
             else {
-                bestLastPathsTracer.bestLastPathsSkipCount -= 1;
+                BestLastPathsTracer.bestLastPathsSkipCount -= 1;
                 return false;
             }
 
@@ -391,22 +411,20 @@ public class CustomRoutingCalculator {
     }
 
     /*
-     * Perform BFS search in one direction only
+     * Perform omni-directional BFS search
      *
      * Routes returned only have enter/exit junctions filled, but not the specific TileIntPaths between them
      */
     public static ArrayList<CustomRoute> createRouteTemplates(Design d, EnteringTileJunction srcJunc,
-                                                              ExitingTileJunction snkJunc, WireDirection dir) {
+                                                              ExitingTileJunction snkJunc) {
 
         ArrayList<CustomRoute> results = new ArrayList<CustomRoute>();
-
-        boolean isVert = (dir.equals(WireDirection.NORTH) || dir.equals(WireDirection.SOUTH));
 
         Tile srcIntTile = d.getDevice().getTile(srcJunc.getTileName());
         Tile snkIntTile = d.getDevice().getTile(snkJunc.getTileName());
 
-        int totalDistance = (isVert) ? Math.abs(srcIntTile.getTileYCoordinate() - snkIntTile.getTileYCoordinate())
-                : Math.abs(srcIntTile.getTileXCoordinate() - snkIntTile.getTileXCoordinate());
+        int separationX = Math.abs(srcIntTile.getTileXCoordinate() - snkIntTile.getTileXCoordinate());
+        int separationY = Math.abs(srcIntTile.getTileYCoordinate() - snkIntTile.getTileYCoordinate());
 
         // Having a default max depth is not shown to be helpful
         int maxDepth = 99;
@@ -420,22 +438,22 @@ public class CustomRoutingCalculator {
         ArrayList<String> nodeFootprint = new ArrayList<String>();
         ArrayList<String> currentDepthFootprint = new ArrayList<String>();
 
-        ArrayList<EnteringTileJunction> start = new ArrayList<EnteringTileJunction>();
-        start.add(srcJunc);
+        JunctionsTracer start = new JunctionsTracer(srcJunc, 0, 0);
 
-        Queue<ArrayList<EnteringTileJunction>> queue = new LinkedList<ArrayList<EnteringTileJunction>>();
+        Queue<JunctionsTracer> queue = new LinkedList<JunctionsTracer>();
         queue.add(start);
 
         int lastDepth = 0;
 
         while (!queue.isEmpty()) {
-            ArrayList<EnteringTileJunction> routeTemplate = queue.remove();
-            EnteringTileJunction enJunc = routeTemplate.get(routeTemplate.size() - 1);
-            if (routeTemplate.size() > maxDepth)
+            JunctionsTracer routeTemplate = queue.remove();
+            int size = routeTemplate.enJuncs.size();
+            EnteringTileJunction enJunc = routeTemplate.enJuncs.get(size - 1);
+            if (size > maxDepth)
                 continue;
 
-            if (routeTemplate.size() > lastDepth) {
-                lastDepth = routeTemplate.size();
+            if (size > lastDepth) {
+                lastDepth = size;
                 nodeFootprint.addAll(currentDepthFootprint);
                 currentDepthFootprint.clear();
 
@@ -443,17 +461,16 @@ public class CustomRoutingCalculator {
                         RouterLog.Level.VERBOSE);
             }
 
-            int remainingDistance = (isVert)
-                    ? Math.abs(snkIntTile.getTileYCoordinate()
-                    - d.getDevice().getTile(enJunc.getTileName()).getTileYCoordinate())
-                    : Math.abs(snkIntTile.getTileXCoordinate()
+            int remainingX = Math.abs(snkIntTile.getTileXCoordinate()
                     - d.getDevice().getTile(enJunc.getTileName()).getTileXCoordinate());
+            int remainingY = Math.abs(snkIntTile.getTileYCoordinate()
+                    - d.getDevice().getTile(enJunc.getTileName()).getTileYCoordinate());
 
-            if (remainingDistance == 0) {
+            if (remainingX == 0 && remainingY == 0) {
                 if (TileBrowser.isJunctionReachable(d, enJunc, snkJunc)) {
-                    results.add(new CustomRoute(d, srcJunc, snkJunc, routeTemplate, dir));
+                    results.add(new CustomRoute(d, srcJunc, snkJunc, routeTemplate.enJuncs));
                     // Let all other routes within the same depth finish
-                    maxDepth = routeTemplate.size();
+                    maxDepth = size;
                     continue;
                 }
             }
@@ -464,18 +481,23 @@ public class CustomRoutingCalculator {
                 continue;
 
             ArrayList<ExitingTileJunction> exits;
+            /*
+             * Not sure how to do this for all 4 directions
             // To speed up search time, only increase in speed
             if (enJunc.getWireLength() <= remainingDistance)
                 exits = TileBrowser.findReachableExits(d, enJunc.getTileName(), enJunc, enJunc.getWireLength(),
                         remainingDistance, dir);
             else
                 exits = TileBrowser.findReachableExits(d, enJunc.getTileName(), enJunc, 1, remainingDistance, dir);
+            */
+            exits = TileBrowser.findReachableExits(d, enJunc.getTileName(), enJunc);
 
-            Collections.sort(exits);
+            //Collections.sort(exits);
 
             for (ExitingTileJunction exJunc : exits) {
-                ArrayList<EnteringTileJunction> rtCopy = new ArrayList<EnteringTileJunction>(routeTemplate);
-                rtCopy.add(exJunc.getWireDestJunction(d));
+                JunctionsTracer rtCopy = new JunctionsTracer(routeTemplate.enJuncs,
+                        routeTemplate.fastestX, routeTemplate.fastestY);
+                rtCopy.enJuncs.add(exJunc.getWireDestJunction(d));
                 queue.add(rtCopy);
             }
 

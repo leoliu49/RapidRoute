@@ -9,7 +9,6 @@ public class CustomRoute {
      * Wrapper around an array of TileIntPaths, which make up a complete connection
      */
 
-    private WireDirection direction;
     private int cost;
 
     private boolean isRouteComplete;
@@ -17,7 +16,9 @@ public class CustomRoute {
     private EnteringTileJunction srcJunction;
     private ExitingTileJunction snkJunction;
 
-    private int distance;
+    // +/- determines distance
+    private int distanceX;
+    private int distanceY;
 
     private int bitIndex;
 
@@ -27,9 +28,7 @@ public class CustomRoute {
     // Alternatives to route above
     private ArrayList<ArrayList<TileIntPath>> pathSubs;
 
-    public CustomRoute(Design d, EnteringTileJunction srcJunction, ExitingTileJunction snkJunction,
-                       WireDirection direction) {
-        this.direction = direction;
+    public CustomRoute(Design d, EnteringTileJunction srcJunction, ExitingTileJunction snkJunction) {
 
         cost = 0;
         isRouteComplete = false;
@@ -37,19 +36,16 @@ public class CustomRoute {
         this.srcJunction = srcJunction;
         this.snkJunction = snkJunction;
 
-        boolean isVert = (direction.equals(WireDirection.NORTH) || direction.equals(WireDirection.SOUTH));
-        distance = (isVert)
-                ? Math.abs(d.getDevice().getTile(srcJunction.getTileName()).getTileYCoordinate()
-                - d.getDevice().getTile(snkJunction.getTileName()).getTileYCoordinate())
-                : Math.abs(d.getDevice().getTile(srcJunction.getTileName()).getTileXCoordinate()
-                - d.getDevice().getTile(snkJunction.getTileName()).getTileXCoordinate());
+        distanceX = d.getDevice().getTile(snkJunction.getTileName()).getTileXCoordinate()
+                - d.getDevice().getTile(srcJunction.getTileName()).getTileXCoordinate();
+        distanceY = d.getDevice().getTile(snkJunction.getTileName()).getTileYCoordinate()
+                - d.getDevice().getTile(srcJunction.getTileName()).getTileYCoordinate();
 
         route = new ArrayList<TileIntPath>();
     }
 
     public CustomRoute(Design d, EnteringTileJunction srcJunction, ExitingTileJunction snkJunction,
-                       ArrayList<EnteringTileJunction> templateEnterJunctions, WireDirection direction) {
-        this.direction = direction;
+                       ArrayList<EnteringTileJunction> templateEnterJunctions) {
 
         cost = 0;
         isRouteComplete = false;
@@ -57,12 +53,10 @@ public class CustomRoute {
         this.srcJunction = srcJunction;
         this.snkJunction = snkJunction;
 
-        boolean isVert = (direction.equals(WireDirection.NORTH) || direction.equals(WireDirection.SOUTH));
-        distance = (isVert)
-                ? Math.abs(d.getDevice().getTile(srcJunction.getTileName()).getTileYCoordinate()
-                - d.getDevice().getTile(snkJunction.getTileName()).getTileYCoordinate())
-                : Math.abs(d.getDevice().getTile(srcJunction.getTileName()).getTileXCoordinate()
-                - d.getDevice().getTile(snkJunction.getTileName()).getTileXCoordinate());
+        distanceX = d.getDevice().getTile(snkJunction.getTileName()).getTileXCoordinate()
+                - d.getDevice().getTile(srcJunction.getTileName()).getTileXCoordinate();
+        distanceY = d.getDevice().getTile(snkJunction.getTileName()).getTileYCoordinate()
+                - d.getDevice().getTile(srcJunction.getTileName()).getTileYCoordinate();
 
         route = new ArrayList<TileIntPath>();
 
@@ -73,10 +67,6 @@ public class CustomRoute {
             routeTemplate.add(templateEnterJunctions.get(i));
         }
         routeTemplate.add(snkJunction);
-    }
-
-    public WireDirection getDirection() {
-        return direction;
     }
 
     public int getCost() {
@@ -99,8 +89,12 @@ public class CustomRoute {
         return snkJunction;
     }
 
-    public int getDistance() {
-        return distance;
+    public int getDistanceX() {
+        return distanceX;
+    }
+
+    public int getDistanceY() {
+        return distanceY;
     }
 
     public int getBitIndex() {
@@ -205,7 +199,7 @@ public class CustomRoute {
         repr += srcJunction.toString();
         repr += " --> ";
         repr += snkJunction.toString();
-        repr += "[" + RouteUtil.directionToString(direction) + distance + "]";
+        //repr += "[" + RouteUtil.directionToString(direction) + distance + "]";
 
         return repr;
     }
@@ -215,7 +209,7 @@ public class CustomRoute {
      * pathSubs destroyed
      */
     public static CustomRoute join(Design d, CustomRoute r1, CustomRoute r2) {
-        CustomRoute res = new CustomRoute(d, r1.getSrcJunction(), r2.getSnkJunction(), r1.getDirection());
+        CustomRoute res = new CustomRoute(d, r1.getSrcJunction(), r2.getSnkJunction());
         ArrayList<TileJunction> routeTemplate = r1.getRouteTemplate();
 
         routeTemplate.addAll(r2.getRouteTemplate());
@@ -238,10 +232,11 @@ public class CustomRoute {
      */
     public static CustomRoute duplWithShift(Design d, CustomRoute ref, int dx, int dy) {
         CustomRoute res = new CustomRoute(d, EnteringTileJunction.duplWithShift(d, ref.getSrcJunction(), dx, dy),
-                ExitingTileJunction.duplWithShift(d, ref.getSnkJunction(), dx, dy), ref.getDirection());
+                ExitingTileJunction.duplWithShift(d, ref.getSnkJunction(), dx, dy));
         res.cost = ref.getCost();
         res.isRouteComplete = ref.isRouteComplete();
-        res.distance = ref.getDistance();
+        res.distanceX = ref.getDistanceX();
+        res.distanceY = ref.getDistanceY();
         res.setBitIndex(ref.getBitIndex());
 
         for (TileIntPath path : ref.getRoute()) {

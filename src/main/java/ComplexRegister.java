@@ -106,6 +106,14 @@ public class ComplexRegister {
         return d;
     }
 
+    public static String getInPIPName(int type, int index) {
+        return typeToRegModuleMap.get(type).getInPIPName(index);
+    }
+
+    public static String getOutPIPName(int type, int index) {
+        return typeToRegModuleMap.get(type).getOutPIPName(index);
+    }
+
     private String name;
 
     private ArrayList<RegisterComponent> components;

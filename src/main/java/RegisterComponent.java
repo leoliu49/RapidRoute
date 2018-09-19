@@ -61,4 +61,12 @@ public class RegisterComponent {
     public void setModuleInstance(ModuleInstance moduleInstance) {
         this.moduleInstance = moduleInstance;
     }
+
+    public String getInPIPName(int index) {
+        return ComplexRegister.getInPIPName(type, index);
+    }
+
+    public String getOutPIPName(int index) {
+        return ComplexRegister.getOutPIPName(type, index);
+    }
 }

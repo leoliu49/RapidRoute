@@ -157,6 +157,24 @@ public class TileBrowser {
         return results;
     }
 
+    /*
+     * Length restriction array matches the ordinal number
+     */
+    public static ArrayList<ExitingTileJunction> findReachableExits(Design d, String tileName,
+                                                                     EnteringTileJunction enJunc,
+                                                                     int[] minWireLengths, int[] maxWireLengths) {
+        ArrayList<ExitingTileJunction> results = new ArrayList<ExitingTileJunction>();
+        ArrayList<ExitingTileJunction> exJuncs = findReachableExits(d, tileName, enJunc);
+
+        for (ExitingTileJunction exJunc : exJuncs) {
+            if (exJunc.getWireLength() >= minWireLengths[exJunc.getDirection().ordinal()]
+                    && exJunc.getWireLength() <= maxWireLengths[exJunc.getDirection().ordinal()])
+                results.add(exJunc);
+        }
+
+        return results;
+    }
+
     public static ArrayList<EnteringTileJunction> findReachableEntrances(Design d, String tileName,
                                                                          ExitingTileJunction exJunc) {
         ArrayList<EnteringTileJunction> results = new ArrayList<EnteringTileJunction>();

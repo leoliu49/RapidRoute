@@ -8,7 +8,8 @@ import java.util.ArrayList;
 
 public class RegisterPair {
 
-
+    public static final String EXAMPLE_PLACEMENTS_FILE_NAME = ResourcesManager.RESOURCES_DIR
+            + "register_pair_example.conf";
 
     private static void printUsage(OptionParser parser) throws IOException {
         parser.printHelpOn(System.out);
@@ -36,24 +37,22 @@ public class RegisterPair {
             return;
         }
 
-        Design d = ComplexRegister.newDesignFromSources("reg_pair");
+        ResourcesManager.COMPONENTS_FILE_NAME = ComplexRegister.EXAMPLE_COMPONENTS_FILE_NAME;
+        ResourcesManager.PLACEMENTS_FILE_NAME = EXAMPLE_PLACEMENTS_FILE_NAME;
+        ResourcesManager.initComponentsConfig();
+        ResourcesManager.initPlacementsConfig();
+
+        Design d = ResourcesManager.newDesignFromSources("reg_pair");
 
         EDIFCell top = d.getNetlist().getTopCell();
         EDIFPort clkPort = top.createPort(ComplexRegister.CLK_NAME, EDIFDirection.INPUT, 1);
         EDIFNet clk = top.createNet(ComplexRegister.CLK_NAME);
         clk.createPortRef(clkPort);
 
-        ArrayList<RegisterComponent> reg1_components = new ArrayList<RegisterComponent>();
-        reg1_components.add(new RegisterComponent(0, "SLICE_X56Y120"));
-        reg1_components.add(new RegisterComponent(1, "SLICE_X57Y120"));
-        reg1_components.add(new RegisterComponent(0, "SLICE_X56Y121"));
-        ComplexRegister reg1 = new ComplexRegister(d, "reg1", reg1_components);
+        ArrayList<ComplexRegister> registers = ResourcesManager.registersFromPlacements(d);
 
-        ArrayList<RegisterComponent> reg2_components = new ArrayList<RegisterComponent>();
-        reg2_components.add(new RegisterComponent(0, "SLICE_X56Y122"));
-        reg2_components.add(new RegisterComponent(1, "SLICE_X57Y122"));
-        reg2_components.add(new RegisterComponent(0, "SLICE_X56Y123"));
-        ComplexRegister reg2 = new ComplexRegister(d, "reg2", reg2_components);
+        ComplexRegister reg1 = registers.get(0);
+        ComplexRegister reg2 = registers.get(1);
 
         int bitWidth = reg1.getBitWidth();
 

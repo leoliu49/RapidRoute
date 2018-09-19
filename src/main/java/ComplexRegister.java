@@ -1,9 +1,7 @@
 import com.xilinx.rapidwright.dcp.CheckpointTools;
 import com.xilinx.rapidwright.design.Design;
-import com.xilinx.rapidwright.design.Module;
 import com.xilinx.rapidwright.design.ModuleInstance;
 import com.xilinx.rapidwright.device.Site;
-import com.xilinx.rapidwright.device.SiteTypeEnum;
 import com.xilinx.rapidwright.edif.*;
 import joptsimple.OptionParser;
 import joptsimple.OptionSet;
@@ -16,8 +14,8 @@ import java.util.HashMap;
 
 public class ComplexRegister {
 
-    public static String CONFIG_FILE_NAME = ResourcesManager.RESOURCES_DIR + "complex_register.conf";
-    public static String EXAMPLE_CONFIG_FILE_NAME = ResourcesManager.RESOURCES_DIR + "complex_register.conf";
+    public static final String EXAMPLE_COMPONENTS_FILE_NAME = ResourcesManager.RESOURCES_DIR
+            + "complex_register_example.conf";
 
     public static final String typeKeyPrefix = "type";
     public static final String inPIPKeyPrefix = "inPIP";
@@ -49,8 +47,9 @@ public class ComplexRegister {
         return regDesign;
     }
 
-    private static void loadRegModulesFromConfig() throws IOException {
-        Wini ini = new Wini(new File(ComplexRegister.CONFIG_FILE_NAME));
+    public static void loadRegModulesFromConfig() throws IOException {
+        ResourcesManager.initComponentsConfig();
+        Wini ini = ResourcesManager.componentsConfig;
 
         CLK_NAME = ini.get(commonKey, clkKey);
         RST_NAME = ini.get(commonKey, rstKey);
@@ -84,26 +83,6 @@ public class ComplexRegister {
 
             typeKey += 1;
         }
-    }
-
-    public static Design newDesignFromSources(String designName) throws IOException {
-        loadRegModulesFromConfig();
-        Design d = new Design(designName, ResourcesManager.PART_NAME);
-        d.setDCPXMLAttribute(CheckpointTools.DISABLE_AUTO_IO_BUFFERS_NAME, "1");
-
-        for (ComplexRegModule module : typeToRegModuleMap.values()) {
-            Design regDesign = module.getSrcDesign();
-            for (EDIFCell cell : regDesign.getNetlist().getWorkLibrary().getCells()) {
-                cell.rename("type" + module.getType() + "_" + cell.getName());
-                d.getNetlist().getWorkLibrary().addCell(cell);
-            }
-            EDIFLibrary hdi = d.getNetlist().getHDIPrimitivesLibrary();
-            for (EDIFCell cell : regDesign.getNetlist().getHDIPrimitivesLibrary().getCells()) {
-                if (!hdi.containsCell(cell)) hdi.addCell(cell);
-            }
-        }
-
-        return d;
     }
 
     public static String getInPIPName(int type, int index) {
@@ -158,8 +137,8 @@ public class ComplexRegister {
 
             top.getNet(ComplexRegister.CLK_NAME).createPortRef(ComplexRegister.CLK_NAME, ci);
 
-            RouterLog.log("Placed component for <" + name + "> at site <" + component.getSiteName() + ">.",
-                    RouterLog.Level.NORMAL);
+            RouterLog.log("Placed <type" + component.getType() + "> component for <" + name + "> at site <"
+                            + component.getSiteName() + ">.", RouterLog.Level.NORMAL);
 
             bitWidth += regModule.getBitWidth();
         }
@@ -240,9 +219,10 @@ public class ComplexRegister {
             return;
         }
 
-        CONFIG_FILE_NAME = EXAMPLE_CONFIG_FILE_NAME;
+        ResourcesManager.COMPONENTS_FILE_NAME = EXAMPLE_COMPONENTS_FILE_NAME;
+        ResourcesManager.initComponentsConfig();
 
-        Design d = ComplexRegister.newDesignFromSources("complex_register_example");
+        Design d = ResourcesManager.newDesignFromSources("complex_register_example");
 
         EDIFCell top = d.getNetlist().getTopCell();
         EDIFPort clkPort = top.createPort(ComplexRegister.CLK_NAME, EDIFDirection.INPUT, 1);
@@ -251,7 +231,7 @@ public class ComplexRegister {
 
         ArrayList<RegisterComponent> components = new ArrayList<RegisterComponent>();
         components.add(new RegisterComponent(0, "SLICE_X56Y120"));
-        components.add(new RegisterComponent(1, "SLICE_X57Y120"));
+        //components.add(new RegisterComponent(1, "SLICE_X57Y120"));
         components.add(new RegisterComponent(0, "SLICE_X56Y121"));
         ComplexRegister reg = new ComplexRegister(d, "example_register", components);
 

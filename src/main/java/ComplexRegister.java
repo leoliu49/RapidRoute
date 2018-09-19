@@ -1,5 +1,7 @@
 import com.xilinx.rapidwright.design.Design;
 import com.xilinx.rapidwright.design.Module;
+import joptsimple.OptionParser;
+import joptsimple.OptionSet;
 import org.ini4j.Wini;
 
 import java.io.File;
@@ -9,10 +11,7 @@ import java.util.HashMap;
 
 public class ComplexRegister {
 
-    public static String RESOURCES_DIR = "src/main/resources/";
-
-    public static String COMPONENTS_DIR = RESOURCES_DIR + "components/";
-    public static String CONFIG_FILE_NAME = RESOURCES_DIR + "complex_register.conf";
+    public static String CONFIG_FILE_NAME = ResourcesManager.RESOURCES_DIR + "complex_register.conf";
 
     public static String typeKeyPrefix = "type";
     public static String inPIPKeyPrefix = "inPIP";
@@ -63,17 +62,39 @@ public class ComplexRegister {
             }
 
             ComplexRegModule regModule = new ComplexRegModule(typeKey, bitWidth, inPIPNames, outPIPNames);
-            regModule.setModule(newModuleFromDcp(COMPONENTS_DIR + typeKeyPrefix + typeKey + ".dcp"));
+            regModule.setModule(newModuleFromDcp(ResourcesManager.COMPONENTS_DIR + typeKeyPrefix + typeKey + ".dcp"));
             typeToRegModuleMap.put(typeKey, regModule);
 
             typeKey += 1;
         }
     }
 
+    private static void printUsage(OptionParser parser) throws IOException {
+        parser.printHelpOn(System.out);
+    }
+
+    private static OptionParser createOptionParser() {
+        OptionParser p = new OptionParser();
+        p.accepts("out").withOptionalArg().defaultsTo("complex_test.dcp").describedAs("Output DCP file");
+        p.accepts("help").forHelp();
+        p.accepts("verbose");
+        return p;
+    }
+
     public static void main(String[] args) throws IOException {
+
+        OptionParser parser = createOptionParser();
+        OptionSet options = parser.parse(args);
+
+        RouterLog.Level logLevel = (options.has("verbose")) ? RouterLog.Level.VERBOSE : RouterLog.Level.NORMAL;
+        RouterLog.init(logLevel);
+
+        if (options.has("help")) {
+            printUsage(parser);
+            return;
+        }
+
         ComplexRegister.loadRegModulesFromConfig();
-
-
 
     }
 }

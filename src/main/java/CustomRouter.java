@@ -141,6 +141,45 @@ public class CustomRouter {
         }
 
 
+        ArrayList<CustomRoute> routes = CustomRoutingCalculator.findBestRouteTemplates(d, allRoutes);
+
+        float templateSize = 0;
+        RouterLog.log("Following routing templates will be routed:", RouterLog.Level.VERBOSE);
+        RouterLog.indent();
+        for (CustomRoute route : routes) {
+            RouterLog.log(route.getRouteTemplate().toString(), RouterLog.Level.VERBOSE);
+            templateSize += (float) route.getRouteTemplateSize();
+        }
+        RouterLog.indent(-1);
+        RouterLog.log("Average routing template size is " + templateSize / (float) routes.size(),
+                RouterLog.Level.NORMAL);
+
+        CustomRoutingCalculator.completeRouting(d, routes);
+
+        RouterLog.log("Routing complete. Stats on routing result:", RouterLog.Level.NORMAL);
+        RouterLog.indent();
+
+        ArrayList<Integer> costs = new ArrayList<Integer>();
+        for (CustomRoute route : routes)
+            costs.add(route.getCost());
+        RouterLog.log("Cost breakdown: " + costs, RouterLog.Level.NORMAL);
+
+        RouterLog.indent(-1);
+
+        // Bit index grows, but the components themselves have their own internal bit counts
+        int bitIndex = 0;
+        for (RegisterComponent component : startReg.getComponents()) {
+            for (int i = 0; i < component.getBitWidth(); i++, bitIndex++) {
+                Net net = d.getNet(startReg.getName() + "_" + component.getName() + "/"
+                        + ComplexRegister.OUTPUT_NAME + "[" + i + "]");
+
+                // TODO: this probably needs to be earlier
+                routes.get(bitIndex).setBitIndex(bitIndex);
+                footprint.add(routes.get(bitIndex), net);
+            }
+        }
+
+        // Remove in/out PIPs from globalNodeFootprint, since we'll be committing them shortly
         for (RegisterComponent component : startReg.getComponents()) {
             String intTileName = d.getDevice().getSite(component.getSiteName()).getIntTile().getName();
             for (int i = 0; i < component.getBitWidth(); i++) {
@@ -156,6 +195,8 @@ public class CustomRouter {
                 globalNodeFootprint.remove(intTileName + "/" + component.getOutPIPName(i));
             }
         }
+
+        footprint.addToNodeFootprint(CustomRouter.globalNodeFootprint);
 
         return footprint;
     }

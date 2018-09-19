@@ -82,7 +82,7 @@ public class CustomRoutingCalculator {
     public static ArrayList<CustomRoute> findValidRouteTemplates(ArrayList<ArrayList<CustomRoute>> allRoutes) {
         ArrayList<CustomRoute> routes = new ArrayList<CustomRoute>();
 
-        int[] traceIndex = {0, 0, 0, 0};
+        int[] traceIndex = new int[allRoutes.size()];
 
         int thresholdLimit = 0;
         for (ArrayList<CustomRoute> rs : allRoutes) {
@@ -256,7 +256,7 @@ public class CustomRoutingCalculator {
 
         ArrayList<TileIntPath> results = new ArrayList<TileIntPath>();
 
-        int[] traceIndex = {0, 0, 0, 0};
+        int[] traceIndex = new int[allPaths.size()];
         int thresholdLimit = 0;
         for (ArrayList<TileIntPath> tps : allPaths) {
             for (TileIntPath p : tps) {
@@ -429,7 +429,7 @@ public class CustomRoutingCalculator {
         // Having a default max depth is not shown to be helpful
         int maxDepth = 99;
 
-        RouterLog.log("Running BFS for <" + srcJunc + "> --> <" + snkJunc + ">.", RouterLog.Level.NORMAL);
+        RouterLog.log("Running BFS for " + srcJunc + " --> " + snkJunc + ".", RouterLog.Level.NORMAL);
         RouterLog.indent();
 
         RouterLog.log("Maximum BFS traversal depth set to " + maxDepth + ".", RouterLog.Level.VERBOSE);

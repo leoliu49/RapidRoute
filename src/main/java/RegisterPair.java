@@ -74,6 +74,10 @@ public class RegisterPair {
 
         d.writeCheckpoint(ResourcesManager.OUTPUT_DIR + options.valueOf("out") + "_unrouted.dcp");
 
-        CustomRouter.routeComplexRegisters(d, reg1, reg2);
+        RoutingFootprint footprint = CustomRouter.routeComplexRegisters(d, reg1, reg2);
+
+        footprint.commit(d);
+
+        d.writeCheckpoint(ResourcesManager.OUTPUT_DIR + options.valueOf("out") + "_custom_routed.dcp");
     }
 }

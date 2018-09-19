@@ -4,9 +4,7 @@ import com.xilinx.rapidwright.design.Module;
 import com.xilinx.rapidwright.design.ModuleInstance;
 import com.xilinx.rapidwright.device.Site;
 import com.xilinx.rapidwright.device.SiteTypeEnum;
-import com.xilinx.rapidwright.edif.EDIFCell;
-import com.xilinx.rapidwright.edif.EDIFCellInstance;
-import com.xilinx.rapidwright.edif.EDIFLibrary;
+import com.xilinx.rapidwright.edif.*;
 import joptsimple.OptionParser;
 import joptsimple.OptionSet;
 import org.ini4j.Wini;
@@ -27,6 +25,21 @@ public class ComplexRegister {
 
     public static final String bwKey = "bw";
 
+    public static final String commonKey = "common";
+    public static final String clkKey = "clkName";
+    public static final String rstKey = "rstName";
+    public static final String ceKey = "ceName";
+
+    public static final String inKey = "inName";
+    public static final String outKey = "outName";
+
+    public static String CLK_NAME;
+    public static String RST_NAME;
+    public static String CE_NAME;
+
+    public static String IN_NAME;
+    public static String OUT_NAME;
+
     public static HashMap<Integer, ComplexRegModule> typeToRegModuleMap = new HashMap<Integer, ComplexRegModule>();
 
 
@@ -38,6 +51,13 @@ public class ComplexRegister {
 
     private static void loadRegModulesFromConfig() throws IOException {
         Wini ini = new Wini(new File(ComplexRegister.CONFIG_FILE_NAME));
+
+        CLK_NAME = ini.get(commonKey, clkKey);
+        RST_NAME = ini.get(commonKey, rstKey);
+        CE_NAME = ini.get(commonKey, ceKey);
+
+        IN_NAME = ini.get(commonKey, inKey);
+        OUT_NAME = ini.get(commonKey, outKey);
 
         int typeKey = 0;
         while (ini.containsKey(typeKeyPrefix + typeKey)) {
@@ -121,6 +141,8 @@ public class ComplexRegister {
             Site anchorSite = d.getDevice().getSite(component.getSiteName());
             mi.place(anchorSite);
 
+            top.getNet(ComplexRegister.CLK_NAME).createPortRef(ComplexRegister.CLK_NAME, ci);
+
             RouterLog.log("Placed component for <" + name + "> at site <" + component.getSiteName() + ">.",
                     RouterLog.Level.NORMAL);
         }
@@ -169,8 +191,12 @@ public class ComplexRegister {
 
         Design d = ComplexRegister.newDesignFromSources("complex_register_example");
 
-        ArrayList<RegisterComponent> components = new ArrayList<RegisterComponent>();
+        EDIFCell top = d.getNetlist().getTopCell();
+        EDIFPort clkPort = top.createPort(ComplexRegister.CLK_NAME, EDIFDirection.INPUT, 1);
+        EDIFNet clk = top.createNet(ComplexRegister.CLK_NAME);
+        clk.createPortRef(clkPort);
 
+        ArrayList<RegisterComponent> components = new ArrayList<RegisterComponent>();
         components.add(new RegisterComponent(0, "SLICE_X56Y120"));
         components.add(new RegisterComponent(1, "SLICE_X57Y120"));
         components.add(new RegisterComponent(0, "SLICE_X56Y121"));

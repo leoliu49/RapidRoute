@@ -19,12 +19,13 @@ import java.util.HashMap;
 public class ComplexRegister {
 
     public static String CONFIG_FILE_NAME = ResourcesManager.RESOURCES_DIR + "complex_register.conf";
+    public static String EXAMPLE_CONFIG_FILE_NAME = ResourcesManager.RESOURCES_DIR + "complex_register.conf";
 
-    public static String typeKeyPrefix = "type";
-    public static String inPIPKeyPrefix = "inPIP";
-    public static String outPIPKeyPrefix = "outPIP";
+    public static final String typeKeyPrefix = "type";
+    public static final String inPIPKeyPrefix = "inPIP";
+    public static final String outPIPKeyPrefix = "outPIP";
 
-    public static String bwKey = "bw";
+    public static final String bwKey = "bw";
 
     public static HashMap<Integer, ComplexRegModule> typeToRegModuleMap = new HashMap<Integer, ComplexRegModule>();
 
@@ -99,11 +100,22 @@ public class ComplexRegister {
 
         EDIFCell top = d.getNetlist().getTopCell();
 
+        int i = 0;
         for (RegisterComponent component : components) {
             ComplexRegModule regModule = ComplexRegister.typeToRegModuleMap.get(component.getType());
-            EDIFCellInstance ci = top.createChildCellInstance(component.getName(),
-                    regModule.getModule().getNetlist().getTopCell());
-            ModuleInstance mi = d.createModuleInstance(component.getName(), regModule.getModule());
+
+            EDIFCellInstance ci = null;
+            ModuleInstance mi = null;
+            if (component.hasName()) {
+                ci = top.createChildCellInstance(name + "_" + component.getName(),
+                        regModule.getModule().getNetlist().getTopCell());
+                mi = d.createModuleInstance(name + "_" + component.getName(), regModule.getModule());
+            }
+            else {
+                ci = top.createChildCellInstance(name + "_component" + i, regModule.getModule().getNetlist().getTopCell());
+                mi = d.createModuleInstance(name + "_component" + i, regModule.getModule());
+                i += 1;
+            }
             mi.setCellInstance(ci);
 
             Site anchorSite = d.getDevice().getSite(component.getSiteName());
@@ -127,12 +139,14 @@ public class ComplexRegister {
     }
 
     private static void printUsage(OptionParser parser) throws IOException {
+        System.out.println("java ComplexRegister [-h] [-v] [--out OUT_FILE_NAME]\n");
+        System.out.println("  Create a complex register of 3 modules at SLICE_X56Y120, SLICE_X57Y120, SLICE_X56Y121.\n");
         parser.printHelpOn(System.out);
     }
 
     private static OptionParser createOptionParser() {
         OptionParser p = new OptionParser();
-        p.accepts("out").withOptionalArg().defaultsTo("complex_test.dcp").describedAs("Output DCP file");
+        p.accepts("out").withOptionalArg().defaultsTo("complex_register_example.dcp").describedAs("Output DCP file");
         p.accepts("help").forHelp();
         p.accepts("verbose");
         return p;
@@ -151,17 +165,17 @@ public class ComplexRegister {
             return;
         }
 
+        CONFIG_FILE_NAME = EXAMPLE_CONFIG_FILE_NAME;
+
         Design d = ComplexRegister.newDesignFromSources("complex_register_example");
 
         ArrayList<RegisterComponent> components = new ArrayList<RegisterComponent>();
 
-        components.add(new RegisterComponent("comp_0_type_0", 0, "SLICE_X56Y120"));
-        components.add(new RegisterComponent("comp_1_type_1", 1, "SLICE_X57Y120"));
-        components.add(new RegisterComponent("comp_2_type_0", 0, "SLICE_X56Y121"));
-
+        components.add(new RegisterComponent(0, "SLICE_X56Y120"));
+        components.add(new RegisterComponent(1, "SLICE_X57Y120"));
+        components.add(new RegisterComponent(0, "SLICE_X56Y121"));
         ComplexRegister reg = new ComplexRegister(d, "example_register", components);
 
-
-        d.writeCheckpoint(ResourcesManager.OUTPUT_DIR + "complex_register_example.dcp");
+        d.writeCheckpoint(ResourcesManager.OUTPUT_DIR + options.valueOf("out"));
     }
 }

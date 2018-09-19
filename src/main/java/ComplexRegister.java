@@ -78,7 +78,6 @@ public class ComplexRegister {
             }
             EDIFLibrary hdi = d.getNetlist().getHDIPrimitivesLibrary();
             for (EDIFCell cell : regDesign.getNetlist().getHDIPrimitivesLibrary().getCells()) {
-                cell.rename("type" + module.getType() + "_" + cell.getName());
                 if (!hdi.containsCell(cell)) hdi.addCell(cell);
             }
         }
@@ -104,7 +103,7 @@ public class ComplexRegister {
             ComplexRegModule regModule = ComplexRegister.typeToRegModuleMap.get(component.getType());
             EDIFCellInstance ci = top.createChildCellInstance(component.getName(),
                     regModule.getModule().getNetlist().getTopCell());
-            ModuleInstance mi = d.createModuleInstance(name, regModule.getModule());
+            ModuleInstance mi = d.createModuleInstance(component.getName(), regModule.getModule());
             mi.setCellInstance(ci);
 
             Site anchorSite = d.getDevice().getSite(component.getSiteName());
@@ -162,5 +161,7 @@ public class ComplexRegister {
 
         ComplexRegister reg = new ComplexRegister(d, "example_register", components);
 
+
+        d.writeCheckpoint(ResourcesManager.OUTPUT_DIR + "complex_register_example.dcp");
     }
 }

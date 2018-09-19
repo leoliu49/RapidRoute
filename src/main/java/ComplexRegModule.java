@@ -72,4 +72,8 @@ public class ComplexRegModule {
         return module;
     }
 
+    @Override
+    public String toString() {
+        return "<type" + type + ">[" + bitWidth + "b]";
+    }
 }

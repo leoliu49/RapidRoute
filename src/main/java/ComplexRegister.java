@@ -115,19 +115,11 @@ public class ComplexRegister {
         for (RegisterComponent component : components) {
             ComplexRegModule regModule = ComplexRegister.typeToRegModuleMap.get(component.getType());
 
-            EDIFCellInstance ci = null;
-            ModuleInstance mi = null;
-            if (component.hasName()) {
-                ci = top.createChildCellInstance(name + "_" + component.getName(),
-                        regModule.getModule().getNetlist().getTopCell());
-                mi = d.createModuleInstance(name + "_" + component.getName(), regModule.getModule());
-            }
-            else {
-                ci = top.createChildCellInstance(name + "_component" + i,
-                        regModule.getModule().getNetlist().getTopCell());
-                mi = d.createModuleInstance(name + "_component" + i, regModule.getModule());
-                i += 1;
-            }
+            if (!component.hasName())
+                component.setName("component" + i++);
+            EDIFCellInstance ci = top.createChildCellInstance(name + "_" + component.getName(),
+                    regModule.getModule().getNetlist().getTopCell());
+            ModuleInstance mi = d.createModuleInstance(name + "_" + component.getName(), regModule.getModule());
             mi.setCellInstance(ci);
 
             Site anchorSite = d.getDevice().getSite(component.getSiteName());
@@ -137,7 +129,7 @@ public class ComplexRegister {
 
             top.getNet(ComplexRegister.CLK_NAME).createPortRef(ComplexRegister.CLK_NAME, ci);
 
-            RouterLog.log("Placed <type" + component.getType() + "> component for <" + name + "> at site <"
+            RouterLog.log("Placed component " + component.toString() + " for <" + name + "> at site <"
                             + component.getSiteName() + ">.", RouterLog.Level.NORMAL);
 
             bitWidth += regModule.getBitWidth();
@@ -190,6 +182,11 @@ public class ComplexRegister {
             }
         }
 
+    }
+
+    @Override
+    public String toString() {
+        return "<" + name + ">[" + bitWidth + "b]";
     }
 
     private static void printUsage(OptionParser parser) throws IOException {

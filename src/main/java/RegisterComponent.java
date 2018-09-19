@@ -38,6 +38,10 @@ public class RegisterComponent {
         return !(name == null);
     }
 
+    public void setName(String name) {
+        this.name = name;
+    }
+
     public int getType() {
         return type;
     }
@@ -68,5 +72,10 @@ public class RegisterComponent {
 
     public String getOutPIPName(int index) {
         return ComplexRegister.getOutPIPName(type, index);
+    }
+
+    @Override
+    public String toString() {
+        return name + ComplexRegister.typeToRegModuleMap.get(type).toString();
     }
 }

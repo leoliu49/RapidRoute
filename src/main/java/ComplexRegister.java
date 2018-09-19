@@ -37,8 +37,8 @@ public class ComplexRegister {
     public static String RST_NAME;
     public static String CE_NAME;
 
-    public static String IN_NAME;
-    public static String OUT_NAME;
+    public static String INPUT_NAME;
+    public static String OUTPUT_NAME;
 
     public static HashMap<Integer, ComplexRegModule> typeToRegModuleMap = new HashMap<Integer, ComplexRegModule>();
 
@@ -56,8 +56,8 @@ public class ComplexRegister {
         RST_NAME = ini.get(commonKey, rstKey);
         CE_NAME = ini.get(commonKey, ceKey);
 
-        IN_NAME = ini.get(commonKey, inKey);
-        OUT_NAME = ini.get(commonKey, outKey);
+        INPUT_NAME = ini.get(commonKey, inKey);
+        OUTPUT_NAME = ini.get(commonKey, outKey);
 
         int typeKey = 0;
         while (ini.containsKey(typeKeyPrefix + typeKey)) {
@@ -111,6 +111,8 @@ public class ComplexRegister {
     private ArrayList<RegisterComponent> components;
     private int componentSize;
 
+    private int bitWidth;
+
     public ComplexRegister(Design d, String name, ArrayList<RegisterComponent> components) {
 
         this.name = name;
@@ -119,6 +121,8 @@ public class ComplexRegister {
         this.componentSize = components.size();
 
         EDIFCell top = d.getNetlist().getTopCell();
+
+        bitWidth = 0;
 
         int i = 0;
         for (RegisterComponent component : components) {
@@ -132,7 +136,8 @@ public class ComplexRegister {
                 mi = d.createModuleInstance(name + "_" + component.getName(), regModule.getModule());
             }
             else {
-                ci = top.createChildCellInstance(name + "_component" + i, regModule.getModule().getNetlist().getTopCell());
+                ci = top.createChildCellInstance(name + "_component" + i,
+                        regModule.getModule().getNetlist().getTopCell());
                 mi = d.createModuleInstance(name + "_component" + i, regModule.getModule());
                 i += 1;
             }
@@ -141,10 +146,14 @@ public class ComplexRegister {
             Site anchorSite = d.getDevice().getSite(component.getSiteName());
             mi.place(anchorSite);
 
+            component.setModuleInstance(mi);
+
             top.getNet(ComplexRegister.CLK_NAME).createPortRef(ComplexRegister.CLK_NAME, ci);
 
             RouterLog.log("Placed component for <" + name + "> at site <" + component.getSiteName() + ">.",
                     RouterLog.Level.NORMAL);
+
+            bitWidth += regModule.getBitWidth();
         }
     }
 
@@ -158,6 +167,42 @@ public class ComplexRegister {
 
     public int getComponentSize() {
         return componentSize;
+    }
+
+    public int getBitWidth() {
+        return bitWidth;
+    }
+
+    public void createInputEDIFPortRefs(Design d, String netPrefix) {
+
+        EDIFCell top = d.getNetlist().getTopCell();
+
+        int i = 0;
+        for (RegisterComponent component : components) {
+            for (int j = 0; j < component.getBitWidth(); j++, i++) {
+                EDIFNet net = top.getNet(netPrefix + "[" + i + "]");
+                if (net == null)
+                    net = top.createNet(netPrefix + "[" + i + "]");
+                net.createPortRef(ComplexRegister.INPUT_NAME, j, component.getCellInstance());
+            }
+        }
+
+    }
+
+    public void createOutputEDIFPortRefs(Design d, String netPrefix) {
+
+        EDIFCell top = d.getNetlist().getTopCell();
+
+        int i = 0;
+        for (RegisterComponent component : components) {
+            for (int j = 0; j < component.getBitWidth(); j++, i++) {
+                EDIFNet net = top.getNet(netPrefix + "[" + i + "]");
+                if (net == null)
+                    net = top.createNet(netPrefix + "[" + i + "]");
+                net.createPortRef(ComplexRegister.OUTPUT_NAME, j, component.getCellInstance());
+            }
+        }
+
     }
 
     private static void printUsage(OptionParser parser) throws IOException {

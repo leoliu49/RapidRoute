@@ -1,3 +1,4 @@
+import com.xilinx.rapidwright.design.Design;
 import com.xilinx.rapidwright.design.Module;
 
 import java.util.ArrayList;
@@ -16,14 +17,23 @@ public class ComplexRegModule {
     private ArrayList<String> inPIPNames;
     private ArrayList<String> outPIPNames;
 
+    private Design srcDesign = null;
     private Module module = null;
 
 
-    public ComplexRegModule(int type, int bitWidth, ArrayList<String> inPIPNames, ArrayList<String> outPIPNames) {
+    public ComplexRegModule(int type, int bitWidth, ArrayList<String> inPIPNames, ArrayList<String> outPIPNames,
+                            Design srcDesign) {
         this.type = type;
         this.bitWidth = bitWidth;
         this.inPIPNames = inPIPNames;
         this.outPIPNames = outPIPNames;
+
+        this.srcDesign = srcDesign;
+        module = new Module(srcDesign);
+        module.setNetlist(srcDesign.getNetlist());
+
+        RouterLog.log("Initialized register module anchored at <"
+                + module.getAnchor().getSiteName() + ">.", RouterLog.Level.VERBOSE);
     }
 
     public int getType() {
@@ -54,15 +64,12 @@ public class ComplexRegModule {
         return outPIPNames.get(i);
     }
 
+    public Design getSrcDesign() {
+        return srcDesign;
+    }
+
     public Module getModule() {
         return module;
     }
 
-    public boolean isModuleSet() {
-        return (module == null);
-    }
-
-    public void setModule(Module module) {
-        this.module = module;
-    }
 }

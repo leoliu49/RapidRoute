@@ -1,5 +1,12 @@
+import com.xilinx.rapidwright.dcp.CheckpointTools;
 import com.xilinx.rapidwright.design.Design;
 import com.xilinx.rapidwright.design.Module;
+import com.xilinx.rapidwright.design.ModuleInstance;
+import com.xilinx.rapidwright.device.Site;
+import com.xilinx.rapidwright.device.SiteTypeEnum;
+import com.xilinx.rapidwright.edif.EDIFCell;
+import com.xilinx.rapidwright.edif.EDIFCellInstance;
+import com.xilinx.rapidwright.edif.EDIFLibrary;
 import joptsimple.OptionParser;
 import joptsimple.OptionSet;
 import org.ini4j.Wini;
@@ -19,27 +26,16 @@ public class ComplexRegister {
 
     public static String bwKey = "bw";
 
-
-    public static String partName;
-
     public static HashMap<Integer, ComplexRegModule> typeToRegModuleMap = new HashMap<Integer, ComplexRegModule>();
 
 
-    public static Module newModuleFromDcp(String dcpFileName) {
+    private static Design readDcp(String dcpFileName) {
         Design regDesign = Design.readCheckpoint(dcpFileName);
-
-        partName = regDesign.getPartName();
-
-        Module regModule = new Module(regDesign);
-        regModule.setNetlist(regDesign.getNetlist());
-
-        RouterLog.log("Initialized register module anchored at <"
-                + regModule.getAnchor().getSiteName() + ">.", RouterLog.Level.VERBOSE);
-
-        return regModule;
+        ResourcesManager.setPartName(regDesign.getPartName());
+        return regDesign;
     }
 
-    public static void loadRegModulesFromConfig() throws IOException {
+    private static void loadRegModulesFromConfig() throws IOException {
         Wini ini = new Wini(new File(ComplexRegister.CONFIG_FILE_NAME));
 
         int typeKey = 0;
@@ -61,12 +57,74 @@ public class ComplexRegister {
                 outPIPKey += 1;
             }
 
-            ComplexRegModule regModule = new ComplexRegModule(typeKey, bitWidth, inPIPNames, outPIPNames);
-            regModule.setModule(newModuleFromDcp(ResourcesManager.COMPONENTS_DIR + typeKeyPrefix + typeKey + ".dcp"));
+            ComplexRegModule regModule = new ComplexRegModule(typeKey, bitWidth, inPIPNames, outPIPNames,
+                    readDcp(ResourcesManager.COMPONENTS_DIR + typeKeyPrefix + typeKey + ".dcp"));
             typeToRegModuleMap.put(typeKey, regModule);
 
             typeKey += 1;
         }
+    }
+
+    public static Design newDesignFromSources(String designName) throws IOException {
+        loadRegModulesFromConfig();
+        Design d = new Design(designName, ResourcesManager.PART_NAME);
+        d.setDCPXMLAttribute(CheckpointTools.DISABLE_AUTO_IO_BUFFERS_NAME, "1");
+
+        for (ComplexRegModule module : typeToRegModuleMap.values()) {
+            Design regDesign = module.getSrcDesign();
+            for (EDIFCell cell : regDesign.getNetlist().getWorkLibrary().getCells()) {
+                cell.rename("type" + module.getType() + "_" + cell.getName());
+                d.getNetlist().getWorkLibrary().addCell(cell);
+            }
+            EDIFLibrary hdi = d.getNetlist().getHDIPrimitivesLibrary();
+            for (EDIFCell cell : regDesign.getNetlist().getHDIPrimitivesLibrary().getCells()) {
+                cell.rename("type" + module.getType() + "_" + cell.getName());
+                if (!hdi.containsCell(cell)) hdi.addCell(cell);
+            }
+        }
+
+        return d;
+    }
+
+    private String name;
+
+    private ArrayList<RegisterComponent> components;
+    private int componentSize;
+
+    public ComplexRegister(Design d, String name, ArrayList<RegisterComponent> components) {
+
+        this.name = name;
+
+        this.components = components;
+        this.componentSize = components.size();
+
+        EDIFCell top = d.getNetlist().getTopCell();
+
+        for (RegisterComponent component : components) {
+            ComplexRegModule regModule = ComplexRegister.typeToRegModuleMap.get(component.getType());
+            EDIFCellInstance ci = top.createChildCellInstance(component.getName(),
+                    regModule.getModule().getNetlist().getTopCell());
+            ModuleInstance mi = d.createModuleInstance(name, regModule.getModule());
+            mi.setCellInstance(ci);
+
+            Site anchorSite = d.getDevice().getSite(component.getSiteName());
+            mi.place(anchorSite);
+
+            RouterLog.log("Placed component for <" + name + "> at site <" + component.getSiteName() + ">.",
+                    RouterLog.Level.NORMAL);
+        }
+    }
+
+    public String getName() {
+        return name;
+    }
+
+    public ArrayList<RegisterComponent> getComponents() {
+        return components;
+    }
+
+    public int getComponentSize() {
+        return componentSize;
     }
 
     private static void printUsage(OptionParser parser) throws IOException {
@@ -94,7 +152,15 @@ public class ComplexRegister {
             return;
         }
 
-        ComplexRegister.loadRegModulesFromConfig();
+        Design d = ComplexRegister.newDesignFromSources("complex_register_example");
+
+        ArrayList<RegisterComponent> components = new ArrayList<RegisterComponent>();
+
+        components.add(new RegisterComponent("comp_0_type_0", 0, "SLICE_X56Y120"));
+        components.add(new RegisterComponent("comp_1_type_1", 1, "SLICE_X57Y120"));
+        components.add(new RegisterComponent("comp_2_type_0", 0, "SLICE_X56Y121"));
+
+        ComplexRegister reg = new ComplexRegister(d, "example_register", components);
 
     }
 }

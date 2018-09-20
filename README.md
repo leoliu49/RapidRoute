@@ -19,6 +19,7 @@ Source the env.sh file at the root of the repository, passing in the path to Rap
 3. Add JARs generated in build/libs/ to your CLASSPATH
 
 ## Running
+Run `gradle jar`
 From here, 3 classes may be run:
 ```
 java ComplexRegister [--help] [--verbose] [--out OUT_FILE_NAME]

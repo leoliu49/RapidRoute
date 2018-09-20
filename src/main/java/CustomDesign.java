@@ -17,6 +17,8 @@ public class CustomDesign {
             + "routes_example.conf";
 
     private static void printUsage(OptionParser parser) throws IOException {
+        System.out.println("java CustomDesign [-h] [-v] [--example] [--name DESIGN_NAME] [--out OUT_FILE_NAME]\n");
+        System.out.println("  Create and route a design based on placements.conf and routes.conf. Uses routes_example.conf instead if --example is specified.\n");
         parser.printHelpOn(System.out);
     }
 
@@ -68,7 +70,7 @@ public class CustomDesign {
 
         int inBitWidth = 0;
         int outBitWidth = 0;
-        int i = 0;
+        int interIndex = 0;
         for (RegisterConnection connection : connections) {
             if (connection.isInputConnection()) {
                 inBitWidth += connection.getBitWidth();
@@ -77,11 +79,11 @@ public class CustomDesign {
                 outBitWidth += connection.getBitWidth();
             }
             else {
-                connection.getSrcReg().createOutputEDIFPortRefs(d, "inter" + i, connection.getSrcRegLowestBit(),
+                connection.getSrcReg().createOutputEDIFPortRefs(d, "inter" + interIndex, connection.getSrcRegLowestBit(),
                         connection.getSrcRegHighestBit(), 0);
-                connection.getSnkReg().createInputEDIFPortRefs(d, "inter" + i, connection.getSnkRegLowestBit(),
+                connection.getSnkReg().createInputEDIFPortRefs(d, "inter" + interIndex, connection.getSnkRegLowestBit(),
                         connection.getSnkRegHighestBit(), 0);
-                i += 1;
+                interIndex += 1;
             }
         }
 
@@ -100,6 +102,16 @@ public class CustomDesign {
                         connection.getSrcRegHighestBit(), resIndex);
                 resIndex += connection.getBitWidth();
             }
+        }
+
+        for (int i = 0; i < inBitWidth; i++) {
+            EDIFNet srcNet = top.getNet("src[" + i + "]");
+            srcNet.addPortRef(srcPortRefs[i]);
+        }
+
+        for (int i = 0; i < outBitWidth; i++) {
+            EDIFNet resNet = top.getNet("res[" + i + "]");
+            resNet.addPortRef(resPortRefs[i]);
         }
 
         d.writeCheckpoint(ResourcesManager.OUTPUT_DIR + options.valueOf("out") + "_unrouted.dcp");

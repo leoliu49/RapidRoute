@@ -13,6 +13,8 @@ public class RegisterPair {
             + "register_pair_example.conf";
 
     private static void printUsage(OptionParser parser) throws IOException {
+        System.out.println("java RegisterPair [-h] [-v] [--out OUT_FILE_NAME]\n");
+        System.out.println("  Create and route 2 complex registers as described in src/main/resources/register_pair_example.conf.\n");
         parser.printHelpOn(System.out);
     }
 

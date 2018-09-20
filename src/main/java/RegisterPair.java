@@ -5,6 +5,7 @@ import joptsimple.OptionSet;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.HashMap;
 
 public class RegisterPair {
 
@@ -49,10 +50,10 @@ public class RegisterPair {
         EDIFNet clk = top.createNet(ComplexRegister.CLK_NAME);
         clk.createPortRef(clkPort);
 
-        ArrayList<ComplexRegister> registers = ResourcesManager.registersFromPlacements(d);
+        HashMap<String, ComplexRegister> registers = ResourcesManager.registersFromPlacements(d);
 
-        ComplexRegister reg1 = registers.get(0);
-        ComplexRegister reg2 = registers.get(1);
+        ComplexRegister reg1 = registers.get("reg0");
+        ComplexRegister reg2 = registers.get("reg1");
 
         int bitWidth = reg1.getBitWidth();
 

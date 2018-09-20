@@ -144,6 +144,10 @@ public class ComplexRegister {
         return components;
     }
 
+    public RegisterComponent getComponent(int index) {
+        return components.get(index);
+    }
+
     public int getComponentSize() {
         return componentSize;
     }
@@ -165,7 +169,23 @@ public class ComplexRegister {
                 net.createPortRef(ComplexRegister.INPUT_NAME, j, component.getCellInstance());
             }
         }
+    }
 
+    public void createInputEDIFPortRefs(Design d, String netPrefix, int startBit, int endBit, int indexOffset) {
+
+        EDIFCell top = d.getNetlist().getTopCell();
+
+        int i = 0;
+        for (RegisterComponent component : components) {
+            for (int j = 0; j < component.getBitWidth(); j++, i++) {
+                if (i >= startBit && i <= endBit) {
+                    EDIFNet net = top.getNet(netPrefix + "[" + (i + indexOffset) + "]");
+                    if (net == null)
+                        net = top.createNet(netPrefix + "[" + (i + indexOffset) + "]");
+                    net.createPortRef(ComplexRegister.INPUT_NAME, j, component.getCellInstance());
+                }
+            }
+        }
     }
 
     public void createOutputEDIFPortRefs(Design d, String netPrefix) {
@@ -179,6 +199,24 @@ public class ComplexRegister {
                 if (net == null)
                     net = top.createNet(netPrefix + "[" + i + "]");
                 net.createPortRef(ComplexRegister.OUTPUT_NAME, j, component.getCellInstance());
+            }
+        }
+
+    }
+
+    public void createOutputEDIFPortRefs(Design d, String netPrefix, int startBit, int endBit, int indexOffset) {
+
+        EDIFCell top = d.getNetlist().getTopCell();
+
+        int i = 0;
+        for (RegisterComponent component : components) {
+            for (int j = 0; j < component.getBitWidth(); j++, i++) {
+                if (i >= startBit && i <= endBit) {
+                    EDIFNet net = top.getNet(netPrefix + "[" + (i + indexOffset) + "]");
+                    if (net == null)
+                        net = top.createNet(netPrefix + "[" + (i + indexOffset) + "]");
+                    net.createPortRef(ComplexRegister.OUTPUT_NAME, j, component.getCellInstance());
+                }
             }
         }
 

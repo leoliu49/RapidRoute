@@ -7,6 +7,8 @@ import org.ini4j.Wini;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
 
 public class ResourcesManager {
 
@@ -20,15 +22,21 @@ public class ResourcesManager {
 
     public static String COMPONENTS_FILE_NAME = ResourcesManager.RESOURCES_DIR + "register_components.conf";
     public static String PLACEMENTS_FILE_NAME = ResourcesManager.RESOURCES_DIR + "placements.conf";
+    public static String ROUTES_FILE_NAME = ResourcesManager.RESOURCES_DIR + "routes.conf";
 
     public static String PART_NAME;
 
     public static Wini componentsConfig = null;
     public static Wini placementsConfig = null;
+    public static Wini routesConfig = null;
 
     public static final String commonKey = "common";
     public static final String bwKey = "bw";
     public static final String nameKey = "name";
+    public static final String inKey = "in";
+    public static final String outKey = "out";
+    public static final String routesKey = "routes";
+
 
     public static final String componentKeyPrefix = "comp";
     public static final String typeKeyPrefix = "type";
@@ -46,6 +54,11 @@ public class ResourcesManager {
     public static void initPlacementsConfig() throws IOException {
         if (placementsConfig == null)
             placementsConfig = new Wini(new File(PLACEMENTS_FILE_NAME));
+    }
+
+    public static void initRoutesConfig() throws IOException {
+        if (routesConfig == null)
+            routesConfig = new Wini(new File(ROUTES_FILE_NAME));
     }
 
     public static Design newDesignFromSources(String designName) throws IOException {
@@ -68,10 +81,10 @@ public class ResourcesManager {
         return d;
     }
 
-    public static ArrayList<ComplexRegister> registersFromPlacements(Design d) throws IOException {
+    public static HashMap<String, ComplexRegister> registersFromPlacements(Design d) throws IOException {
         initPlacementsConfig();
 
-        ArrayList<ComplexRegister> registers = new ArrayList<ComplexRegister>();
+        HashMap<String, ComplexRegister> registersMap = new HashMap<String, ComplexRegister>();
 
         //int bitWidth = Integer.valueOf(placementsConfig.get(commonKey, bwKey));
 
@@ -99,11 +112,60 @@ public class ResourcesManager {
                 compKey += 1;
             }
 
-            registers.add(new ComplexRegister(d, name, components));
+            registersMap.put(name, new ComplexRegister(d, name, components));
 
             regKey += 1;
         }
 
-        return registers;
+        return registersMap;
     }
+
+
+    public static ArrayList<RegisterConnection> connectionsFromRoutes(Design d, HashMap<String,
+            ComplexRegister> registersMap) throws IOException {
+        initRoutesConfig();
+        ArrayList<RegisterConnection> connections = new ArrayList<RegisterConnection>();
+
+        List<String> inConns = routesConfig.get(routesKey).getAll(inKey);
+        List<String> outConns = routesConfig.get(routesKey).getAll(outKey);
+
+        for (String inConn : inConns) {
+            String[] elem = inConn.split("_");
+            String regName = elem[0];
+            int lowBit = Integer.valueOf(elem[1].substring(1));
+            int hiBit = Integer.valueOf(elem[2].substring(1));
+
+            connections.add(new RegisterConnection(null, registersMap.get(regName), 0, 0, lowBit, hiBit));
+        }
+        for (String outConn : outConns) {
+            String[] elem = outConn.split("_");
+            String regName = elem[0];
+            int lowBit = Integer.valueOf(elem[1].substring(1));
+            int hiBit = Integer.valueOf(elem[2].substring(1));
+
+            connections.add(new RegisterConnection(registersMap.get(regName), null, lowBit, hiBit, 0, 0));
+        }
+
+        for (String key : routesConfig.get(routesKey).keySet()) {
+            if (!key.equals(inKey) && !key.equals(outKey)) {
+                String[] elem;
+
+                elem = key.split("_");
+                String srcRegName = elem[0];
+                int srcLowBit = Integer.valueOf(elem[1].substring(1));
+                int srcHiBit = Integer.valueOf(elem[2].substring(1));
+
+                elem = routesConfig.get(routesKey).get(key).split("_");
+                String snkRegName = elem[0];
+                int snkLowBit = Integer.valueOf(elem[1].substring(1));
+                int snkHiBit = Integer.valueOf(elem[2].substring(1));
+
+                connections.add(new RegisterConnection(registersMap.get(srcRegName), registersMap.get(snkRegName),
+                        srcLowBit, srcHiBit, snkLowBit, snkHiBit));
+            }
+        }
+
+        return connections;
+    }
+
 }

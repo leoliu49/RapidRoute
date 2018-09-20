@@ -202,55 +202,73 @@ public class CustomRouter {
     }
 
     /*
-     * Bussed routes
+     * Routes bit lines specified by a RegisterConnection
      */
-    /*
-    public static RoutingFootprint routeSimpleOneDimRegister(Design d, SimpleOneDimRegister startReg,
-                                                             SimpleOneDimRegister endReg, WireDirection dir) {
+    public static RoutingFootprint routeConnection(Design d, RegisterConnection connection) {
+
         sanitizeNets(d);
 
-        RouterLog.log("Routing <" + startReg.getName() + "> --> <" + endReg.getName() + ">", RouterLog.Level.NORMAL);
+        RouterLog.log("Routing " + connection.toString() + ".", RouterLog.Level.NORMAL);
+        ComplexRegister startReg = connection.getSrcReg();
+        ComplexRegister endReg = connection.getSnkReg();
 
         RoutingFootprint footprint = new RoutingFootprint();
 
-        Tile startIntTile = startReg.getSite().getIntTile();
-        Tile endIntTile = endReg.getSite().getIntTile();
+        int bitWidth = connection.getBitWidth();
 
         // Stop router from using register input/output PIPs as buffers
-        for (int i = 0; i < SimpleOneDimRegister.bitWidth; i++) {
-            globalNodeFootprint.add(endReg.getSite().getIntTile().getName() + "/" + SimpleOneDimRegister.inPIPNames.get(i));
-            globalNodeFootprint.add(endReg.getSite().getIntTile().getName() + "/" + SimpleOneDimRegister.outPIPNames.get(i));
-            globalNodeFootprint.add(startReg.getSite().getIntTile().getName() + "/" + SimpleOneDimRegister.inPIPNames.get(i));
-            globalNodeFootprint.add(startReg.getSite().getIntTile().getName() + "/" + SimpleOneDimRegister.outPIPNames.get(i));
+        for (RegisterComponent component : startReg.getComponents()) {
+            String intTileName = d.getDevice().getSite(component.getSiteName()).getIntTile().getName();
+            for (int i = 0; i < component.getBitWidth(); i++) {
+                globalNodeFootprint.add(intTileName + "/" + component.getInPIPName(i));
+                globalNodeFootprint.add(intTileName + "/" + component.getOutPIPName(i));
+            }
+        }
+
+        for (RegisterComponent component : endReg.getComponents()) {
+            String intTileName = d.getDevice().getSite(component.getSiteName()).getIntTile().getName();
+            for (int i = 0; i < component.getBitWidth(); i++) {
+                globalNodeFootprint.add(intTileName + "/" + component.getInPIPName(i));
+                globalNodeFootprint.add(intTileName + "/" + component.getOutPIPName(i));
+            }
         }
 
         ArrayList<EnteringTileJunction> srcJunctions = new ArrayList<EnteringTileJunction>();
         ArrayList<ExitingTileJunction> snkJunctions = new ArrayList<ExitingTileJunction>();
-        for (int i = 0; i < SimpleOneDimRegister.bitWidth; i++) {
-            srcJunctions.add(new EnteringTileJunction(startIntTile.getName(), startIntTile.getName() + "/"
-                    + SimpleOneDimRegister.outPIPNames.get(i), SimpleOneDimRegister.outPIPNames.get(i), 0, true, dir));
-            snkJunctions.add(new ExitingTileJunction(endIntTile.getName(), endIntTile.getName() + "/"
-                    + SimpleOneDimRegister.inPIPNames.get(i), SimpleOneDimRegister.inPIPNames.get(i), 0, true, dir));
+
+        {
+            int bitIndex = 0;
+            for (RegisterComponent component : startReg.getComponents()) {
+                String intTileName = d.getDevice().getSite(component.getSiteName()).getIntTile().getName();
+                for (int i = 0; i < component.getBitWidth(); i++, bitIndex++) {
+                    if (bitIndex >= connection.getSrcRegLowestBit() && bitIndex <= connection.getSrcRegHighestBit()) {
+                        srcJunctions.add(new EnteringTileJunction(intTileName, intTileName + "/"
+                                + component.getOutPIPName(i), component.getOutPIPName(i), 0, true, null));
+                    }
+                }
+            }
+        }
+        {
+            int bitIndex = 0;
+            for (RegisterComponent component : endReg.getComponents()) {
+                String intTileName = d.getDevice().getSite(component.getSiteName()).getIntTile().getName();
+                for (int i = 0; i < component.getBitWidth(); i++, bitIndex++) {
+                    if (bitIndex >= connection.getSnkRegLowestBit() && bitIndex <= connection.getSnkRegHighestBit()) {
+                        snkJunctions.add(new ExitingTileJunction(intTileName, intTileName + "/"
+                                + component.getInPIPName(i), component.getInPIPName(i), 0, true, null));
+                    }
+                }
+            }
         }
 
-        // For some odd reason, bit0 (LOGIC_OUTS_W30) on SOUTH can't do SS12's unless routed first N or E
-        if (dir.equals(WireDirection.SOUTH)
-                && startIntTile.getTileYCoordinate() - endIntTile.getTileYCoordinate() >= 16) {
-            //RegisterExceptions.fixSouthUnroutableLongLines(d, srcJunctions);
-        }
 
         ArrayList<ArrayList<CustomRoute>> allRoutes = new ArrayList<ArrayList<CustomRoute>>();
-        for (int i = 0; i < SimpleOneDimRegister.bitWidth; i++) {
+        for (int i = 0; i < bitWidth; i++) {
             allRoutes.add(CustomRoutingCalculator.createRouteTemplates(d, srcJunctions.get(i),
-                    snkJunctions.get(i), dir));
+                    snkJunctions.get(i)));
         }
 
-        if (dir.equals(WireDirection.SOUTH)
-                && startIntTile.getTileYCoordinate() - endIntTile.getTileYCoordinate() >= 16) {
-            //RegisterExceptions.fixSouthUnroutableLongLines(d, startIntTile.getName(), allRoutes.get(0));
-        }
 
-        //ArrayList<CustomRoute> routes = CustomRoutingCalculator.findValidRouteTemplates(allRoutes);
         ArrayList<CustomRoute> routes = CustomRoutingCalculator.findBestRouteTemplates(d, allRoutes);
 
         float templateSize = 0;
@@ -276,32 +294,47 @@ public class CustomRouter {
 
         RouterLog.indent(-1);
 
-        for (int i = 0; i < SimpleOneDimRegister.bitWidth; i++) {
-            Net net = d.getNet(startReg.getName() + "/" + SimpleOneDimRegister.OUTPUT_NAME + "[" + i + "]");
+        // Bit index grows, but the components themselves have their own internal bit counts
+        {
+            int bitIndex = 0;
+            int routeIndex = 0;
+            for (RegisterComponent component : startReg.getComponents()) {
+                for (int i = 0; i < component.getBitWidth(); i++, bitIndex++) {
+                    if (bitIndex >= connection.getSrcRegLowestBit() && bitIndex <= connection.getSrcRegHighestBit()) {
+                        Net net = d.getNet(startReg.getName() + "_" + component.getName() + "/"
+                                + ComplexRegister.OUTPUT_NAME + "[" + i + "]");
 
-            // TODO: this probably needs to be earlier
-            routes.get(i).setBitIndex(i);
-            footprint.add(routes.get(i), net);
-            //routes.get(i).commitToNet(d, net);
+                        // TODO: this probably needs to be earlier
+                        routes.get(routeIndex).setBitIndex(bitIndex);
+                        footprint.add(routes.get(routeIndex), net);
+                        routeIndex += 1;
+                    }
+                }
+            }
         }
 
-        for (int i = 0; i < SimpleOneDimRegister.bitWidth; i++) {
-            globalNodeFootprint.remove(endReg.getSite().getIntTile().getName() + "/"
-                    + SimpleOneDimRegister.inPIPNames.get(i));
-            globalNodeFootprint.remove(endReg.getSite().getIntTile().getName() + "/"
-                    + SimpleOneDimRegister.outPIPNames.get(i));
-            globalNodeFootprint.remove(startReg.getSite().getIntTile().getName() + "/"
-                    + SimpleOneDimRegister.inPIPNames.get(i));
-            globalNodeFootprint.remove(startReg.getSite().getIntTile().getName() + "/"
-                    + SimpleOneDimRegister.outPIPNames.get(i));
+        // Remove in/out PIPs from globalNodeFootprint, since we'll be committing them shortly
+        for (RegisterComponent component : startReg.getComponents()) {
+            String intTileName = d.getDevice().getSite(component.getSiteName()).getIntTile().getName();
+            for (int i = 0; i < component.getBitWidth(); i++) {
+                globalNodeFootprint.remove(intTileName + "/" + component.getInPIPName(i));
+                globalNodeFootprint.remove(intTileName + "/" + component.getOutPIPName(i));
+            }
+        }
+
+        for (RegisterComponent component : endReg.getComponents()) {
+            String intTileName = d.getDevice().getSite(component.getSiteName()).getIntTile().getName();
+            for (int i = 0; i < component.getBitWidth(); i++) {
+                globalNodeFootprint.remove(intTileName + "/" + component.getInPIPName(i));
+                globalNodeFootprint.remove(intTileName + "/" + component.getOutPIPName(i));
+            }
         }
 
         footprint.addToNodeFootprint(CustomRouter.globalNodeFootprint);
 
         return footprint;
-
     }
-    */
+
 
     /*
     public static RoutingFootprint routeOneDimRing(Design d, Ring ring) {

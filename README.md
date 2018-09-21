@@ -7,6 +7,7 @@ URA with Professor Kapre using Xilinx RapidWright
 2. Java 1.8+ (http://www.oracle.com/technetwork/java/javase/downloads/)
 3. RapidWright (https://github.com/Xilinx/RapidWright)
 4. Vivado 2018.1+ to actually make it useful
+**Place this repository in the same folder as your RapidWright repo**  
 
 ### Linux
 Source the env.sh file at the root of the repository, passing in the path to RapidWright directory
@@ -14,9 +15,9 @@ Source the env.sh file at the root of the repository, passing in the path to Rap
 . env.sh $RAPIDWRIGHT_PATH
 ```
 ### Windows
-1. Add JARs in RapidWright to your CLASSPATH
+1. Add JARs in RapidWright (RapidWright/jars/*.jar) to your CLASSPATH
 2. Add JARs in the deps folder to your CLASSPATH
-3. Add JARs generated in build/libs/ to your CLASSPATH
+3. Add JARs generated in build/libs/ to your CLASSPATH (after running gradle)
 
 ## Running
 Run `gradle jar`  

@@ -423,8 +423,8 @@ public class CustomRoutingCalculator {
         Tile srcIntTile = d.getDevice().getTile(srcJunc.getTileName());
         Tile snkIntTile = d.getDevice().getTile(snkJunc.getTileName());
 
-        int separationX = Math.abs(srcIntTile.getTileXCoordinate() - snkIntTile.getTileXCoordinate());
-        int separationY = Math.abs(srcIntTile.getTileYCoordinate() - snkIntTile.getTileYCoordinate());
+        //int separationX = Math.abs(srcIntTile.getTileXCoordinate() - snkIntTile.getTileXCoordinate());
+        //int separationY = Math.abs(srcIntTile.getTileYCoordinate() - snkIntTile.getTileYCoordinate());
 
         // Having a default max depth is not shown to be helpful
         int maxDepth = 99;
@@ -490,14 +490,17 @@ public class CustomRoutingCalculator {
             else
                 exits = TileBrowser.findReachableExits(d, enJunc.getTileName(), enJunc, 1, remainingDistance, dir);
             */
-            exits = TileBrowser.findReachableExits(d, enJunc.getTileName(), enJunc);
+
+            // Only speed up
+            exits = TileBrowser.findReachableExits(d, enJunc.getTileName(), enJunc, enJunc.getHighestSpeeds(),
+                    new int[]{remainingY, remainingY, remainingX, remainingX});
 
             //Collections.sort(exits);
 
             for (ExitingTileJunction exJunc : exits) {
                 JunctionsTracer rtCopy = new JunctionsTracer(routeTemplate.enJuncs,
                         routeTemplate.fastestX, routeTemplate.fastestY);
-                rtCopy.enJuncs.add(exJunc.getWireDestJunction(d));
+                rtCopy.enJuncs.add(exJunc.getWireDestJunction(d, enJunc.getHighestSpeeds()));
                 queue.add(rtCopy);
             }
 

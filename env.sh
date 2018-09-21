@@ -9,7 +9,9 @@ DEPS_DIR=$ROOT_DIR/deps
 
 export RAPIDWRIGHT_PATH=$RAPIDWRIGHT_PATH
 
-export CLASSPATH=$RAPIDWRIGHT_PATH:$(echo $RAPIDWRIGHT_PATH/jars/*.jar | tr ' ' ':')
+export CLASSPATH=$CLASSPATH:$RAPIDWRIGHT_PATH/build/libs/rapidwright.jar
+
+export CLASSPATH=$CLASSPATH:$(echo $RAPIDWRIGHT_PATH/jars/*.jar | tr ' ' ':')
 
 export CLASSPATH=$CLASSPATH:$(echo $BUILD_DIR/*.jar | tr ' ' ':')
 

@@ -6,8 +6,8 @@ URA with Professor Kapre using Xilinx RapidWright
 1. gradle (https://gradle.org/install/)
 2. Java 1.8+ (http://www.oracle.com/technetwork/java/javase/downloads/)
 3. RapidWright (https://github.com/Xilinx/RapidWright)
-4. Vivado 2018.1+ to actually make it useful
-**Place this repository in the same folder as your RapidWright repo**  
+4. Vivado 2018.1+ to actually make it useful  
+**Place this repository in the same folder as your RapidWright repo. (i.e. folder/RapidWright/ and folder/rapidwright_ura/**  
 
 ### Linux
 Source the env.sh file at the root of the repository, passing in the path to RapidWright directory

@@ -5,9 +5,6 @@ public class EnteringTileJunction extends TileJunction {
 
     private boolean isSrcJunction;
 
-    // Speeds match WireDirection ordinal number
-    private int[] highestSpeeds = {0, 0, 0, 0};
-
     public EnteringTileJunction(String tileName, String nodeName, String wireName, int wireLength,
                                 WireDirection direction) {
         super(tileName, nodeName, wireName, wireLength, direction);
@@ -28,22 +25,6 @@ public class EnteringTileJunction extends TileJunction {
         if (isSrcJunction)
             return null;
         return RouteUtil.nodeEndTransform(d, tileName, wireLength, wireName, direction);
-    }
-
-    public int[] getHighestSpeeds() {
-        return highestSpeeds;
-    }
-
-    public int getHighestSpeed(int i) {
-        return highestSpeeds[i];
-    }
-
-    public void setHighestSpeeds(int[] highestSpeeds) {
-        this.highestSpeeds = highestSpeeds;
-    }
-
-    public void setHighestSpeed(int speed, int i) {
-        this.highestSpeeds[i] = speed;
     }
 
     public ExitingTileJunction getWireSourceJunction(Design d) {

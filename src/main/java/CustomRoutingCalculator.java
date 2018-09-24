@@ -1,10 +1,7 @@
 import com.xilinx.rapidwright.design.Design;
 import com.xilinx.rapidwright.device.Tile;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.LinkedList;
-import java.util.Queue;
+import java.util.*;
 
 public class CustomRoutingCalculator {
 
@@ -20,22 +17,43 @@ public class CustomRoutingCalculator {
     // Used by createRouteTemplates to track progress
     private static class JunctionsTracer {
         public ArrayList<EnteringTileJunction> enJuncs;
-        // Used to speed up search time in BFS
-        public int fastestX;
-        public int fastestY;
 
-        public JunctionsTracer(EnteringTileJunction enJunc, int fastestX, int fastestY) {
-            this.enJuncs = new ArrayList<EnteringTileJunction>();
+        public JunctionsTracer(EnteringTileJunction enJunc) {
+            enJuncs = new ArrayList<EnteringTileJunction>();
             enJuncs.add(enJunc);
-            this.fastestX = fastestX;
-            this.fastestY = fastestY;
         }
 
-        public JunctionsTracer(ArrayList<EnteringTileJunction> enJuncs, int fastestX, int fastestY) {
-            this.enJuncs = new ArrayList<EnteringTileJunction>(enJuncs);
-            this.fastestX = fastestX;
-            this.fastestY = fastestY;
+        public JunctionsTracer(JunctionsTracer ref) {
+            enJuncs = new ArrayList<EnteringTileJunction>(ref.enJuncs);
         }
+
+        public EnteringTileJunction get(int i) {
+            if (i < 0)
+                i = enJuncs.size() + i;
+            return enJuncs.get(i);
+        }
+
+        public void append(EnteringTileJunction enJunc) {
+            enJuncs.add(enJunc);
+        }
+
+        public void prepend(EnteringTileJunction enJunc) {
+            enJuncs.add(0, enJunc);
+        }
+    }
+
+    private static Set<String> nodeLock = new HashSet<>();
+
+    public static void flushNodeLock() {
+        nodeLock.clear();
+    }
+
+    public static boolean lock(String nodeName) {
+        RouterLog.log("Locking <" + nodeName + ">", RouterLog.Level.VERBOSE);
+        if (nodeLock.contains(nodeName))
+            return false;
+        nodeLock.add(nodeName);
+        return true;
     }
 
     /*
@@ -157,7 +175,6 @@ public class CustomRoutingCalculator {
         }
 
         RouterLog.indent(-1);
-
 
         RouterLog.log("Running determineBestLastPaths - and then validating with findValidRouteTemplates.",
                 RouterLog.Level.NORMAL);
@@ -411,20 +428,129 @@ public class CustomRoutingCalculator {
     }
 
     /*
-     * Perform omni-directional BFS search
+     * Omni-directional BFS to nearest long line (in the right direction)
      *
-     * Routes returned only have enter/exit junctions filled, but not the specific TileIntPaths between them
+     * All potential routes returned
      */
-    public static ArrayList<CustomRoute> createRouteTemplates(Design d, EnteringTileJunction srcJunc,
-                                                              ExitingTileJunction snkJunc) {
+    private static ArrayList<CustomRoute> findNearestLongLines(Design d, EnteringTileJunction srcJunc,
+                                                                   WireDirection dir) {
 
         ArrayList<CustomRoute> results = new ArrayList<CustomRoute>();
 
+        // Having a default max depth is not shown to be helpful
+        int maxDepth = 99;
+
+        boolean isVert = RouteUtil.isVertical(dir);
+        Tile srcIntTile = d.getDevice().getTile(srcJunc.getTileName());
+        int staticCoord = isVert ? srcIntTile.getTileXCoordinate() : srcIntTile.getTileYCoordinate();
+        int longLineLength = isVert ? TileBrowser.LONG_LINE_Y : TileBrowser.LONG_LINE_X;
+
+        RouterLog.log("Running BFS for " + srcJunc + " to nearest long lines.", RouterLog.Level.NORMAL);
+        RouterLog.indent();
+
+        RouterLog.log("Maximum BFS traversal depth set to " + maxDepth + ".", RouterLog.Level.VERBOSE);
+
+        // To speed up search time, stop searching overlapped nodes, but don't consider overlaps within same depth
+        ArrayList<String> nodeFootprint = new ArrayList<String>();
+        ArrayList<String> currentDepthFootprint = new ArrayList<String>();
+
+        JunctionsTracer start = new JunctionsTracer(srcJunc);
+
+        Queue<JunctionsTracer> queue = new LinkedList<JunctionsTracer>();
+        queue.add(start);
+
+        int lastDepth = 0;
+
+        while (!queue.isEmpty()) {
+            JunctionsTracer routeTemplate = queue.remove();
+            int size = routeTemplate.enJuncs.size();
+            EnteringTileJunction enJunc = routeTemplate.enJuncs.get(size - 1);
+
+            if (size > maxDepth)
+                continue;
+
+            if (size > lastDepth) {
+                lastDepth = size;
+                nodeFootprint.addAll(currentDepthFootprint);
+                currentDepthFootprint.clear();
+
+                RouterLog.log("BFS traversal for depth " + (lastDepth - 1) + " finished; continuing to next level.",
+                        RouterLog.Level.VERBOSE);
+            }
+
+
+            if ((CustomRouter.globalNodeFootprint.contains(enJunc.getNodeName())
+                    || nodeFootprint.contains(enJunc.getNodeName()) || nodeLock.contains(enJunc.getNodeName()))
+                    && lastDepth != 1)
+                continue;
+
+            ArrayList<ExitingTileJunction> exits = null;
+            // Verify if there are any reachable long lines
+            if ((isVert && d.getDevice().getTile(enJunc.getTileName()).getTileXCoordinate() == staticCoord)
+                    || d.getDevice().getTile(enJunc.getTileName()).getTileYCoordinate() == staticCoord) {
+                exits = TileBrowser.findReachableExits(d, enJunc.getTileName(), enJunc);
+                boolean isLongLineFound = false;
+                for (ExitingTileJunction exJunc : exits) {
+                    if (exJunc.getWireLength() == longLineLength && exJunc.getDirection().equals(dir)
+                            && TileBrowser.isJunctionRepeatable(d, exJunc) && !nodeLock.contains(exJunc.getNodeName())) {
+                        results.add(new CustomRoute(d, srcJunc, exJunc, new JunctionsTracer(routeTemplate).enJuncs));
+                        isLongLineFound = true;
+                        // Let all other routes within the same depth finish
+                        maxDepth = size;
+                    }
+                }
+                if (isLongLineFound)
+                    continue;
+            }
+            // Condition if a long line has been found - no need to further queue up
+            else if (size == maxDepth)
+                continue;
+
+            // Queue up neighbors for next depth
+            if (exits == null) {
+                if (enJunc.getDirection().equals(dir))
+                    exits = TileBrowser.findReachableExits(d, enJunc.getTileName(), enJunc);
+                else {
+                    // Disallow search to go very far
+                    ArrayList<WireDirection> blacklist = new ArrayList<WireDirection>();
+                    blacklist.add(enJunc.getDirection());
+                    exits = TileBrowser.findReachableExits(d, enJunc.getTileName(),enJunc, blacklist);
+                }
+
+            }
+            for (ExitingTileJunction exJunc : exits) {
+                JunctionsTracer rtCopy = new JunctionsTracer(routeTemplate);
+                rtCopy.enJuncs.add(exJunc.getWireDestJunction(d));
+
+                queue.add(rtCopy);
+            }
+
+            currentDepthFootprint.add(enJunc.getNodeName());
+
+        }
+
+        RouterLog.log("Found " + results.size() + " potential long line feeders.", RouterLog.Level.NORMAL);
+
+        RouterLog.indent();
+        for (CustomRoute route : results) {
+            RouterLog.log(route.getRouteTemplate().toString(), RouterLog.Level.VERBOSE);
+        }
+        RouterLog.indent(-1);
+        RouterLog.indent(-1);
+
+        return results;
+    }
+
+    /*
+     * Singly directional BFS from source to sink. Modifications are added so that BFS is sped up
+     */
+    private static ArrayList<CustomRoute> completeRouteTemplates(Design d, EnteringTileJunction srcJunc,
+                                                                 ExitingTileJunction snkJunc, WireDirection dir) {
+        ArrayList<CustomRoute> results = new ArrayList<CustomRoute>();
+
+        boolean isVert = RouteUtil.isVertical(dir);
         Tile srcIntTile = d.getDevice().getTile(srcJunc.getTileName());
         Tile snkIntTile = d.getDevice().getTile(snkJunc.getTileName());
-
-        //int separationX = Math.abs(srcIntTile.getTileXCoordinate() - snkIntTile.getTileXCoordinate());
-        //int separationY = Math.abs(srcIntTile.getTileYCoordinate() - snkIntTile.getTileYCoordinate());
 
         // Having a default max depth is not shown to be helpful
         int maxDepth = 99;
@@ -438,7 +564,7 @@ public class CustomRoutingCalculator {
         ArrayList<String> nodeFootprint = new ArrayList<String>();
         ArrayList<String> currentDepthFootprint = new ArrayList<String>();
 
-        JunctionsTracer start = new JunctionsTracer(srcJunc, 0, 0);
+        JunctionsTracer start = new JunctionsTracer(srcJunc);
 
         Queue<JunctionsTracer> queue = new LinkedList<JunctionsTracer>();
         queue.add(start);
@@ -449,6 +575,7 @@ public class CustomRoutingCalculator {
             JunctionsTracer routeTemplate = queue.remove();
             int size = routeTemplate.enJuncs.size();
             EnteringTileJunction enJunc = routeTemplate.enJuncs.get(size - 1);
+
             if (size > maxDepth)
                 continue;
 
@@ -461,12 +588,16 @@ public class CustomRoutingCalculator {
                         RouterLog.Level.VERBOSE);
             }
 
-            int remainingX = Math.abs(snkIntTile.getTileXCoordinate()
-                    - d.getDevice().getTile(enJunc.getTileName()).getTileXCoordinate());
-            int remainingY = Math.abs(snkIntTile.getTileYCoordinate()
-                    - d.getDevice().getTile(enJunc.getTileName()).getTileYCoordinate());
+            if ((CustomRouter.globalNodeFootprint.contains(enJunc.getNodeName())
+                    || nodeFootprint.contains(enJunc.getNodeName()) || nodeLock.contains(enJunc.getNodeName()))
+                    && lastDepth != 1)
+                continue;
 
-            if (remainingX == 0 && remainingY == 0) {
+            int remainingDistance = isVert
+                    ? snkIntTile.getTileYCoordinate() - d.getDevice().getTile(enJunc.getTileName()).getTileYCoordinate()
+                    : snkIntTile.getTileXCoordinate() - d.getDevice().getTile(enJunc.getTileName()).getTileXCoordinate();
+
+            if (remainingDistance == 0) {
                 if (TileBrowser.isJunctionReachable(d, enJunc, snkJunc)) {
                     results.add(new CustomRoute(d, srcJunc, snkJunc, routeTemplate.enJuncs));
                     // Let all other routes within the same depth finish
@@ -474,33 +605,22 @@ public class CustomRoutingCalculator {
                     continue;
                 }
             }
-
-            if ((CustomRouter.globalNodeFootprint.contains(enJunc.getNodeName())
-                    || nodeFootprint.contains(enJunc.getNodeName()))
-                    && lastDepth != 1)
+            // Condition if a route has been already found - no need to further queue up
+            else if (size == maxDepth)
                 continue;
 
+            // To speed up search time, ignore hops which are slower
             ArrayList<ExitingTileJunction> exits;
-            /*
-             * Not sure how to do this for all 4 directions
-            // To speed up search time, only increase in speed
-            if (enJunc.getWireLength() <= remainingDistance)
-                exits = TileBrowser.findReachableExits(d, enJunc.getTileName(), enJunc, enJunc.getWireLength(),
-                        remainingDistance, dir);
+            if (enJunc.getWireLength() > Math.abs(remainingDistance))
+                exits = TileBrowser.findReachableExits(d, enJunc.getTileName(), enJunc, 1, Math.abs(remainingDistance),
+                        dir);
             else
-                exits = TileBrowser.findReachableExits(d, enJunc.getTileName(), enJunc, 1, remainingDistance, dir);
-            */
+                exits = TileBrowser.findReachableExits(d, enJunc.getTileName(), enJunc, enJunc.getWireLength(),
+                        Math.abs(remainingDistance), dir);
 
-            // Only speed up
-            exits = TileBrowser.findReachableExits(d, enJunc.getTileName(), enJunc, enJunc.getHighestSpeeds(),
-                    new int[]{remainingY, remainingY, remainingX, remainingX});
-
-            //Collections.sort(exits);
-
-            for (ExitingTileJunction exJunc : exits) {
-                JunctionsTracer rtCopy = new JunctionsTracer(routeTemplate.enJuncs,
-                        routeTemplate.fastestX, routeTemplate.fastestY);
-                rtCopy.enJuncs.add(exJunc.getWireDestJunction(d, enJunc.getHighestSpeeds()));
+            for (ExitingTileJunction exit : exits) {
+                JunctionsTracer rtCopy = new JunctionsTracer(routeTemplate);
+                rtCopy.append(exit.getWireDestJunction(d));
                 queue.add(rtCopy);
             }
 
@@ -517,5 +637,130 @@ public class CustomRoutingCalculator {
         RouterLog.indent(-1);
 
         return results;
+    }
+
+    /*
+     * Analyzes whether long lines are necessary to be routed:
+     * 1. Too close to use long lines: call BFS with completeRouteTemplates
+     * 2. Route to nearest long lines, and then route from long lines back to sink
+     */
+    public static ArrayList<CustomRoute> createRouteTemplates(Design d, EnteringTileJunction srcJunc,
+                                                              ExitingTileJunction snkJunc, WireDirection dir) {
+
+        ArrayList<CustomRoute> results = new ArrayList<CustomRoute>();
+
+        Tile srcIntTile = d.getDevice().getTile(srcJunc.getTileName());
+        Tile snkIntTile = d.getDevice().getTile(snkJunc.getTileName());
+
+        int totalDistance = RouteUtil.isVertical(dir)
+                ? snkIntTile.getTileYCoordinate() - srcIntTile.getTileYCoordinate()
+                : snkIntTile.getTileXCoordinate() - srcIntTile.getTileXCoordinate();
+
+        int longLineLength = RouteUtil.isVertical(dir) ? TileBrowser.LONG_LINE_Y : TileBrowser.LONG_LINE_X;
+
+        if (Math.abs(totalDistance) < longLineLength)
+            return completeRouteTemplates(d, srcJunc, snkJunc, dir);
+
+        ArrayList<CustomRoute> longLineFeeders = new ArrayList<CustomRoute>();
+        for (CustomRoute route : findNearestLongLines(d, srcJunc, dir)) {
+            // Determine if long lines will overshoot
+            Tile longLineBaseTile = d.getDevice().getTile(route.getSnkJunction().getTileName());
+            int remainingDistance = RouteUtil.isVertical(dir)
+                    ? snkIntTile.getTileYCoordinate() - longLineBaseTile.getTileYCoordinate()
+                    : snkIntTile.getTileXCoordinate() - longLineBaseTile.getTileXCoordinate();
+            if (Math.abs(remainingDistance) >= longLineLength)
+                longLineFeeders.add(route);
+        }
+
+        int shiftX = RouteUtil.isVertical(dir) ? 0 : (dir.equals(WireDirection.EAST)
+                ? longLineLength : -1 * longLineLength);
+        int shiftY = RouteUtil.isVertical(dir) ? (dir.equals(WireDirection.NORTH)
+                ? longLineLength : -1 * longLineLength) : 0;
+
+        // Automatically assign long lines, as we know they are repeatable
+        HashMap<String, ArrayList<CustomRoute>> endRoutesMap = new HashMap<String, ArrayList<CustomRoute>>();
+        for (CustomRoute feederRoute : longLineFeeders) {
+            JunctionsTracer longLineTracer = new JunctionsTracer(feederRoute.getSnkJunction()
+                    .getWireDestJunction(d));
+            int remainingDistance = RouteUtil.isVertical(dir)
+                    ? snkIntTile.getTileYCoordinate() - d.getDevice().getTile(longLineTracer.get(0).getTileName())
+                        .getTileYCoordinate()
+                    : snkIntTile.getTileXCoordinate() - d.getDevice().getTile(longLineTracer.get(0).getTileName())
+                        .getTileXCoordinate();
+
+            while (Math.abs(remainingDistance) >= longLineLength) {
+                longLineTracer.enJuncs.add(EnteringTileJunction.duplWithShift(d, longLineTracer.get(-1), shiftX,
+                        shiftY));
+
+                remainingDistance -= shiftX;
+                remainingDistance -= shiftY;
+            }
+
+            EnteringTileJunction lastLongLine = longLineTracer.get(-1);
+            longLineTracer.enJuncs.remove(longLineTracer.enJuncs.size() - 1);
+
+            if (!longLineTracer.enJuncs.isEmpty()) {
+                CustomRoute longLineRoute = new CustomRoute(d, longLineTracer.get(0),
+                        lastLongLine.getWireSourceJunction(d), longLineTracer.enJuncs);
+
+                feederRoute = CustomRoute.join(d, feederRoute, longLineRoute);
+            }
+
+            // Search and join end routes
+            if (!endRoutesMap.containsKey(lastLongLine.getNodeName())) {
+                endRoutesMap.put(lastLongLine.getNodeName(), completeRouteTemplates(d, lastLongLine, snkJunc, dir));
+            }
+
+            for (CustomRoute endRoute : endRoutesMap.get(lastLongLine.getNodeName())) {
+                results.add(CustomRoute.join(d, feederRoute, endRoute));
+            }
+        }
+
+        if (results.isEmpty())
+            results = completeRouteTemplates(d, srcJunc, snkJunc, dir);
+
+        // Find and lock nodes which we must route to
+        HashMap<String, Integer> exclusivityMap = new HashMap<String, Integer>();
+        for (CustomRoute route : results) {
+            for (TileJunction tj : route.getRouteTemplate())
+                if (exclusivityMap.containsKey(tj.getNodeName()))
+                    exclusivityMap.replace(tj.getNodeName(), exclusivityMap.get(tj.getNodeName()) + 1);
+                else
+                    exclusivityMap.put(tj.getNodeName(), 1);
+        }
+        for (String nodeName : exclusivityMap.keySet()) {
+            if (exclusivityMap.get(nodeName) == results.size())
+                lock(nodeName);
+        }
+
+        return results;
+    }
+
+    /*
+     * Perform omni-directional BFS search
+     *
+     * Routes returned only have enter/exit junctions filled, but not the specific TileIntPaths between them
+     *
+     * TODO: multi-directional
+     *
+     */
+    public static ArrayList<CustomRoute> createRouteTemplates(Design d, EnteringTileJunction srcJunc,
+                                                              ExitingTileJunction snkJunc) {
+
+        Tile srcIntTile = d.getDevice().getTile(srcJunc.getTileName());
+        Tile snkIntTile = d.getDevice().getTile(snkJunc.getTileName());
+
+        int distX = snkIntTile.getTileXCoordinate() - srcIntTile.getTileXCoordinate();
+        int distY = snkIntTile.getTileYCoordinate() - srcIntTile.getTileYCoordinate();
+
+        WireDirection primHDir = RouteUtil.primaryHDirection(distX);
+        WireDirection primVDir = RouteUtil.primaryVDirection(distY);
+
+        if (primHDir == null)
+            return createRouteTemplates(d, srcJunc, snkJunc, primVDir);
+        if (primVDir == null)
+            return createRouteTemplates(d, srcJunc, snkJunc, primHDir);
+
+        return null;
     }
 }

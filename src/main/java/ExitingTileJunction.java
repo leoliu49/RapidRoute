@@ -27,7 +27,7 @@ public class ExitingTileJunction extends TileJunction implements Comparable<Exit
         return RouteUtil.nodeBeginTransform(d, tileName, wireLength, wireName, direction);
     }
 
-    public EnteringTileJunction getWireDestJunction(Design d, int[] highestSpeeds) {
+    public EnteringTileJunction getWireDestJunction(Design d) {
         if (isSnkJunction)
             return null;
         Tile baseTile = d.getDevice().getTile(getTileName());
@@ -50,8 +50,6 @@ public class ExitingTileJunction extends TileJunction implements Comparable<Exit
         EnteringTileJunction enJunc = new EnteringTileJunction(srcTileName,
                 RouteUtil.nodeEndTransform(d, tileName, wireLength, wireName, direction),
                 RouteUtil.wireEndTransform(d, tileName, wireName), wireLength, direction);
-        enJunc.setHighestSpeeds(highestSpeeds);
-        enJunc.setHighestSpeed(wireLength, direction.ordinal());
         return enJunc;
     }
 
@@ -68,6 +66,10 @@ public class ExitingTileJunction extends TileJunction implements Comparable<Exit
         if (!tileName.equals(o.getTileName()) || !direction.equals(o.getDirection()))
             return 0;
         return wireLength - o.getWireLength();
+    }
+
+    public boolean equals(ExitingTileJunction o) {
+        return nodeName.equals(o.getNodeName());
     }
 
     public static ExitingTileJunction duplWithShift(Design d, ExitingTileJunction ref, int dx, int dy) {

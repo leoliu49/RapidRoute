@@ -210,7 +210,7 @@ public class CustomRoute {
      */
     public static CustomRoute join(Design d, CustomRoute r1, CustomRoute r2) {
         CustomRoute res = new CustomRoute(d, r1.getSrcJunction(), r2.getSnkJunction());
-        ArrayList<TileJunction> routeTemplate = r1.getRouteTemplate();
+        ArrayList<TileJunction> routeTemplate = new ArrayList<TileJunction>(r1.getRouteTemplate());
 
         routeTemplate.addAll(r2.getRouteTemplate());
         res.setRouteTemplate(routeTemplate);

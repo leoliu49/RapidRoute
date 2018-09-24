@@ -220,16 +220,16 @@ public class CustomRouter {
         for (RegisterComponent component : startReg.getComponents()) {
             String intTileName = d.getDevice().getSite(component.getSiteName()).getIntTile().getName();
             for (int i = 0; i < component.getBitWidth(); i++) {
-                globalNodeFootprint.add(intTileName + "/" + component.getInPIPName(i));
-                globalNodeFootprint.add(intTileName + "/" + component.getOutPIPName(i));
+                CustomRoutingCalculator.lock(intTileName + "/" + component.getInPIPName(i));
+                CustomRoutingCalculator.lock(intTileName + "/" + component.getOutPIPName(i));
             }
         }
 
         for (RegisterComponent component : endReg.getComponents()) {
             String intTileName = d.getDevice().getSite(component.getSiteName()).getIntTile().getName();
             for (int i = 0; i < component.getBitWidth(); i++) {
-                globalNodeFootprint.add(intTileName + "/" + component.getInPIPName(i));
-                globalNodeFootprint.add(intTileName + "/" + component.getOutPIPName(i));
+                CustomRoutingCalculator.lock(intTileName + "/" + component.getInPIPName(i));
+                CustomRoutingCalculator.lock(intTileName + "/" + component.getOutPIPName(i));
             }
         }
 
@@ -267,7 +267,6 @@ public class CustomRouter {
             allRoutes.add(CustomRoutingCalculator.createRouteTemplates(d, srcJunctions.get(i),
                     snkJunctions.get(i)));
         }
-
 
         ArrayList<CustomRoute> routes = CustomRoutingCalculator.findBestRouteTemplates(d, allRoutes);
 
@@ -314,21 +313,7 @@ public class CustomRouter {
         }
 
         // Remove in/out PIPs from globalNodeFootprint, since we'll be committing them shortly
-        for (RegisterComponent component : startReg.getComponents()) {
-            String intTileName = d.getDevice().getSite(component.getSiteName()).getIntTile().getName();
-            for (int i = 0; i < component.getBitWidth(); i++) {
-                globalNodeFootprint.remove(intTileName + "/" + component.getInPIPName(i));
-                globalNodeFootprint.remove(intTileName + "/" + component.getOutPIPName(i));
-            }
-        }
-
-        for (RegisterComponent component : endReg.getComponents()) {
-            String intTileName = d.getDevice().getSite(component.getSiteName()).getIntTile().getName();
-            for (int i = 0; i < component.getBitWidth(); i++) {
-                globalNodeFootprint.remove(intTileName + "/" + component.getInPIPName(i));
-                globalNodeFootprint.remove(intTileName + "/" + component.getOutPIPName(i));
-            }
-        }
+        CustomRoutingCalculator.flushNodeLock();
 
         footprint.addToNodeFootprint(CustomRouter.globalNodeFootprint);
 

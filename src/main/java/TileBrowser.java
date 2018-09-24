@@ -1,5 +1,6 @@
 import com.xilinx.rapidwright.design.Design;
 import com.xilinx.rapidwright.design.PIP;
+import com.xilinx.rapidwright.device.Tile;
 
 import java.lang.reflect.Array;
 import java.util.*;
@@ -38,6 +39,9 @@ public class TileBrowser {
 
     public static final int MAX_BFS_DEPTH = 8;
     public static Set<String> globalNodeFootprint;
+
+    public static final int LONG_LINE_Y = 12;
+    public static final int LONG_LINE_X = 6;
 
     static {
         if (globalNodeFootprint == null)
@@ -114,36 +118,6 @@ public class TileBrowser {
     }
 
     public static ArrayList<ExitingTileJunction> findReachableExits(Design d, String tileName,
-                                                                    EnteringTileJunction enJunc,
-                                                                    ArrayList<WireDirection> dirs) {
-        ArrayList<ExitingTileJunction> results = new ArrayList<ExitingTileJunction>();
-        ArrayList<ExitingTileJunction> exJuncs = findReachableExits(d, tileName, enJunc);
-
-        for (ExitingTileJunction exJunc : exJuncs) {
-            for (WireDirection dir : dirs) {
-                if (exJunc.getDirection().equals(dir))
-                    results.add(exJunc);
-            }
-        }
-
-        return results;
-    }
-
-    public static ArrayList<ExitingTileJunction> findReachableExits(Design d, String tileName,
-                                                                    EnteringTileJunction enJunc, int wireLength,
-                                                                    WireDirection dir) {
-        ArrayList<ExitingTileJunction> results = new ArrayList<ExitingTileJunction>();
-        ArrayList<ExitingTileJunction> exJuncs = findReachableExits(d, tileName, enJunc, dir);
-
-        for (ExitingTileJunction exJunc : exJuncs) {
-            if (exJunc.getWireLength() == wireLength)
-                results.add(exJunc);
-        }
-
-        return results;
-    }
-
-    public static ArrayList<ExitingTileJunction> findReachableExits(Design d, String tileName,
                                                                     EnteringTileJunction enJunc, int minWireLength,
                                                                     int maxWireLength, WireDirection dir) {
         ArrayList<ExitingTileJunction> results = new ArrayList<ExitingTileJunction>();
@@ -157,18 +131,21 @@ public class TileBrowser {
         return results;
     }
 
-    /*
-     * Length restriction array matches the ordinal number
-     */
     public static ArrayList<ExitingTileJunction> findReachableExits(Design d, String tileName,
-                                                                     EnteringTileJunction enJunc,
-                                                                     int[] minWireLengths, int[] maxWireLengths) {
+                                                                    EnteringTileJunction enJunc,
+                                                                    ArrayList<WireDirection> blackList) {
         ArrayList<ExitingTileJunction> results = new ArrayList<ExitingTileJunction>();
         ArrayList<ExitingTileJunction> exJuncs = findReachableExits(d, tileName, enJunc);
 
         for (ExitingTileJunction exJunc : exJuncs) {
-            if (exJunc.getWireLength() >= minWireLengths[exJunc.getDirection().ordinal()]
-                    && exJunc.getWireLength() <= maxWireLengths[exJunc.getDirection().ordinal()])
+            boolean isBlacklisted = false;
+            for (WireDirection dir : blackList) {
+                if (dir.equals(exJunc.getDirection())) {
+                    isBlacklisted = true;
+                    break;
+                }
+            }
+            if (!isBlacklisted)
                 results.add(exJunc);
         }
 
@@ -227,48 +204,48 @@ public class TileBrowser {
         return results;
     }
 
-    public static ArrayList<EnteringTileJunction> findReachableEntrances(Design d, String tileName,
-                                                                         ExitingTileJunction exJunc,
-                                                                         ArrayList<WireDirection> dirs) {
-        ArrayList<EnteringTileJunction> results = new ArrayList<EnteringTileJunction>();
-        ArrayList<EnteringTileJunction> enJuncs = findReachableEntrances(d, tileName, exJunc);
-
-        for (EnteringTileJunction enJunc : enJuncs) {
-            for (WireDirection dir : dirs) {
-                if (enJunc.getDirection().equals(dir))
-                    results.add(enJunc);
-            }
-        }
-
-        return results;
-    }
-
-    public static ArrayList<EnteringTileJunction> findReachableEntrances(Design d, String tileName,
-                                                                         ExitingTileJunction exJunc, int wireLength,
-                                                                         WireDirection dir) {
+    public static ArrayList<EnteringTileJunction> findLongLineEntrances(Design d, String tileName,
+                                                                        ExitingTileJunction exJunc,
+                                                                        WireDirection dir) {
         ArrayList<EnteringTileJunction> results = new ArrayList<EnteringTileJunction>();
         ArrayList<EnteringTileJunction> enJuncs = findReachableEntrances(d, tileName, exJunc, dir);
 
+        int longLine = RouteUtil.isVertical(dir) ? LONG_LINE_Y : LONG_LINE_X;
         for (EnteringTileJunction enJunc : enJuncs) {
-            if (enJunc.getWireLength() == wireLength)
+            if (enJunc.getWireLength() == longLine)
                 results.add(enJunc);
         }
 
         return results;
     }
 
-    public static ArrayList<EnteringTileJunction> findReachableEntrances(Design d, String tileName,
-                                                                         ExitingTileJunction exJunc, int minWireLength,
-                                                                         int maxWireLength, WireDirection dir) {
-        ArrayList<EnteringTileJunction> results = new ArrayList<EnteringTileJunction>();
-        ArrayList<EnteringTileJunction> enJuncs = findReachableEntrances(d, tileName, exJunc, dir);
+    public static boolean isJunctionRepeatable(Design d, EnteringTileJunction enJunc) {
 
-        for (EnteringTileJunction enJunc : enJuncs) {
-            if (enJunc.getWireLength() >= minWireLength && enJunc.getWireLength() <= maxWireLength)
-                results.add(enJunc);
-        }
+        ExitingTileJunction beg = enJunc.getWireSourceJunction(d);
 
-        return results;
+        Tile currTile = d.getDevice().getTile(enJunc.getTileName());
+        Tile begTile = d.getDevice().getTile(beg.getTileName());
+
+        int dx = begTile.getTileXCoordinate() - currTile.getTileXCoordinate();
+        int dy  = begTile.getTileYCoordinate() - currTile.getTileYCoordinate();
+        EnteringTileJunction enJuncDupl = EnteringTileJunction.duplWithShift(d, enJunc, dx, dy);
+
+        return isJunctionReachable(d, enJuncDupl, beg);
+    }
+
+    public static boolean isJunctionRepeatable(Design d, ExitingTileJunction exJunc) {
+
+        EnteringTileJunction end = exJunc.getWireDestJunction(d);
+
+        Tile currTile = d.getDevice().getTile(exJunc.getTileName());
+        Tile endTile = d.getDevice().getTile(end.getTileName());
+
+        int dx = endTile.getTileXCoordinate() - currTile.getTileXCoordinate();
+        int dy  = endTile.getTileYCoordinate() - currTile.getTileYCoordinate();
+        ExitingTileJunction exJuncDupl = ExitingTileJunction.duplWithShift(d, exJunc, dx, dy);
+
+        return isJunctionReachable(d, end, exJuncDupl);
+
     }
 
     public static boolean isJunctionReachable(Design d, EnteringTileJunction enJunc, ExitingTileJunction exJunc) {
@@ -283,7 +260,7 @@ public class TileBrowser {
         while (!nodeQueue.isEmpty()) {
             NodeDepthPair trav = nodeQueue.remove();
             if (trav.getDepth() >= TileBrowser.MAX_BFS_DEPTH)
-                continue;;
+                continue;
             for (PIP pip : browsePIPs(d, tileName, trav.getNodeName(), true)) {
                 String nextNodeName = pip.getEndNode().getName();
 

@@ -54,16 +54,26 @@ public class RouteUtil {
         return null;
     }
 
-    public static Site regSiteOfTile(Tile tile) {
-        // Not sure if this is valid 100% of the time
-        Site[] sites = tile.getSites();
-        return sites[0];
+    public static WireDirection primaryHDirection(int dx) {
+        if (dx == 0)
+            return null;
+        else if (dx > 0)
+            return WireDirection.EAST;
+        else
+            return WireDirection.WEST;
     }
 
-    public static String regSiteOfTile(Design d, String tileName) {
-        Tile tile = d.getDevice().getTile(tileName);
-        Site[] sites = tile.getSites();
-        return sites[0].getName();
+    public static WireDirection primaryVDirection(int dy) {
+        if (dy == 0)
+            return null;
+        else if (dy > 0)
+            return WireDirection.NORTH;
+        else
+            return WireDirection.SOUTH;
+    }
+
+    public static boolean isVertical(WireDirection dir) {
+        return (dir.equals(WireDirection.NORTH) || dir.equals(WireDirection.SOUTH));
     }
 
     public static WireDirection extractExitWirePIPDirection(Design d, String tileName, String exitWireName) {

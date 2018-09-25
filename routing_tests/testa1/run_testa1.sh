@@ -8,10 +8,10 @@ declare -a dist=( 1 4 16 64 )
 rm -f routing_tests/testa1/results.txt
 cd ../../
 
-cp src/main/reg_bank/reg_1d_4b_0.dcp src/main/resources/components/type0.dcp
-cp src/main/reg_bank/reg_1d_4b_1.dcp src/main/resources/components/type1.dcp
-cp src/main/reg_bank/reg_1d_2b_0.dcp src/main/resources/components/type2.dcp
-cp src/main/reg_bank/reg_1d_2b_1.dcp src/main/resources/components/type3.dcp
+cp src/main/resources/reg_bank/reg_1d_4b_0.dcp src/main/resources/components/type0.dcp
+cp src/main/resources/reg_bank/reg_1d_4b_1.dcp src/main/resources/components/type1.dcp
+cp src/main/resources/reg_bank/reg_1d_2b_0.dcp src/main/resources/components/type2.dcp
+cp src/main/resources/reg_bank/reg_1d_2b_1.dcp src/main/resources/components/type3.dcp
 
 cp routing_tests/testa1/components.conf src/main/resources/register_components.conf
 

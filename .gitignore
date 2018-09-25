@@ -12,3 +12,4 @@ vivado.log
 .settings/
 .DS_STORE
 build/
+routing_tests/

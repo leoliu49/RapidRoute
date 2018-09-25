@@ -22,30 +22,34 @@ do
         cp routing_tests/testa1/placements/testa1_"$bit"b_place_N"$sep"_0.conf src/main/resources/placements.conf
         cp routing_tests/testa1/routes/testa1_"$bit"b_route.conf src/main/resources/routes.conf
 
+        echo "$bit N $sep 0"
         date >> routing_tests/testa1/results.txt
-        time java CustomDesign --out regpair_"$bit"b_N"$sep"_0
+        time java CustomDesign --out regpair_"$bit"b_N"$sep"_0 >> routing_tests/testa1/results.txt
         date >> routing_tests/testa1/results.txt
 
         cp routing_tests/testa1/placements/testa1_"$bit"b_place_N"$sep"_1.conf src/main/resources/placements.conf
         cp routing_tests/testa1/routes/testa1_"$bit"b_route.conf src/main/resources/routes.conf
 
+        echo "$bit N $sep 1"
         date >> routing_tests/testa1/results.txt
-        time java CustomDesign --out regpair_"$bit"b_N"$sep"_1
+        time java CustomDesign --out regpair_"$bit"b_N"$sep"_1 >> routing_tests/testa1/results.txt
         date >> routing_tests/testa1/results.txt
 
         cp routing_tests/testa1/placements/testa1_"$bit"b_place_S"$sep"_0.conf src/main/resources/placements.conf
         cp routing_tests/testa1/routes/testa1_"$bit"b_route.conf src/main/resources/routes.conf
 
+        echo "$bit S $sep 0"
         date >> routing_tests/testa1/results.txt
-        time java CustomDesign --out regpair_"$bit"b_S"$sep"_0
+        time java CustomDesign --out regpair_"$bit"b_S"$sep"_0 >> routing_tests/testa1/results.txt
         date >> routing_tests/testa1/results.txt
 
 
         cp routing_tests/testa1/placements/testa1_"$bit"b_place_S"$sep"_1.conf src/main/resources/placements.conf
         cp routing_tests/testa1/routes/testa1_"$bit"b_route.conf src/main/resources/routes.conf
 
+        echo "$bit S $sep 1"
         date >> routing_tests/testa1/results.txt
-        time java CustomDesign --out regpair_"$bit"b_S"$sep"_1
+        time java CustomDesign --out regpair_"$bit"b_S"$sep"_1 >> routing_tests/testa1/results.txt
         date >> routing_tests/testa1/results.txt
 
 

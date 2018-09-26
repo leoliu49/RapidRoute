@@ -132,20 +132,18 @@ public class TileBrowser {
     }
 
     public static ArrayList<ExitingTileJunction> findReachableExits(Design d, String tileName,
-                                                                    EnteringTileJunction enJunc,
-                                                                    ArrayList<WireDirection> blackList) {
+                                                                    EnteringTileJunction enJunc, int minWL1, int maxWL1,
+                                                                    WireDirection dir1, int minWL2, int maxWL2,
+                                                                    WireDirection dir2) {
         ArrayList<ExitingTileJunction> results = new ArrayList<ExitingTileJunction>();
         ArrayList<ExitingTileJunction> exJuncs = findReachableExits(d, tileName, enJunc);
 
         for (ExitingTileJunction exJunc : exJuncs) {
-            boolean isBlacklisted = false;
-            for (WireDirection dir : blackList) {
-                if (dir.equals(exJunc.getDirection())) {
-                    isBlacklisted = true;
-                    break;
-                }
-            }
-            if (!isBlacklisted)
+            if (exJunc.getDirection().equals(dir1)
+                    && exJunc.getWireLength() >= minWL1 && exJunc.getWireLength() <= maxWL1)
+                results.add(exJunc);
+            else if (exJunc.getDirection().equals(dir2)
+                    && exJunc.getWireLength() >= minWL2 && exJunc.getWireLength() <= maxWL2)
                 results.add(exJunc);
         }
 

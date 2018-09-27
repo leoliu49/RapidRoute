@@ -51,6 +51,8 @@ public class CustomRoutingCalculator {
         }
     }
 
+    private static final int longLineTolerance = 3;
+    private static final int depthTolerance = 3;
     private static Set<String> nodeLock = new HashSet<>();
 
     public static void flushNodeLock() {
@@ -469,13 +471,14 @@ public class CustomRoutingCalculator {
 
         int lastDepth = 0;
 
-        while (!queue.isEmpty()) {
+        // Ensures that BFS captures not too many long lines, which may drastically slow search time
+        while (!queue.isEmpty() && results.size() <= longLineTolerance) {
             JunctionsTracer routeTemplate = queue.remove();
             int size = routeTemplate.enJuncs.size();
             EnteringTileJunction enJunc = routeTemplate.enJuncs.get(size - 1);
 
             if (size > maxDepth)
-                continue;
+                break;
 
             if (size > lastDepth) {
                 lastDepth = size;
@@ -511,8 +514,11 @@ public class CustomRoutingCalculator {
                         && TileBrowser.isJunctionRepeatable(d, exJunc) && !nodeLock.contains(exJunc.getNodeName())) {
                     results.add(new CustomRoute(d, srcJunc, exJunc, new JunctionsTracer(routeTemplate).enJuncs));
                     isLongLineFound = true;
-                    // Let all other routes within the same depth finish
-                    maxDepth = size;
+
+                    // Stop search only when a zero-score long line has been found (otherwise no guarantee of success)
+                    if (score == 0)
+                        // Let all other routes within the same depth finish
+                        maxDepth = size;
                 }
             }
             if (isLongLineFound)
@@ -545,18 +551,16 @@ public class CustomRoutingCalculator {
     }
 
     /*
-     * Bi-directional BFS from source to sink. Modifications are added so that BFS is sped up.
+     * Omni-directional BFS from source to sink. Modifications are added so that BFS is sped up.
      */
-    private static ArrayList<CustomRoute> completeRouteTemplates(Design d, EnteringTileJunction srcJunc,
-                                                                 ExitingTileJunction snkJunc, WireDirection hDir,
-                                                                 WireDirection vDir) {
+    private static ArrayList<CustomRoute> completeEndRouteTemplates(Design d, EnteringTileJunction srcJunc,
+                                                                    ExitingTileJunction snkJunc) {
         ArrayList<CustomRoute> results = new ArrayList<CustomRoute>();
 
         Tile srcIntTile = d.getDevice().getTile(srcJunc.getTileName());
         Tile snkIntTile = d.getDevice().getTile(snkJunc.getTileName());
 
-        // Having a default max depth is not shown to be helpful
-        int maxDepth = 99;
+        int maxDepth = depthTolerance;
 
         RouterLog.log("Running BFS for " + srcJunc + " --> " + snkJunc + ".", RouterLog.Level.NORMAL);
         RouterLog.indent();
@@ -579,8 +583,10 @@ public class CustomRoutingCalculator {
             int size = routeTemplate.enJuncs.size();
             EnteringTileJunction enJunc = routeTemplate.enJuncs.get(size - 1);
 
+            //System.out.println(enJunc);
+
             if (size > maxDepth)
-                continue;
+                break;
 
             if (size > lastDepth) {
                 lastDepth = size;
@@ -613,27 +619,7 @@ public class CustomRoutingCalculator {
             else if (size == maxDepth)
                 continue;
 
-            // To speed up search time, ignore hops which are slower
-            ArrayList<ExitingTileJunction> exits;
-            if (remainingY == 0) {
-                if (routeTemplate.fastestX > remainingX)
-                    exits = TileBrowser.findReachableExits(d, enJunc.getTileName(), enJunc, 1, remainingX, hDir);
-                else
-                    exits = TileBrowser.findReachableExits(d, enJunc.getTileName(), enJunc, routeTemplate.fastestX,
-                            remainingX, hDir);
-            }
-            else if (remainingX == 0)
-                if (routeTemplate.fastestY > remainingY)
-                    exits = TileBrowser.findReachableExits(d, enJunc.getTileName(), enJunc, 1, remainingY, vDir);
-                else
-                    exits = TileBrowser.findReachableExits(d, enJunc.getTileName(), enJunc, routeTemplate.fastestY,
-                            remainingY, vDir);
-            else {
-                int lowerBoundH = routeTemplate.fastestX > remainingX ? 1: routeTemplate.fastestX;
-                int lowerBoundV = routeTemplate.fastestY > remainingY ? 1: routeTemplate.fastestY;
-                exits = TileBrowser.findReachableExits(d, enJunc.getTileName(), enJunc, lowerBoundH, remainingX, hDir,
-                        lowerBoundV, remainingY, vDir);
-            }
+            ArrayList<ExitingTileJunction> exits = TileBrowser.findReachableExits(d, enJunc.getTileName(), enJunc);
 
             for (ExitingTileJunction exit : exits) {
                 JunctionsTracer rtCopy = new JunctionsTracer(routeTemplate);
@@ -659,15 +645,14 @@ public class CustomRoutingCalculator {
     /*
      * Singly directional BFS from source to sink. Modifications are added so that BFS is sped up.
      */
-    private static ArrayList<CustomRoute> completeRouteTemplates(Design d, EnteringTileJunction srcJunc,
-                                                                 ExitingTileJunction snkJunc, WireDirection dir) {
+    private static ArrayList<CustomRoute> completeEndRouteTemplates(Design d, EnteringTileJunction srcJunc,
+                                                                    ExitingTileJunction snkJunc, WireDirection dir) {
         ArrayList<CustomRoute> results = new ArrayList<CustomRoute>();
 
         boolean isVert = RouteUtil.isVertical(dir);
         Tile srcIntTile = d.getDevice().getTile(srcJunc.getTileName());
         Tile snkIntTile = d.getDevice().getTile(snkJunc.getTileName());
 
-        // Having a default max depth is not shown to be helpful
         int maxDepth = 99;
 
         RouterLog.log("Running BFS for " + srcJunc + " --> " + snkJunc + ".", RouterLog.Level.NORMAL);
@@ -692,7 +677,7 @@ public class CustomRoutingCalculator {
             EnteringTileJunction enJunc = routeTemplate.enJuncs.get(size - 1);
 
             if (size > maxDepth)
-                continue;
+                break;
 
             if (size > lastDepth) {
                 lastDepth = size;
@@ -755,8 +740,136 @@ public class CustomRoutingCalculator {
     }
 
     /*
+     * Helper class which deals with the nightmare of completing long line routing
+     */
+    private static ArrayList<CustomRoute> completeLongLineRouteTemplates(Design d, ExitingTileJunction snkJunc,
+                                                                         ArrayList<CustomRoute> longLineFeeders,
+                                                                         ArrayList<CustomRoute> longLineFeederSubs,
+                                                                         WireDirection dir,
+                                                                         HashMap<String, ArrayList<CustomRoute>> endRoutesMap) {
+        ArrayList<CustomRoute> results = new ArrayList<CustomRoute>();
+        Tile snkIntTile = d.getDevice().getTile(snkJunc.getTileName());
+
+        int longLineLength = RouteUtil.isVertical(dir) ? TileBrowser.LONG_LINE_Y : TileBrowser.LONG_LINE_X;
+        int shiftX = RouteUtil.isVertical(dir) ? 0 : (dir.equals(WireDirection.EAST)
+                ? longLineLength : -1 * longLineLength);
+        int shiftY = RouteUtil.isVertical(dir) ? (dir.equals(WireDirection.NORTH)
+                ? longLineLength : -1 * longLineLength) : 0;
+
+        // Automatically assign long lines, as we know they are repeatable
+        for (CustomRoute feederRoute : longLineFeeders) {
+            JunctionsTracer longLineTracer = new JunctionsTracer(feederRoute.getSnkJunction()
+                    .getWireDestJunction(d));
+            int remainingDistance = RouteUtil.isVertical(dir)
+                    ? snkIntTile.getTileYCoordinate() - d.getDevice().getTile(longLineTracer.get(0).getTileName())
+                    .getTileYCoordinate()
+                    : snkIntTile.getTileXCoordinate() - d.getDevice().getTile(longLineTracer.get(0).getTileName())
+                    .getTileXCoordinate();
+
+            while (Math.abs(remainingDistance) >= longLineLength) {
+                longLineTracer.enJuncs.add(EnteringTileJunction.duplWithShift(d, longLineTracer.get(-1), shiftX,
+                        shiftY));
+
+                remainingDistance -= shiftX;
+                remainingDistance -= shiftY;
+            }
+
+            // Join long line route with feeder route
+            EnteringTileJunction lastLongLine = longLineTracer.get(-1);
+            longLineTracer.enJuncs.remove(longLineTracer.enJuncs.size() - 1);
+            CustomRoute longLineRoute;
+            if (!longLineTracer.enJuncs.isEmpty()) {
+                longLineRoute = CustomRoute.join(d, feederRoute, new CustomRoute(d, longLineTracer.get(0),
+                        lastLongLine.getWireSourceJunction(d), longLineTracer.enJuncs));
+            }
+            else {
+                // Case where no long lines were stacked
+                longLineRoute = feederRoute;
+            }
+
+            // Search and join end routes
+            if (!endRoutesMap.containsKey(lastLongLine.getNodeName())) {
+                ArrayList<CustomRoute> endRoutes = completeEndRouteTemplates(d, lastLongLine, snkJunc);
+
+                // Last-ditch effort for no end routes found: back up to previous long line and try again
+                if (endRoutes.isEmpty() && longLineTracer.enJuncs.size() != 0) {
+                    RouterLog.log("Failed to route end of long line to sink junction. Backing up and trying at a further distance",
+                            RouterLog.Level.VERBOSE);
+
+                    lastLongLine = longLineTracer.get(-1);
+                    longLineTracer.enJuncs.remove(longLineTracer.enJuncs.size() - 1);
+
+                    if (!longLineTracer.enJuncs.isEmpty())
+                        longLineRoute = CustomRoute.join(d, feederRoute, new CustomRoute(d, longLineTracer.get(0),
+                                lastLongLine.getWireSourceJunction(d), longLineTracer.enJuncs));
+                    else
+                        longLineRoute = feederRoute;
+
+                    endRoutes = completeEndRouteTemplates(d, lastLongLine, snkJunc);
+
+                }
+
+                endRoutesMap.put(lastLongLine.getNodeName(), endRoutes);
+            }
+
+            for (CustomRoute endRoute : endRoutesMap.get(lastLongLine.getNodeName())) {
+                results.add(CustomRoute.join(d, longLineRoute, endRoute));
+            }
+        }
+
+        if (!results.isEmpty())
+            return results;
+
+        if (!longLineFeederSubs.isEmpty())
+            RouterLog.log("Main long line feeders unavailable. Attempting sub-optimal line feeders.",
+                    RouterLog.Level.VERBOSE);
+        // Main long line feeders have proven invalid; use sub-optimal feeder subs instead
+        for (CustomRoute feederRoute : longLineFeederSubs) {
+            JunctionsTracer longLineTracer = new JunctionsTracer(feederRoute.getSnkJunction()
+                    .getWireDestJunction(d));
+            int remainingDistance = RouteUtil.isVertical(dir)
+                    ? snkIntTile.getTileYCoordinate() - d.getDevice().getTile(longLineTracer.get(0).getTileName())
+                    .getTileYCoordinate()
+                    : snkIntTile.getTileXCoordinate() - d.getDevice().getTile(longLineTracer.get(0).getTileName())
+                    .getTileXCoordinate();
+
+            while (Math.abs(remainingDistance) >= longLineLength) {
+                longLineTracer.enJuncs.add(EnteringTileJunction.duplWithShift(d, longLineTracer.get(-1), shiftX,
+                        shiftY));
+
+                remainingDistance -= shiftX;
+                remainingDistance -= shiftY;
+            }
+
+            // Join long line route with feeder route
+            EnteringTileJunction lastLongLine = longLineTracer.get(-1);
+            longLineTracer.enJuncs.remove(longLineTracer.enJuncs.size() - 1);
+            CustomRoute longLineRoute;
+            if (!longLineTracer.enJuncs.isEmpty()) {
+                longLineRoute = CustomRoute.join(d, feederRoute, new CustomRoute(d, longLineTracer.get(0),
+                        lastLongLine.getWireSourceJunction(d), longLineTracer.enJuncs));
+            }
+            else {
+                // Case where no long lines were stacked
+                longLineRoute = feederRoute;
+            }
+
+            // Search and join end routes
+            if (!endRoutesMap.containsKey(lastLongLine.getNodeName())) {
+                endRoutesMap.put(lastLongLine.getNodeName(), completeEndRouteTemplates(d, lastLongLine, snkJunc));
+            }
+
+            for (CustomRoute endRoute : endRoutesMap.get(lastLongLine.getNodeName())) {
+                results.add(CustomRoute.join(d, longLineRoute, endRoute));
+            }
+        }
+
+        return results;
+    }
+
+    /*
      * Analyzes whether long lines are necessary to be routed:
-     * 1. Too close to use long lines: call BFS with completeRouteTemplates
+     * 1. Too close to use long lines: call BFS with completeEndRouteTemplates
      * 2. Route to nearest long lines, and then route from long lines back to sink
      */
     public static ArrayList<CustomRoute> createRouteTemplates(Design d, EnteringTileJunction srcJunc,
@@ -773,10 +886,17 @@ public class CustomRoutingCalculator {
 
         int longLineLength = RouteUtil.isVertical(dir) ? TileBrowser.LONG_LINE_Y : TileBrowser.LONG_LINE_X;
 
+        /*
+         * Step 0: If separation is low enough that long lines are not beneficial, do single-dir BFS
+         */
         if (Math.abs(totalDistance) < longLineLength)
-            return completeRouteTemplates(d, srcJunc, snkJunc, dir);
+            return completeEndRouteTemplates(d, srcJunc, snkJunc, dir);
 
+        /*
+         * Step 1: Find all routes which feed into long lines
+         */
         ArrayList<CustomRoute> longLineFeeders = new ArrayList<CustomRoute>();
+        ArrayList<CustomRoute> longLineFeederSubs = new ArrayList<>();
         boolean lowScoreLongLineExists = false;
         for (CustomRoute route : findNearestLongLines(d, srcJunc, dir)) {
             // Determine if long lines will overshoot
@@ -796,80 +916,35 @@ public class CustomRoutingCalculator {
 
             if (Math.abs(remainingDistance) >= longLineLength) {
                 if (score == 0) {
-                    if (!lowScoreLongLineExists)
+                    if (!lowScoreLongLineExists) {
+                        longLineFeederSubs.addAll(longLineFeeders);
                         longLineFeeders.clear();
+                    }
                     longLineFeeders.add(route);
                     lowScoreLongLineExists = true;
                 }
                 else {
                     if (!lowScoreLongLineExists)
                         longLineFeeders.add(route);
+                    else
+                        longLineFeederSubs.add(route);
                 }
             }
         }
 
-        int shiftX = RouteUtil.isVertical(dir) ? 0 : (dir.equals(WireDirection.EAST)
-                ? longLineLength : -1 * longLineLength);
-        int shiftY = RouteUtil.isVertical(dir) ? (dir.equals(WireDirection.NORTH)
-                ? longLineLength : -1 * longLineLength) : 0;
-
-        // Automatically assign long lines, as we know they are repeatable
+        /*
+         * Step 2: Since long lines are infinitely repeatable, stack +12/+6 lines as much as we can, for each feeder
+         */
         HashMap<String, ArrayList<CustomRoute>> endRoutesMap = new HashMap<String, ArrayList<CustomRoute>>();
-        for (CustomRoute feederRoute : longLineFeeders) {
-            JunctionsTracer longLineTracer = new JunctionsTracer(feederRoute.getSnkJunction()
-                    .getWireDestJunction(d));
-            int remainingDistance = RouteUtil.isVertical(dir)
-                    ? snkIntTile.getTileYCoordinate() - d.getDevice().getTile(longLineTracer.get(0).getTileName())
-                        .getTileYCoordinate()
-                    : snkIntTile.getTileXCoordinate() - d.getDevice().getTile(longLineTracer.get(0).getTileName())
-                        .getTileXCoordinate();
+        results = completeLongLineRouteTemplates(d, snkJunc, longLineFeeders, longLineFeederSubs, dir, endRoutesMap);
 
-            while (Math.abs(remainingDistance) >= longLineLength) {
-                longLineTracer.enJuncs.add(EnteringTileJunction.duplWithShift(d, longLineTracer.get(-1), shiftX,
-                        shiftY));
-
-                remainingDistance -= shiftX;
-                remainingDistance -= shiftY;
-            }
-
-            EnteringTileJunction lastLongLine = longLineTracer.get(-1);
-            longLineTracer.enJuncs.remove(longLineTracer.enJuncs.size() - 1);
-
-            if (!longLineTracer.enJuncs.isEmpty()) {
-                CustomRoute longLineRoute = new CustomRoute(d, longLineTracer.get(0),
-                        lastLongLine.getWireSourceJunction(d), longLineTracer.enJuncs);
-
-                feederRoute = CustomRoute.join(d, feederRoute, longLineRoute);
-            }
-
-            // Search and join end routes
-            if (!endRoutesMap.containsKey(lastLongLine.getNodeName())) {
-                int distX = snkIntTile.getTileXCoordinate()
-                        - d.getDevice().getTile(lastLongLine.getTileName()).getTileXCoordinate();
-                int distY = snkIntTile.getTileYCoordinate()
-                        - d.getDevice().getTile(lastLongLine.getTileName()).getTileYCoordinate();
-                if (distX == 0) {
-                    endRoutesMap.put(lastLongLine.getNodeName(), completeRouteTemplates(d, lastLongLine, snkJunc,
-                            (distY > 0) ? WireDirection.NORTH : WireDirection.SOUTH));
-                }
-                else if (distY == 0)
-                    endRoutesMap.put(lastLongLine.getNodeName(), completeRouteTemplates(d, lastLongLine, snkJunc,
-                            (distX > 0) ? WireDirection.EAST : WireDirection.WEST));
-                else
-                    endRoutesMap.put(lastLongLine.getNodeName(), completeRouteTemplates(d, lastLongLine, snkJunc,
-                            (distX > 0) ? WireDirection.EAST : WireDirection.WEST,
-                            (distY > 0) ? WireDirection.NORTH : WireDirection.SOUTH));
-            }
-
-            for (CustomRoute endRoute : endRoutesMap.get(lastLongLine.getNodeName())) {
-                results.add(CustomRoute.join(d, feederRoute, endRoute));
-            }
+        // In the case where long line routing is unsuccessful, do basic single-dir BFS
+        if (results.isEmpty()) {
+            RouterLog.log("Long line routing failed. Performing directional BFS instead.", RouterLog.Level.VERBOSE);
+            results = completeEndRouteTemplates(d, srcJunc, snkJunc, dir);
         }
 
-        if (results.isEmpty())
-            results = completeRouteTemplates(d, srcJunc, snkJunc, dir);
-
-        // Find and lock nodes which we must route to
+        // Find and lock nodes which we must have exclusive rights to
         HashMap<String, Integer> exclusivityMap = new HashMap<String, Integer>();
         for (CustomRoute route : results) {
             for (TileJunction tj : route.getRouteTemplate())
@@ -911,6 +986,7 @@ public class CustomRoutingCalculator {
         if (primVDir == null)
             return createRouteTemplates(d, srcJunc, snkJunc, primHDir);
 
+        // TODO:
         return null;
     }
 }

@@ -5,8 +5,8 @@ declare -a bw=( "2" "4" "6" "8" )
 
 declare -a dist=( 1 4 16 64 )
 
-rm -f routing_tests/testa1/results.txt
 cd ../../
+rm -f routing_tests/testa1/results.txt
 
 cp src/main/resources/reg_bank/reg_1d_4b_0.dcp src/main/resources/components/type0.dcp
 cp src/main/resources/reg_bank/reg_1d_4b_1.dcp src/main/resources/components/type1.dcp

@@ -22,6 +22,8 @@ public class RouteUtil {
             return "W";
         case EAST:
             return "E";
+        case SELF:
+            return "∞";
         }
         return null;
     }
@@ -35,6 +37,8 @@ public class RouteUtil {
             return WireDirection.WEST;
         if (s.equals("E"))
             return WireDirection.EAST;
+        if (s.equals("∞"))
+            return WireDirection.SELF;
         return null;
     }
 
@@ -50,36 +54,19 @@ public class RouteUtil {
             return WireDirection.EAST;
         case EAST:
             return WireDirection.WEST;
+        case SELF:
+            return WireDirection.SELF;
         }
         return null;
     }
 
-    public static WireDirection primaryHDirection(int dx) {
-        if (dx == 0)
-            return null;
-        else if (dx > 0)
-            return WireDirection.EAST;
-        else
-            return WireDirection.WEST;
-    }
-
-    public static WireDirection primaryVDirection(int dy) {
-        if (dy == 0)
-            return null;
-        else if (dy > 0)
-            return WireDirection.NORTH;
-        else
-            return WireDirection.SOUTH;
-    }
-
-    public static boolean isVertical(WireDirection dir) {
-        return (dir.equals(WireDirection.NORTH) || dir.equals(WireDirection.SOUTH));
-    }
-
-    public static WireDirection extractExitWirePIPDirection(Design d, String tileName, String exitWireName) {
+    /*
+     * UNRELIABLE
+     */
+    public static WireDirection extractExitWireDirection(Design d, String tileName, String exitWireName) {
         Tile baseTile = d.getDevice().getTile(tileName);
         Tile offsetTile = null;
-        for (PIP pip : baseTile.getPIPs()) {
+        for (PIP pip : FabricBrowser.getTilePIPs(d, tileName)) {
             Wire wire = new Wire(baseTile, pip.getStartWireName());
             if (wire.getStartWire().getWireName().equals(exitWireName)) {
                 offsetTile = wire.getStartWire().getTile();
@@ -91,14 +78,37 @@ public class RouteUtil {
         if (baseTile.getName().equals(offsetTile.getName()))
             return null;
         if (baseTile.getTileXCoordinate() == offsetTile.getTileXCoordinate()) {
-            return (baseTile.getTileYCoordinate() > offsetTile.getTileYCoordinate()) ? WireDirection.NORTH : WireDirection.SOUTH;
+            return baseTile.getTileYCoordinate() > offsetTile.getTileYCoordinate()
+                    ? WireDirection.NORTH : WireDirection.SOUTH;
         }
         else {
-            return (baseTile.getTileXCoordinate() > offsetTile.getTileXCoordinate()) ? WireDirection.EAST : WireDirection.WEST;
+            return baseTile.getTileXCoordinate() > offsetTile.getTileXCoordinate()
+                    ? WireDirection.EAST : WireDirection.WEST;
         }
     }
 
-    public static WireDirection extractEnterWirePIPDirection(Design d, String tileName, String enterWireName) {
+    /*
+     * UNRELIABLE
+     */
+    public static int extractExitWireLength(Design d, String tileName, String exitWireName) {
+        Tile baseTile = d.getDevice().getTile(tileName);
+        Tile offsetTile = null;
+        for (PIP pip : FabricBrowser.getTilePIPs(d, tileName)) {
+            Wire wire = new Wire(baseTile, pip.getStartWireName());
+            if (wire.getStartWire().getWireName().equals(exitWireName)) {
+                offsetTile = wire.getStartWire().getTile();
+                break;
+            }
+        }
+
+        if (offsetTile == null)
+            return 0;
+        return (baseTile.getTileXCoordinate() == offsetTile.getTileXCoordinate())
+                ? Math.abs(baseTile.getTileYCoordinate() - offsetTile.getTileYCoordinate())
+                : Math.abs(baseTile.getTileXCoordinate() - offsetTile.getTileXCoordinate());
+    }
+
+    public static WireDirection extractEnterWireDirection(Design d, String tileName, String enterWireName) {
         Tile baseTile = d.getDevice().getTile(tileName);
         Tile offsetTile = null;
 
@@ -108,32 +118,18 @@ public class RouteUtil {
         if (offsetTile == null)
             return null;
         if (baseTile.getName().equals(offsetTile.getName()))
-            return null;
+            return WireDirection.SELF;
         if (baseTile.getTileXCoordinate() == offsetTile.getTileXCoordinate()) {
-            return (baseTile.getTileYCoordinate() > offsetTile.getTileYCoordinate()) ? WireDirection.NORTH : WireDirection.SOUTH;
+            return baseTile.getTileYCoordinate() > offsetTile.getTileYCoordinate()
+                    ? WireDirection.NORTH : WireDirection.SOUTH;
         }
         else {
-            return (baseTile.getTileXCoordinate() > offsetTile.getTileXCoordinate()) ? WireDirection.EAST : WireDirection.WEST;
+            return baseTile.getTileXCoordinate() > offsetTile.getTileXCoordinate()
+                    ? WireDirection.EAST : WireDirection.WEST;
         }
     }
 
-    public static int extractPIPExitWireLength(Design d, String tileName, String exitWireName) {
-        Tile baseTile = d.getDevice().getTile(tileName);
-        Tile offsetTile = null;
-        for (PIP pip : baseTile.getPIPs()) {
-            Wire wire = new Wire(baseTile, pip.getStartWireName());
-            if (wire.getStartWire().getWireName().equals(exitWireName)) {
-                offsetTile = wire.getStartWire().getTile();
-                break;
-            }
-        }
-        if (offsetTile == null)
-            return 0;
-        return (baseTile.getTileXCoordinate() == offsetTile.getTileXCoordinate()) ? Math.abs(baseTile.getTileYCoordinate() - offsetTile.getTileYCoordinate()) :
-            Math.abs(baseTile.getTileXCoordinate() - offsetTile.getTileXCoordinate());
-    }
-
-    public static int extractPIPEnterWireLength(Design d, String tileName, String enterWireName) {
+    public static int extractEnterWireLength(Design d, String tileName, String enterWireName) {
         Tile baseTile = d.getDevice().getTile(tileName);
         Tile offsetTile = null;
 
@@ -142,34 +138,13 @@ public class RouteUtil {
 
         if (offsetTile == null)
             return 0;
-        return (baseTile.getTileXCoordinate() == offsetTile.getTileXCoordinate()) ? Math.abs(baseTile.getTileYCoordinate() - offsetTile.getTileYCoordinate()) :
-                Math.abs(baseTile.getTileXCoordinate() - offsetTile.getTileXCoordinate());
+        return baseTile.getTileXCoordinate() == offsetTile.getTileXCoordinate()
+                ? Math.abs(baseTile.getTileYCoordinate() - offsetTile.getTileYCoordinate())
+                : Math.abs(baseTile.getTileXCoordinate() - offsetTile.getTileXCoordinate());
     }
 
-    /*
-     * No clue what the function of these are, but they clutter the BFS searches
-     */
-    public static boolean isIgnorable(ExitingTileJunction exJunc) {
-        String nodeName = exJunc.getNodeName();
-        Matcher matcher = Pattern.compile("INODE_._\\d+_FT\\d+").matcher(nodeName);
-        if (matcher.find()) return true;
-
-        matcher = Pattern.compile("BOUNCE_._\\d+_FT\\d+").matcher(nodeName);
-        if (matcher.find()) return true;
-
-        return false;
-    }
-
-    /*
-     * No clue what the function of these are, but they clutter the BFS searches
-     */
-    public static boolean isIgnorable(EnteringTileJunction enJunc) {
-        String nodeName = enJunc.getNodeName();
-
-        Matcher matcher = Pattern.compile("INODE_._BLN_\\d+_FT\\d+").matcher(nodeName);
-        if (matcher.find()) return true;
-
-        matcher = Pattern.compile("BOUNCE_._BLN_._FT\\d+").matcher(nodeName);
+    public static boolean isClkNode(String nodeName) {
+        Matcher matcher = Pattern.compile("GCLK.*").matcher(nodeName);
         if (matcher.find()) return true;
 
         return false;
@@ -194,78 +169,26 @@ public class RouteUtil {
         // Below is general solution
         boolean hasOutgoingPIPs = false;
         boolean hasIncomingPIPs = false;
-        Tile tile = d.getDevice().getTile(tileName);
-        for (PIP pip : tile.getPIPs()) {
+
+        for (PIP pip : FabricBrowser.getTilePIPs(d, tileName)) {
             if (pip.getStartNode().getName().equals(nodeName))
                 hasOutgoingPIPs = true;
             if (pip.getEndNode().getName().equals(nodeName))
                 hasIncomingPIPs = true;
         }
 
-        return hasIncomingPIPs && hasIncomingPIPs;
-    }
-
-    public static String nodeEndTransform(Design d, String baseTileName, int distance, String exitWireName,
-                                          WireDirection dir) {
-        Tile tile = d.getDevice().getTile(baseTileName);
-        Tile nextTile = null;
-        switch (dir) {
-        case NORTH:
-            nextTile = tile.getTileXYNeighbor(0, distance);
-            break;
-        case SOUTH:
-            nextTile = tile.getTileXYNeighbor(0, -1 * distance);
-            break;
-        case EAST:
-            nextTile = tile.getTileXYNeighbor(distance, 0);
-            break;
-        case WEST:
-            nextTile = tile.getTileXYNeighbor(-1 * distance, 0);
-            break;
-        }
-
-        for (PIP pip : nextTile.getPIPs()) {
-            Wire wire = new Wire(tile, pip.getStartWireName());
-            if (wire.getStartWire().getWireName().equals(exitWireName)) {
-                return nextTile.getName() + "/" + wire.getWireName();
-            }
-        }
-
-        return null;
+        return hasIncomingPIPs && hasOutgoingPIPs;
     }
 
     public static String wireEndTransform(Design d, String baseTileName, String exitWireName) {
         Tile tile = d.getDevice().getTile(baseTileName);
-        for (PIP pip : tile.getPIPs()) {
+        for (PIP pip : FabricBrowser.getTilePIPs(d, baseTileName)) {
             Wire wire = new Wire(tile, pip.getStartWireName());
             if (wire.getStartWire().getWireName().equals(exitWireName)) {
                 return wire.getWireName();
             }
         }
         return null;
-    }
-
-    public static String nodeBeginTransform(Design d, String baseTileName, int distance, String enterWireName,
-                                            WireDirection dir) {
-        Tile tile = d.getDevice().getTile(baseTileName);
-        Tile prevTile = null;
-        switch (dir) {
-            case NORTH:
-                prevTile = tile.getTileXYNeighbor(0, -1 * distance);
-                break;
-            case SOUTH:
-                prevTile = tile.getTileXYNeighbor(0, distance);
-                break;
-            case EAST:
-                prevTile = tile.getTileXYNeighbor(-1 * distance, 0);
-                break;
-            case WEST:
-                prevTile = tile.getTileXYNeighbor(distance, 0);
-                break;
-        }
-
-        Wire wire = new Wire(tile, enterWireName);
-        return prevTile.getName() + "/" + wire.getStartWire().getWireName();
     }
 
     public static String wireBeginTransform(Design d, String baseTileName, String enterWireName) {

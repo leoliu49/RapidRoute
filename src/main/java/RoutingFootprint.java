@@ -5,11 +5,50 @@ import java.util.*;
 
 public class RoutingFootprint {
 
-    /*
-     * Core class for tracking what's routed
-     * Does not check against duplicated routes
-     */
+    private HashMap<CustomRoute, Net> routeNetMap;
 
+    public RoutingFootprint() {
+        routeNetMap = new HashMap<>();
+    }
+
+    public HashMap<CustomRoute, Net> getRouteMap() {
+        return routeNetMap;
+    }
+
+    public Set<CustomRoute> getRoutes() {
+        return routeNetMap.keySet();
+    }
+
+    public void add(CustomRoute route, Net net) {
+        routeNetMap.put(route, net);
+    }
+
+    public void add(RoutingFootprint footprint) {
+        routeNetMap.putAll(footprint.getRouteMap());
+    }
+
+    public void addToNodeFootprint(Set<String> footprint) {
+        for (CustomRoute route : routeNetMap.keySet()) {
+            for (TilePath path : route.getRoute())
+                footprint.addAll(path.getNodePath());
+        }
+    }
+
+    public void commit(Design d) {
+        RouterLog.log("Committing routes to design <" + d.getName() + ">:", RouterLog.Level.INFO);
+        for (CustomRoute route : routeNetMap.keySet()) {
+            Net net = routeNetMap.get(route);
+
+            RouterLog.log("Committing PIPs to net <" + net.getName() + ">:", RouterLog.Level.INFO);
+            RouterLog.indent();
+
+            route.commitToNet(d, net);
+
+            RouterLog.indent(-1);
+        }
+    }
+
+    /*
     private HashMap<CustomRoute, Net> routeNetMap;
 
     public RoutingFootprint() {
@@ -72,5 +111,5 @@ public class RoutingFootprint {
             RouterLog.indent(-1);
         }
     }
-
+    */
 }

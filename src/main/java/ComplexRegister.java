@@ -130,7 +130,7 @@ public class ComplexRegister {
             top.getNet(ComplexRegister.CLK_NAME).createPortRef(ComplexRegister.CLK_NAME, ci);
 
             RouterLog.log("Placed component " + component.toString() + " for <" + name + "> at site <"
-                            + component.getSiteName() + ">.", RouterLog.Level.NORMAL);
+                            + component.getSiteName() + ">.", RouterLog.Level.INFO);
 
             bitWidth += regModule.getBitWidth();
         }

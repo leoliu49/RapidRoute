@@ -75,6 +75,7 @@ public class RegisterPair {
         reg2.createInputEDIFPortRefs(d, "mid");
         reg2.createOutputEDIFPortRefs(d, "res");
 
+        /*
         d.writeCheckpoint(ResourcesManager.OUTPUT_DIR + options.valueOf("out") + "_unrouted.dcp");
 
         RoutingFootprint footprint = CustomRouter.routeComplexRegisters(d, reg1, reg2);
@@ -82,5 +83,6 @@ public class RegisterPair {
         footprint.commit(d);
 
         d.writeCheckpoint(ResourcesManager.OUTPUT_DIR + options.valueOf("out") + "_custom_routed.dcp");
+        */
     }
 }

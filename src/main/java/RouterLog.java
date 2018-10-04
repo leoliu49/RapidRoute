@@ -3,7 +3,7 @@ import java.util.HashMap;
 public class RouterLog {
 
     public enum Level {
-        VERBOSE, NORMAL, WARNING, ERROR
+        VERBOSE, INFO, NORMAL, WARNING, ERROR
     }
 
     private static HashMap<Integer, String> prefixMap = null;
@@ -15,6 +15,7 @@ public class RouterLog {
 
         prefixMap = new HashMap<Integer, String>();
         prefixMap.put(Level.VERBOSE.ordinal(), "VERBOSE\t");
+        prefixMap.put(Level.INFO.ordinal(), "INFO\t");
         prefixMap.put(Level.NORMAL.ordinal(), "NORMAL\t");
         prefixMap.put(Level.WARNING.ordinal(), "WARNING\t");
         prefixMap.put(Level.ERROR.ordinal(), "ERROR\t");
@@ -41,7 +42,7 @@ public class RouterLog {
     public static void indent() {
         indentLevel += 1;
         for (int key : prefixMap.keySet()) {
-            prefixMap.replace(key, prefixMap.get(key) + "\t");
+            prefixMap.replace(key, prefixMap.get(key) + "  ");
         }
     }
 
@@ -49,9 +50,10 @@ public class RouterLog {
         indentLevel += delta;
         String indentString = "";
         for (int i = 0; i < indentLevel; i++)
-            indentString += "\t";
+            indentString += "  ";
 
         prefixMap.put(Level.VERBOSE.ordinal(), "VERBOSE\t" + indentString);
+        prefixMap.put(Level.INFO.ordinal(), "INFO\t" + indentString);
         prefixMap.put(Level.NORMAL.ordinal(), "NORMAL\t" + indentString);
         prefixMap.put(Level.WARNING.ordinal(), "WARNING\t" + indentString);
         prefixMap.put(Level.ERROR.ordinal(), "ERROR\t" + indentString);

@@ -77,7 +77,7 @@ public class FabricBrowser {
     public static Set<EnterWireJunction> getExitFanOut(Design d, ExitWireJunction exit) {
 
         if (!exitFanOutCache.containsKey(exit.getWireName()))
-            return searchExitFanOut(d, exit);
+            updateExitFanOut(d, exit.getTileName(), exit.getWireName());
 
         Set<EnterWireJunction> entrances = new HashSet<>();
         String tileName = exit.getTileName();
@@ -94,7 +94,7 @@ public class FabricBrowser {
     public static Set<ExitWireJunction> getEntranceFanOut(Design d, EnterWireJunction entrance) {
 
         if (!entranceFanOutCache.containsKey(entrance.getWireName()))
-            return searchEntranceFanOut(d, entrance);
+            updateEntranceFanOut(d, entrance.getTileName(), entrance.getWireName());
 
         Set<ExitWireJunction> exits = new HashSet<>();
         String tileName = entrance.getTileName();
@@ -106,18 +106,15 @@ public class FabricBrowser {
     }
 
     /*
-     * BFS search for all entering wire junctions that can be routed to the exit junction
+     * BFS search for all entering wires that can be routed to the exit junction
      *   Results are cached in exitFanOutCache, replacing previous cache if there are any
      */
-    public static Set<EnterWireJunction> searchExitFanOut(Design d, ExitWireJunction exit) {
-        Set<EnterWireJunction> entrances = new HashSet<>();
-        Tile tile = d.getDevice().getTile(exit.getTileName());
-        String tileName = tile.getName();
+    private static void updateExitFanOut(Design d, String tileName, String exitWireName) {
 
         Set<String> results = new HashSet<>();
 
         Queue<NodeDepthPair> queue = new LinkedList<>();
-        queue.add(new NodeDepthPair(exit.getNodeName()));
+        queue.add(new NodeDepthPair(tileName + "/" + exitWireName));
 
         HashSet<String> footprint = new HashSet<>();
 
@@ -133,15 +130,11 @@ public class FabricBrowser {
                 WireDirection dir = RouteUtil.extractEnterWireDirection(d, tileName, pip.getStartWireName());
                 int wireLength = RouteUtil.extractEnterWireLength(d, tileName, pip.getStartWireName());
 
-                if (globalNodeFootprint.contains(nextNodeName) || footprint.contains(nextNodeName)
-                        || CustomRouter.isLocked(nextNodeName))
+                if (footprint.contains(nextNodeName))
                     continue;
 
-                if (dir != null && dir!= WireDirection.SELF && wireLength != 0
-                        && !RouteUtil.isClkNode(nextNodeName)) {
+                if (dir != null && dir!= WireDirection.SELF && wireLength != 0 && !RouteUtil.isClkNode(nextNodeName))
                     results.add(pip.getStartWireName());
-                    //entrances.add(new EnterWireJunction(tileName, pip.getStartWireName(), wireLength, dir));
-                }
                 if (RouteUtil.isNodeBuffer(d, tileName, nextNodeName))
                     queue.add(new NodeDepthPair(nextNodeName, trav.getDepth() + 1));
 
@@ -149,29 +142,19 @@ public class FabricBrowser {
             }
         }
 
-        exitFanOutCache.put(exit.getWireName(), results);
-
-        for (String wireName : results) {
-            entrances.add(new EnterWireJunction(d, tileName, wireName));
-        }
-
-        return entrances;
-
+        exitFanOutCache.put(exitWireName, results);
     }
 
     /*
-     * BFS search for all exiting wire junctions that can be routed from the entrance junction
+     * BFS search for all exiting wires that can be routed from the entrance junction
      *   Results are cached in entranceFanOutCache, replacing previous cache if there are any
      */
-    public static Set<ExitWireJunction> searchEntranceFanOut(Design d, EnterWireJunction entrance) {
-        Set<ExitWireJunction> exits = new HashSet<>();
-        Tile tile = d.getDevice().getTile(entrance.getTileName());
-        String tileName = tile.getName();
+    private static void updateEntranceFanOut(Design d, String tileName, String entranceWireName) {
 
         Set<String> results = new HashSet<>();
 
         Queue<NodeDepthPair> queue = new LinkedList<>();
-        queue.add(new NodeDepthPair(entrance.getNodeName()));
+        queue.add(new NodeDepthPair(tileName + "/" + entranceWireName));
 
         HashSet<String> footprint = new HashSet<>();
 
@@ -187,14 +170,11 @@ public class FabricBrowser {
                 WireDirection dir = RouteUtil.extractExitWireDirection(d, tileName, pip.getEndWireName());
                 int wireLength = RouteUtil.extractExitWireLength(d, tileName, pip.getEndWireName());
 
-                if (globalNodeFootprint.contains(nextNodeName) || footprint.contains(nextNodeName)
-                        || CustomRouter.isLocked(nextNodeName))
+                if (footprint.contains(nextNodeName))
                     continue;
 
-                if (dir != null && dir != WireDirection.SELF && wireLength != 0
-                        && !RouteUtil.isClkNode(nextNodeName)) {
+                if (dir != null && dir != WireDirection.SELF && wireLength != 0 && !RouteUtil.isClkNode(nextNodeName))
                     results.add(pip.getEndWireName());
-                }
                 if (RouteUtil.isNodeBuffer(d, tileName, nextNodeName))
                     queue.add(new NodeDepthPair(nextNodeName, trav.getDepth() + 1));
 
@@ -202,13 +182,89 @@ public class FabricBrowser {
             }
         }
 
-        entranceFanOutCache.put(entrance.getWireName(), results);
+        entranceFanOutCache.put(entranceWireName, results);
+    }
 
-        for (String wireName : entranceFanOutCache.get(entrance.getWireName())) {
-            exits.add(new ExitWireJunction(d, tileName, wireName));
+    /*
+     * Conduct BFS for all entrances to exit junction independent of fan-out caches
+     *   Takes into consideration the router global footprint and any locked nodes
+     */
+    public static Set<EnterWireJunction> findReachableEntrances(Design d, ExitWireJunction exit) {
+        Set<EnterWireJunction> results = new HashSet<>();
+        String tileName = exit.getTileName();
+
+        Queue<NodeDepthPair> queue = new LinkedList<>();
+        queue.add(new NodeDepthPair(exit.getNodeName()));
+
+        HashSet<String> footprint = new HashSet<>();
+
+        while (!queue.isEmpty()) {
+            NodeDepthPair trav = queue.remove();
+
+            if (trav.getDepth() >= TILE_TRAVERSAL_MAX_DEPTH)
+                break;
+
+            for (PIP pip : getBkwdPIPs(d, exit.getTileName(), trav.getNodeName())) {
+                String nextNodeName = pip.getStartNode().getName();
+
+                WireDirection dir = RouteUtil.extractEnterWireDirection(d, tileName, pip.getStartWireName());
+                int wireLength = RouteUtil.extractEnterWireLength(d, tileName, pip.getStartWireName());
+
+                if (globalNodeFootprint.contains(nextNodeName) || footprint.contains(nextNodeName)
+                        || CustomRouter.isLocked(nextNodeName))
+                    continue;
+
+                if (dir != null && dir != WireDirection.SELF && wireLength != 0 && !RouteUtil.isClkNode(nextNodeName))
+                    results.add(new EnterWireJunction(d, tileName, pip.getStartWireName()));
+                if (RouteUtil.isNodeBuffer(d, tileName, nextNodeName))
+                    queue.add(new NodeDepthPair(nextNodeName, trav.getDepth() + 1));
+
+                footprint.add(nextNodeName);
+            }
         }
 
-        return exits;
+        return results;
+    }
+
+    /*
+     * Conduct BFS for all exits from entrance junction independent of fan-out caches
+     *   Takes into consideration the router global footprint and any locked nodes
+     */
+    public static Set<ExitWireJunction> findReachableExits(Design d, EnterWireJunction entrance) {
+        Set<ExitWireJunction> results = new HashSet<>();
+        String tileName = entrance.getTileName();
+
+        Queue<NodeDepthPair> queue = new LinkedList<>();
+        queue.add(new NodeDepthPair(entrance.getNodeName()));
+
+        HashSet<String> footprint = new HashSet<>();
+
+        while (!queue.isEmpty()) {
+            NodeDepthPair trav = queue.remove();
+
+            if (trav.getDepth() >= TILE_TRAVERSAL_MAX_DEPTH)
+                continue;
+
+            for (PIP pip : getFwdPIPs(d, tileName, trav.getNodeName())) {
+                String nextNodeName = pip.getEndNode().getName();
+
+                WireDirection dir = RouteUtil.extractExitWireDirection(d, tileName, pip.getEndWireName());
+                int wireLength = RouteUtil.extractExitWireLength(d, tileName, pip.getEndWireName());
+
+                if (globalNodeFootprint.contains(nextNodeName) || footprint.contains(nextNodeName)
+                        || CustomRouter.isLocked(nextNodeName))
+                    continue;
+
+                if (dir != null && dir != WireDirection.SELF && wireLength != 0 && !RouteUtil.isClkNode(nextNodeName))
+                    results.add(new ExitWireJunction(d, tileName, nextNodeName));
+                if (RouteUtil.isNodeBuffer(d, tileName, nextNodeName))
+                    queue.add(new NodeDepthPair(nextNodeName, trav.getDepth() + 1));
+
+                footprint.add(nextNodeName);
+            }
+        }
+
+        return results;
     }
 
     /*

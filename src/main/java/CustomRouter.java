@@ -174,9 +174,6 @@ public class CustomRouter {
             templates.add(template);
         }
 
-        // Sorting by descending cost so that longer (presumably slower) routes don't get any more slower
-        templates.sort(new RouteTemplate.RouteTemplateCostComparator());
-        Collections.reverse(templates);
         int rerouteCount = 0;
         for (int i = 0; i < bitwidth; i++) {
             RouteTemplate template = templates.get(i);
@@ -196,6 +193,7 @@ public class CustomRouter {
                 templates.set(i, newTemplate);
                 rerouteCount += 1;
             }
+            CustomRoutingCalculator.lockRouteTemplate(template);
         }
         RouterLog.indent(-1);
         RouterLog.log("Templates found in " + (System.currentTimeMillis() - tStep2Begin) + " ms with " + rerouteCount

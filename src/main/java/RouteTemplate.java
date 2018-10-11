@@ -1,10 +1,7 @@
 import com.xilinx.rapidwright.design.Design;
 import com.xilinx.rapidwright.device.Tile;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Comparator;
-import java.util.Stack;
+import java.util.*;
 
 public class RouteTemplate {
 
@@ -119,6 +116,13 @@ public class RouteTemplate {
             repr += template.get(i).toString() + " --> ";
         repr += template.get(template.size() - 1);
         return repr;
+    }
+
+    public Set<String> getUsage() {
+        Set<String> usage = new HashSet<>();
+        for (WireJunction junction : template)
+            usage.add(junction.getNodeName());
+        return usage;
     }
 
     public String hopSummary() {

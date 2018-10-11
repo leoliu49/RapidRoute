@@ -1,3 +1,4 @@
+import com.kenai.jffi.Array;
 import com.xilinx.rapidwright.design.Design;
 import com.xilinx.rapidwright.device.Tile;
 
@@ -41,38 +42,52 @@ public class CustomRoutingCalculator {
     }
 
     /*
-     * Checks to see if the RouteTemplate object has any locked nodes
-     * 1. No: lock all of its nodes
-     * 2. Yes: return false
+     * Locks RouteTemplate without checking for conflicts
      */
+    public static void lockRouteTemplate(RouteTemplate template) {
+        for (String nodeName : template.getUsage())
+            CustomRouter.lock(nodeName);
+    }
+
     public static boolean isRouteTemplateConflicted(RouteTemplate template) {
         // Source and sink junctions are assumed to be unlocked
         for (int i = 1; i < template.getTemplate().size() - 1; i++) {
-            if (!CustomRouter.lock(template.getTemplate().get(i).getNodeName())) {
-                // In the case that there is a conflict, unlock all previously locked nodes
-                for (int j = 0; j < i; j++)
-                    CustomRouter.unlock(template.getTemplate().get(j).getNodeName());
+            if (CustomRouter.isLocked(template.getTemplate().get(i).getNodeName()))
                 return true;
-            }
         }
 
         return false;
     }
 
     /*
-     * Checks to see if the TilePath object has any locked nodes
-     * 1. No: lock all of its nodes
-     * 2. Yes: return false
+     * Finds, out of a family of RouteTemplate's, which RouteTemplate is colliding with the family
+     * 1. Exists: return indexes of collisions
+     * 2. DNE: return -1
      */
+    private static ArrayList<Integer> locateTemplateCollisions(Set<String> candidateSet, HashMap<Integer, Set<String>> usages) {
+        ArrayList<Integer> results = new ArrayList<>();
+
+        for (int key : usages.keySet()) {
+            for (String nodeName : candidateSet) {
+                if (usages.get(key).contains(nodeName)) {
+                    results.add(key);
+                    break;
+                }
+            }
+        }
+        return results;
+    }
+
+    public static void lockTilePath(TilePath path) {
+        for (String nodeName : path.getNodePath())
+            CustomRouter.lock(nodeName);
+    }
+
     public static boolean isTilePathConflicted(TilePath path) {
         // Source and sink junctions are assumed to be unlocked
         for (int i = 1; i < path.getNodePath().size() - 1; i++) {
-            if (!CustomRouter.lock(path.getNodeName(i))) {
-                // In the case that there is a conflict, unlock all previously locked nodes
-                for (int j = 0; j < i; j++)
-                    CustomRouter.unlock(path.getNodeName(i));
+            if (CustomRouter.isLocked(path.getNodeName(i)))
                 return true;
-            }
         }
 
         return false;
@@ -175,7 +190,13 @@ public class CustomRoutingCalculator {
                 TilePath candidatePath;
                 do {
                     candidatePath = route.getNextPossiblePath();
-                } while(isTilePathConflicted(candidatePath));
+
+                    if (!isTilePathConflicted(candidatePath)) {
+                        lockTilePath(candidatePath);
+                        break;
+                    }
+
+                } while(true);
 
                 route.setAsNextPath(candidatePath);
             }

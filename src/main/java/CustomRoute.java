@@ -101,37 +101,6 @@ public class CustomRoute {
         return route.get(i);
     }
 
-    public int getNextBlankPathIndex() {
-        for (int i = 0; i < route.size(); i++) {
-            if (route.get(i) == null)
-                return i;
-        }
-        return -1;
-    }
-
-    public void revert(int index) {
-        for (int i = route.size() - 1; i > index; i--) {
-            cost -= route.get(i).getCost();
-            route.set(i, null);
-        }
-    }
-
-    public void setAsNextPath(TilePath path) {
-        int i = getNextBlankPathIndex();
-        route.set(i, path);
-        cost += path.getCost();
-    }
-
-    public TilePath getNextPossiblePath() {
-        int i = getNextBlankPathIndex();
-        if (i == -1)
-            return null;
-
-        ArrayList<TilePath> pathSub = pathSubs.get(i);
-        pathSub.add(pathSub.remove(0));
-        return pathSub.get(pathSub.size() - 1);
-    }
-
     public TilePath getNextPossiblePath(int i) {
         if (i < 0)
             i += pathSubs.size();
@@ -139,6 +108,16 @@ public class CustomRoute {
         ArrayList<TilePath> pathSub = pathSubs.get(i);
         pathSub.add(pathSub.remove(0));
         return pathSub.get(pathSub.size() - 1);
+    }
+
+    public void setPath(int i, TilePath path) {
+        route.set(i, path);
+        cost += path.getCost();
+    }
+
+    public void removePath(int i) {
+        cost -= route.get(i).getCost();
+        route.set(i, null);
     }
 
     public void setPathSub(int i, ArrayList<TilePath> pathSub) {

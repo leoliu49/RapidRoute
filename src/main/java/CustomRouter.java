@@ -159,172 +159,41 @@ public class CustomRouter {
         RouterLog.log("2: Calculating route templates", RouterLog.Level.INFO);
         RouterLog.indent();
         long tStep2Begin = System.currentTimeMillis();
-
-        ArrayList<RouteTemplate> templates = new ArrayList<>();
-
-        for (int i = 0; i < bitwidth; i++) {
-            RouteTemplate template = CustomRoutingCalculator.createRouteTemplate(d, srcJunctions.get(i),
-                    snkJunctions.get(i));
-            if (template.isEmpty()) {
-                RouterLog.indent(-1);
-                RouterLog.log("Failed to find route template.", RouterLog.Level.ERROR);
-                return null;
-            }
-            template.setBitIndex(i);
-            templates.add(template);
-        }
-
-        int rerouteCount = 0;
-        for (int i = 0; i < bitwidth; i++) {
-            RouteTemplate template = templates.get(i);
-
-            // If conflicts exist, reroute
-            if (CustomRoutingCalculator.isRouteTemplateConflicted(template)) {
-                RouterLog.log("Template conflict detected. Rerouting.", RouterLog.Level.INFO);
-
-                RouteTemplate newTemplate = CustomRoutingCalculator.createRouteTemplate(d, template.getSrc(),
-                        template.getSnk());
-                if (newTemplate.isEmpty()) {
-                    RouterLog.indent(-1);
-                    RouterLog.log("Failed to find route template.", RouterLog.Level.ERROR);
-                    return null;
-                }
-                newTemplate.setBitIndex(template.getBitIndex());
-                templates.set(i, newTemplate);
-                rerouteCount += 1;
-            }
-            CustomRoutingCalculator.lockRouteTemplate(template);
-        }
+        ArrayList<RouteTemplate> templates = CustomRoutingCalculator.createBussedRouteTemplates(d, srcJunctions,
+                snkJunctions);
         RouterLog.indent(-1);
-        RouterLog.log("Templates found in " + (System.currentTimeMillis() - tStep2Begin) + " ms with " + rerouteCount
-                + " reroutes.", RouterLog.Level.NORMAL);
+        RouterLog.log("All templates found in " + (System.currentTimeMillis() - tStep2Begin) + " ms.",
+                RouterLog.Level.NORMAL);
 
         /*
-         * Step 3: Since tile paths at the source/sink INT tiles have the most traffic, verify that these paths are
-         *   possible
-         */
-        RouterLog.log("3: Finding tile paths at for source/sink junctions.", RouterLog.Level.INFO);
-        RouterLog.indent();
-
-        ArrayList<CustomRoute> routes = new ArrayList<>();
-        // Fully populated bitwise in step 4
-        for (int i = 0; i < templates.size(); i++)
-            routes.add(null);
-
-        boolean hasFailed = false;
-        Set<String> carelesslyLockedNodes = new HashSet<>();
-
-        for (int i = 0; i < templates.size(); i++) {
-            RouteTemplate template = templates.get(i);
-
-            // Release locked nodes after success
-            if (!hasFailed) {
-                for (String nodeName : carelesslyLockedNodes)
-                    unlock(nodeName);
-            }
-
-            // Try source
-            ArrayList<TilePath> srcPathChoices = FabricBrowser.findTilePaths(d, template.getSrc(),
-                    (ExitWireJunction) template.getTemplate(1));
-            if (srcPathChoices.isEmpty()) {
-                // There is no way to route source outwards: recreate templates and try again
-                RouterLog.log("Conflict at source tile detected. Rerouting.", RouterLog.Level.INFO);
-
-                // Lock this node because it is no long accessible from the source
-                lock(template.getTemplate(1).getNodeName());
-
-                // While these are locked for now, they're not actually getting used up, so we should unlock them later
-                carelesslyLockedNodes.add(template.getTemplate(1).getNodeName());
-
-                RouteTemplate newTemplate = CustomRoutingCalculator.createRouteTemplate(d, template.getSrc(),
-                        template.getSnk());
-                if (newTemplate.isEmpty()) {
-                    RouterLog.indent(-1);
-                    RouterLog.log("Failed to find route template.", RouterLog.Level.ERROR);
-                    return null;
-                }
-                newTemplate.setBitIndex(template.getBitIndex());
-                templates.set(i, newTemplate);
-                rerouteCount += 1;
-                i -= 1;
-
-                hasFailed = true;
-
-                continue;
-            }
-
-            // Try sink
-            ArrayList<TilePath> snkPathChoices = FabricBrowser.findTilePaths(d,
-                    (EnterWireJunction) template.getTemplate(-2), template.getSnk());
-            if (snkPathChoices.isEmpty()) {
-                // There is no way to route source outwards: recreate templates and try again
-                RouterLog.log("Conflict at sink tile detected. Rerouting.", RouterLog.Level.INFO);
-
-                // Lock this node because it can no longer access the sink
-                lock(template.getTemplate(-2).getNodeName());
-                carelesslyLockedNodes.add(template.getTemplate(-2).getNodeName());
-
-                RouteTemplate newTemplate = CustomRoutingCalculator.createRouteTemplate(d, template.getSrc(),
-                        template.getSnk());
-                if (newTemplate.isEmpty()) {
-                    RouterLog.indent(-1);
-                    RouterLog.log("Failed to find route template.", RouterLog.Level.ERROR);
-                    return null;
-                }
-                newTemplate.setBitIndex(template.getBitIndex());
-                templates.set(i, newTemplate);
-                rerouteCount += 1;
-                i -= 1;
-
-                hasFailed = true;
-
-                continue;
-            }
-
-            template = templates.get(i);
-
-            // Lock exclusive nodes
-            for (String nodeName : CustomRoutingCalculator.deriveExclusiveNodes(srcPathChoices))
-                lock(nodeName);
-            for (String nodeName : CustomRoutingCalculator.deriveExclusiveNodes(snkPathChoices))
-                lock(nodeName);
-
-            hasFailed = false;
-
-            CustomRoute route = new CustomRoute(template);
-            route.setPathSub(0, srcPathChoices);
-            route.setPathSub(-1, snkPathChoices);
-
-            routes.set(template.getBitIndex(), route);
-
-        }
-        RouterLog.indent(-1);
-
-        /*
-         * Step 4: Iterate through all templates, construct CustomRoute's based on templates, then populate with path
+         * Step 3: Iterate through all templates, construct CustomRoute's based on templates, then populate with path
          *   subs
          */
-        RouterLog.log("4: Calculating tile paths for templates.", RouterLog.Level.INFO);
+        RouterLog.log("3: Calculating tile paths for templates.", RouterLog.Level.INFO);
         RouterLog.indent();
-        long tStep4Begin = System.currentTimeMillis();
+        long tStep3Begin = System.currentTimeMillis();
+
+        ArrayList<CustomRoute> routes = new ArrayList<>();
+        for (RouteTemplate template : templates)
+            routes.add(new CustomRoute(template));
 
         for (CustomRoute route : routes) {
             RouteTemplate template = route.getTemplate();
-            for (int i = 1; i < (template.getTemplate().size() / 2) - 1; i ++) {
+            for (int i = 0; i < template.getTemplate().size() / 2; i ++) {
                 route.setPathSub(i, FabricBrowser.findTilePaths(d, (EnterWireJunction) template.getTemplate(i * 2),
                         (ExitWireJunction) template.getTemplate(i * 2 + 1)));
             }
         }
         RouterLog.indent(-1);
-        RouterLog.log("All tile paths found in " + (System.currentTimeMillis() - tStep4Begin) + " ms.",
+        RouterLog.log("All tile paths found in " + (System.currentTimeMillis() - tStep3Begin) + " ms.",
                 RouterLog.Level.NORMAL);
 
         /*
-         * Step 5: Programmatically determine which INT tile paths to take
-         *   TODO: Use easing technique for sink (or maybe source) tile paths
+         * Step 4: Programmatically determine which INT tile paths to take
          */
-        RouterLog.log("5: Performing route contention", RouterLog.Level.INFO);
+        RouterLog.log("4: Performing route contention", RouterLog.Level.INFO);
         RouterLog.indent();
+        long tStep4Begin = System.currentTimeMillis();
 
         if (!CustomRoutingCalculator.routeContention(d, routes)) {
             RouterLog.indent(-1);
@@ -332,10 +201,12 @@ public class CustomRouter {
             return null;
         }
         RouterLog.indent(-1);
+        RouterLog.log("Route contention completed in " + (System.currentTimeMillis() - tStep4Begin) + " ms.",
+                RouterLog.Level.NORMAL);
 
 
         /*
-         * Step 6: Associate each CustomRoute with its corresponding net
+         * Step 5: Associate each CustomRoute with its corresponding net
          */
         {
             int bitIndex = 0;
@@ -354,6 +225,8 @@ public class CustomRouter {
                 }
             }
         }
+
+
 
         RouterLog.log("Connection routed in " + (System.currentTimeMillis() - tBegin) + " ms.",
                 RouterLog.Level.NORMAL);

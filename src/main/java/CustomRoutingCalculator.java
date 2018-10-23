@@ -1,6 +1,8 @@
 import com.kenai.jffi.Array;
 import com.xilinx.rapidwright.design.Design;
 import com.xilinx.rapidwright.device.Tile;
+import org.apache.commons.lang3.tuple.ImmutablePair;
+import org.apache.commons.lang3.tuple.Pair;
 
 import java.util.*;
 
@@ -9,11 +11,6 @@ public class CustomRoutingCalculator {
     /*
      * Collection of verbose functions for filling in CustomRoute's
      */
-
-    // Used by determineBestLastPaths in conjunction with findBestRouteTemplates
-    private static class BestLastPathsTracer {
-        public static int bestLastPathsSkipCount = 0;
-    }
 
     /*
      * From a list of potential paths, find any nodes that are "must-haves"
@@ -42,29 +39,11 @@ public class CustomRoutingCalculator {
     }
 
     /*
-     * Locks RouteTemplate without checking for conflicts
-     */
-    public static void lockRouteTemplate(RouteTemplate template) {
-        for (String nodeName : template.getUsage())
-            CustomRouter.lock(nodeName);
-    }
-
-    public static boolean isRouteTemplateConflicted(RouteTemplate template) {
-        // Source and sink junctions are assumed to be unlocked
-        for (int i = 1; i < template.getTemplate().size() - 1; i++) {
-            if (CustomRouter.isLocked(template.getTemplate().get(i).getNodeName()))
-                return true;
-        }
-
-        return false;
-    }
-
-    /*
      * Finds, out of a family of RouteTemplate's, which RouteTemplate is colliding with the family
-     * 1. Exists: return indexes of collisions
-     * 2. DNE: return -1
+     * Returns indexes of collisions
      */
-    private static ArrayList<Integer> locateTemplateCollisions(Set<String> candidateSet, HashMap<Integer, Set<String>> usages) {
+    private static ArrayList<Integer> locateTemplateCollisions(Set<String> candidateSet,
+                                                               HashMap<Integer, Set<String>> usages) {
         ArrayList<Integer> results = new ArrayList<>();
 
         for (int key : usages.keySet()) {
@@ -78,6 +57,32 @@ public class CustomRoutingCalculator {
         return results;
     }
 
+    private static ArrayList<Pair<Integer, Integer>> locateTilePathCollisions(TilePath candidatePath,
+                                                                              ArrayList<CustomRoute> routes) {
+        ArrayList<Pair<Integer, Integer>> results = new ArrayList<>();
+
+        Set<String> nodes = new HashSet<>(candidatePath.getNodePath());
+
+        for (int i = 0; i < routes.size(); i++) {
+            CustomRoute route = routes.get(i);
+            for (int j = 0; j < route.getRoute().size(); j++) {
+                TilePath path = route.getRoute().get(j);
+                if (path == null)
+                    break;
+                for (String nodeName : path.getNodePath()) {
+                    if (nodes.contains(nodeName)) {
+                        results.add(new ImmutablePair<>(i, j));
+                        break;
+                    }
+                }
+            }
+        }
+
+
+        return results;
+    }
+
+    /*
     public static void lockTilePath(TilePath path) {
         for (String nodeName : path.getNodePath())
             CustomRouter.lock(nodeName);
@@ -86,12 +91,15 @@ public class CustomRoutingCalculator {
     public static boolean isTilePathConflicted(TilePath path) {
         // Source and sink junctions are assumed to be unlocked
         for (int i = 1; i < path.getNodePath().size() - 1; i++) {
-            if (CustomRouter.isLocked(path.getNodeName(i)))
+            if (CustomRouter.isLocked(path.getNodeName(i))) {
+                System.out.println(path.getNodeName(i));
                 return true;
+            }
         }
 
         return false;
     }
+    */
 
     public static RouteTemplate createRouteTemplate(Design d, EnterWireJunction src, ExitWireJunction snk) {
 
@@ -107,7 +115,7 @@ public class CustomRoutingCalculator {
         int srcTileX = srcIntTile.getTileXCoordinate();
         int srcTileY = srcIntTile.getTileYCoordinate();
 
-        Set<ExitWireJunction> leadOuts = FabricBrowser.getEntranceFanOut(d, src);
+        Set<ExitWireJunction> leadOuts = FabricBrowser.findReachableExits(d, src);
 
         HashSet<String> footprint = new HashSet<>();
 
@@ -153,7 +161,10 @@ public class CustomRoutingCalculator {
                 }
             }
 
-            for (EnterWireJunction entrance : FabricBrowser.getExitFanOut(d, head.getJunction())) {
+            Set<EnterWireJunction> fanOut = head.getJunction().isSnk()
+                    ? FabricBrowser.findReachableEntrances(d, head.getJunction())
+                    : FabricBrowser.getExitFanOut(d, head.getJunction());
+            for (EnterWireJunction entrance : fanOut) {
                 ExitWireJunction wireSrc = entrance.getSrcJunction(d);
 
                 if (FabricBrowser.globalNodeFootprint.contains(wireSrc.getNodeName())
@@ -172,35 +183,205 @@ public class CustomRoutingCalculator {
         return new RouteTemplate(d, src, snk);
     }
 
-    public static boolean routeContention(Design d, ArrayList<CustomRoute> routes) {
-        boolean allRoutesArrivedToTile = false;
-        while (!allRoutesArrivedToTile) {
-            allRoutesArrivedToTile = true;
+    public static ArrayList<RouteTemplate> createBussedRouteTemplates(Design d, ArrayList<EnterWireJunction> srcs,
+                                                                      ArrayList<ExitWireJunction> snks) {
+        int bitwidth = srcs.size();
+        int rerouteCount = 0;
+        int preemptCount = 0;
 
-            for (int i = 0; i < routes.size(); i++) {
-                CustomRoute route = routes.get(i);
-                int nextPathIndex = route.getNextBlankPathIndex();
+        ArrayList<RouteTemplate> results = new ArrayList<>();
+        ArrayList<Set<String>> banLists = new ArrayList<>();
 
-                if (nextPathIndex == -1)
-                    continue;
+        HashMap<Integer, Set<String>> srcSnkExclusives = new HashMap<>();
 
-                allRoutesArrivedToTile = false;
+        Queue<Integer> queue = new LinkedList<>();
 
-                // TODO: May live-lock
-                TilePath candidatePath;
-                do {
-                    candidatePath = route.getNextPossiblePath();
+        for (int i = 0; i < bitwidth; i++) {
+            results.add(null);
+            banLists.add(new HashSet<>());
+            srcSnkExclusives.put(i, new HashSet<>());
 
-                    if (!isTilePathConflicted(candidatePath)) {
-                        lockTilePath(candidatePath);
-                        break;
+            queue.add(i);
+        }
+
+        while (!queue.isEmpty()) {
+            int bitIndex = queue.remove();
+
+            EnterWireJunction src = srcs.get(bitIndex);
+            ExitWireJunction snk = snks.get(bitIndex);
+            Set<String> banList = banLists.get(bitIndex);
+
+            RouteTemplate template = results.get(bitIndex);
+
+            for (String node : banList)
+                CustomRouter.lock(node);
+
+            // Purge any old usages
+            srcSnkExclusives.put(bitIndex, new HashSet<>());
+
+            do {
+                template = createRouteTemplate(d, src, snk);
+                template.setBitIndex(bitIndex);
+
+                if (template.isEmpty())
+                    return null;
+
+                RouterLog.indent();
+
+                ArrayList<TilePath> srcPathChoices = FabricBrowser.findTilePaths(d, src,
+                        (ExitWireJunction) template.getTemplate(1));
+                ArrayList<TilePath> snkPathChoices = FabricBrowser.findTilePaths(d,
+                        (EnterWireJunction) template.getTemplate(-2), snk);
+
+                RouterLog.indent(-1);
+
+                // Set of nodes which this route must need to be possible
+                Set<String> mustHavesSrc = deriveExclusiveNodes(srcPathChoices);
+                Set<String> mustHavesSnk = deriveExclusiveNodes(snkPathChoices);
+
+                ArrayList<Integer> conflictedBits = locateTemplateCollisions(mustHavesSrc, srcSnkExclusives);
+                if (!conflictedBits.isEmpty()) {
+                    rerouteCount += 1;
+                    /*
+                     * Make a decision based on cost:
+                     * 1. Conflicted templates have lower cost: preempt them and reroute
+                     * 2. Conflicted templates have higher cost: reroute ourselves
+                     */
+                    int costForPreemption = 0;
+                    for (int b : conflictedBits) {
+                        RouteTemplate t = results.get(b);
+                        if (t.getCost() > costForPreemption)
+                            costForPreemption = t.getCost();
                     }
 
-                } while(true);
+                    if (costForPreemption > template.getCost()) {
+                        template = null;
 
-                route.setAsNextPath(candidatePath);
+                        RouterLog.log("Conflicted detected at source: rerouting current template at a later time.",
+                                RouterLog.Level.INFO);
+
+                        // Ban this src exit since it is no accessible
+                        banList.add(template.getTemplate(1).getNodeName());
+
+                        queue.add(bitIndex);
+                        continue;
+                    }
+
+                    preemptCount += 1;
+                    for (int b : conflictedBits) {
+                        RouteTemplate t = results.get(b);
+                        results.set(b, null);
+
+                        // Purge usages of preempted routes
+                        srcSnkExclusives.put(b, new HashSet<>());
+                        banLists.get(b).add(t.getTemplate(1).getNodeName());
+
+                        // Add them back to queue to be re-routed once again
+                        queue.add(b);
+                    }
+
+                    RouterLog.log("Conflicted detected at source: preempting routes for bits " + conflictedBits + ".",
+                            RouterLog.Level.INFO);
+                }
+
+                // Do again for snk exclusives
+                conflictedBits = locateTemplateCollisions(mustHavesSnk, srcSnkExclusives);
+                if (!conflictedBits.isEmpty()) {
+                    rerouteCount += 1;
+                    int costForPreemption = 0;
+                    for (int b : conflictedBits) {
+                        RouteTemplate t = results.get(b);
+                        if (t.getCost() > costForPreemption)
+                            costForPreemption = t.getCost();
+                    }
+
+                    if (costForPreemption > template.getCost()) {
+                        template = null;
+
+                        RouterLog.log("Conflicted detected at sink: rerouting current template at a later time.",
+                                RouterLog.Level.INFO);
+
+                        // Ban this snk entrance since it is no accessible
+                        banList.add(template.getTemplate(-2).getNodeName());
+
+                        queue.add(bitIndex);
+                        continue;
+                    }
+
+                    preemptCount += 1;
+                    for (int b : conflictedBits) {
+                        RouteTemplate t = results.get(b);
+                        results.set(b, null);
+
+                        banLists.get(b).add(t.getTemplate(-2).getNodeName());
+
+                        // Add them back to queue to be re-routed once again
+                        queue.add(b);
+                    }
+
+                    RouterLog.log("Conflicted detected at sink: preempting routes for bits " + conflictedBits + ".",
+                            RouterLog.Level.INFO);
+
+                }
+
+                results.set(bitIndex, template);
+
+                srcSnkExclusives.put(bitIndex, mustHavesSrc);
+                srcSnkExclusives.get(bitIndex).addAll(mustHavesSnk);
+
+            } while (template == null);
+
+            for (String node : banList)
+                CustomRouter.unlock(node);
+        }
+
+        RouterLog.log("Found all templates for bus:", RouterLog.Level.INFO);
+        RouterLog.indent();
+        for (int i = 0; i < bitwidth; i++) {
+            RouteTemplate result = results.get(i);
+            RouterLog.log("b" + i + ":\t" + result.hopSummary(), RouterLog.Level.INFO);
+        }
+        RouterLog.indent(-1);
+
+        RouterLog.log(rerouteCount + " templates were rerouted. " + preemptCount + " of which are rerouted due to preemption.",
+                RouterLog.Level.INFO);
+
+        return results;
+    }
+
+    public static boolean routeContention(Design d, ArrayList<CustomRoute> routes) {
+        int preemptCount = 0;
+
+        Queue<Pair<Integer, Integer>> routeQueue = new LinkedList<>();
+
+        for (int i = 0; i < routes.size(); i++) {
+            for (int j = 0; j < routes.get(i).getRoute().size(); j++) {
+                routeQueue.add(new ImmutablePair<>(i, j));
             }
         }
+
+        // TODO: May still live-lock (?)
+        // TODO: Doesn't produce absolutely optimal solutions
+        while (!routeQueue.isEmpty()) {
+            Pair next = routeQueue.remove();
+            int bitIndex = (int) next.getLeft();
+            int pathIndex = (int) next.getRight();
+
+            TilePath candidatePath = routes.get(bitIndex).getNextPossiblePath(pathIndex);
+
+            for (Pair<Integer, Integer> conflict : locateTilePathCollisions(candidatePath, routes)) {
+                // During route contention, always preempt conflicts
+                CustomRoute conflictedRoute = routes.get(conflict.getLeft());
+                conflictedRoute.removePath(conflict.getRight());
+
+                preemptCount += 1;
+                routeQueue.add(conflict);
+            }
+
+            routes.get(bitIndex).setPath(pathIndex, candidatePath);
+        }
+
+        RouterLog.log(preemptCount + " tile paths were rerouted due to contention.", RouterLog.Level.INFO);
 
 
         return true;

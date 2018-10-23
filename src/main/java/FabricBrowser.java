@@ -256,7 +256,7 @@ public class FabricBrowser {
                     continue;
 
                 if (dir != null && dir != WireDirection.SELF && wireLength != 0 && !RouteUtil.isClkNode(nextNodeName))
-                    results.add(new ExitWireJunction(d, tileName, nextNodeName));
+                    results.add(new ExitWireJunction(d, tileName, pip.getEndWireName()));
                 if (RouteUtil.isNodeBuffer(d, tileName, nextNodeName))
                     queue.add(new NodeDepthPair(nextNodeName, trav.getDepth() + 1));
 
@@ -284,14 +284,10 @@ public class FabricBrowser {
         Queue<TilePath> queue = new LinkedList<>();
         queue.add(new TilePath(entrance, exit));
 
-        int maxDepth = TILE_TRAVERSAL_MAX_DEPTH;
-        int minDepth = 0;
-        int extraDepthTolerance = 3;
-
         while (!queue.isEmpty()) {
             TilePath trav = queue.remove();
 
-            if (trav.getCost() >= maxDepth + 1)
+            if (trav.getCost() >= TILE_TRAVERSAL_MAX_DEPTH + 1)
                 break;
 
             for (PIP pip : getFwdPIPs(d, tileName, trav.getNodeName(-2))) {
@@ -299,10 +295,6 @@ public class FabricBrowser {
 
                 if (nextNodeName.equals(exit.getNodeName())) {
                     results.add(new TilePath(trav));
-
-                    // Some slack is given such that slightly slower routes are still recorded
-                    minDepth = trav.getCost() - 1;
-                    maxDepth = Math.min(minDepth + extraDepthTolerance, TILE_TRAVERSAL_MAX_DEPTH);
                 }
                 else if (RouteUtil.isNodeBuffer(d, tileName, nextNodeName)) {
 

@@ -18,4 +18,5 @@ dependencies {
 
     compile files('../RapidWright/build/libs/rapidwright.jar')
     compile files('deps/ini4j-0.5.4.jar')
+    compile files('deps/commons-lang3-3.8.1.jar')
 }

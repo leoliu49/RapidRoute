@@ -68,7 +68,7 @@ public class CustomRoutingCalculator {
             for (int j = 0; j < route.getRoute().size(); j++) {
                 TilePath path = route.getRoute().get(j);
                 if (path == null)
-                    break;
+                    continue;
                 for (String nodeName : path.getNodePath()) {
                     if (nodes.contains(nodeName)) {
                         results.add(new ImmutablePair<>(i, j));
@@ -211,7 +211,7 @@ public class CustomRoutingCalculator {
             ExitWireJunction snk = snks.get(bitIndex);
             Set<String> banList = banLists.get(bitIndex);
 
-            RouteTemplate template = results.get(bitIndex);
+            RouteTemplate template;
 
             for (String node : banList)
                 CustomRouter.lock(node);
@@ -266,22 +266,27 @@ public class CustomRoutingCalculator {
                         queue.add(bitIndex);
                         continue;
                     }
+                    else {
+                        preemptCount += 1;
+                        for (int b : conflictedBits) {
+                            RouteTemplate t = results.get(b);
+                            results.set(b, null);
 
-                    preemptCount += 1;
-                    for (int b : conflictedBits) {
-                        RouteTemplate t = results.get(b);
-                        results.set(b, null);
+                            // Purge usages of preempted routes
+                            srcSnkExclusives.put(b, new HashSet<>());
+                            for (int i = 1; i < t.getTemplate().size() - 1; i++) {
+                                CustomRouter.unlock(t.getTemplate(i).getNodeName());
+                            }
 
-                        // Purge usages of preempted routes
-                        srcSnkExclusives.put(b, new HashSet<>());
-                        banLists.get(b).add(t.getTemplate(1).getNodeName());
+                            banLists.get(b).add(t.getTemplate(1).getNodeName());
 
-                        // Add them back to queue to be re-routed once again
-                        queue.add(b);
+                            // Add them back to queue to be re-routed once again
+                            queue.add(b);
+                        }
+
+                        RouterLog.log("Conflicted detected at source: preempting routes for bits " + conflictedBits + ".",
+                                RouterLog.Level.INFO);
                     }
-
-                    RouterLog.log("Conflicted detected at source: preempting routes for bits " + conflictedBits + ".",
-                            RouterLog.Level.INFO);
                 }
 
                 // Do again for snk exclusives
@@ -307,24 +312,35 @@ public class CustomRoutingCalculator {
                         queue.add(bitIndex);
                         continue;
                     }
+                    else {
+                        preemptCount += 1;
+                        for (int b : conflictedBits) {
+                            RouteTemplate t = results.get(b);
+                            results.set(b, null);
 
-                    preemptCount += 1;
-                    for (int b : conflictedBits) {
-                        RouteTemplate t = results.get(b);
-                        results.set(b, null);
+                            // Purge usages of preempted routes
+                            srcSnkExclusives.put(b, new HashSet<>());
+                            for (int i = 1; i < t.getTemplate().size() - 1; i++) {
+                                CustomRouter.unlock(t.getTemplate(i).getNodeName());
+                            }
 
-                        banLists.get(b).add(t.getTemplate(-2).getNodeName());
+                            banLists.get(b).add(t.getTemplate(-2).getNodeName());
 
-                        // Add them back to queue to be re-routed once again
-                        queue.add(b);
+                            // Add them back to queue to be re-routed once again
+                            queue.add(b);
+                        }
+
+                        RouterLog.log("Conflicted detected at sink: preempting routes for bits " + conflictedBits + ".",
+                                RouterLog.Level.INFO);
                     }
-
-                    RouterLog.log("Conflicted detected at sink: preempting routes for bits " + conflictedBits + ".",
-                            RouterLog.Level.INFO);
 
                 }
 
                 results.set(bitIndex, template);
+
+                for (WireJunction junction : template.getTemplate()) {
+                    CustomRouter.lock(junction.getNodeName());
+                }
 
                 srcSnkExclusives.put(bitIndex, mustHavesSrc);
                 srcSnkExclusives.get(bitIndex).addAll(mustHavesSnk);
@@ -364,6 +380,7 @@ public class CustomRoutingCalculator {
         // TODO: Doesn't produce absolutely optimal solutions
         while (!routeQueue.isEmpty()) {
             Pair next = routeQueue.remove();
+
             int bitIndex = (int) next.getLeft();
             int pathIndex = (int) next.getRight();
 

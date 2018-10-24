@@ -10,6 +10,8 @@ public class RouterLog {
     private static int indentLevel = 0;
     private static Level logLevel = Level.VERBOSE;
 
+    private static String indentString = "    ";
+
     public static void init(Level level) {
         logLevel = level;
 
@@ -42,7 +44,7 @@ public class RouterLog {
     public static void indent() {
         indentLevel += 1;
         for (int key : prefixMap.keySet()) {
-            prefixMap.replace(key, prefixMap.get(key) + "  ");
+            prefixMap.replace(key, prefixMap.get(key) + indentString);
         }
     }
 
@@ -50,7 +52,7 @@ public class RouterLog {
         indentLevel += delta;
         String indentString = "";
         for (int i = 0; i < indentLevel; i++)
-            indentString += "  ";
+            indentString += indentString;
 
         prefixMap.put(Level.VERBOSE.ordinal(), "VERBOSE\t" + indentString);
         prefixMap.put(Level.INFO.ordinal(), "INFO\t" + indentString);

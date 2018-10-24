@@ -36,6 +36,7 @@ public class RouteTemplate {
     private int distanceX;
     private int distanceY;
 
+    // Inclusive of src and snk
     private ArrayList<WireJunction> template;
 
     public RouteTemplate(Design d, EnterWireJunction src, ExitWireJunction snk) {

@@ -226,7 +226,8 @@ public class CustomRouter {
 
             if (!CustomRoutingCalculator.routeContention(d, routes)) {
                 RouterLog.indent(-1);
-                RouterLog.log("Failed to complete route contention.", RouterLog.Level.ERROR);
+                RouterLog.log("Failed to complete route contention. The connection will be rerouted completely.",
+                        RouterLog.Level.ERROR);
                 RoutingErrorSalvage.routeContentionLiveLockReport.actOnReport();
                 continue;
             }

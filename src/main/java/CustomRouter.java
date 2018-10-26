@@ -234,6 +234,8 @@ public class CustomRouter {
             RouterLog.log("Route contention completed in " + (System.currentTimeMillis() - tStep5Begin) + " ms.",
                     RouterLog.Level.NORMAL);
 
+            success = true;
+
         } while (!success);
 
         /*

@@ -236,13 +236,12 @@ public class CustomRoutingCalculator {
                     }
 
                     if (costForPreemption > template.getCost()) {
-                        template = null;
-
                         RouterLog.log("Conflicted detected at source: rerouting current template at a later time.",
                                 RouterLog.Level.INFO);
 
                         // Ban this src exit since it is no accessible
                         banList.add(template.getTemplate(1).getNodeName());
+                        template = null;
 
                         queue.add(bitIndex);
                         continue;
@@ -282,13 +281,12 @@ public class CustomRoutingCalculator {
                     }
 
                     if (costForPreemption > template.getCost()) {
-                        template = null;
-
                         RouterLog.log("Conflicted detected at sink: rerouting current template at a later time.",
                                 RouterLog.Level.INFO);
 
                         // Ban this snk entrance since it is no accessible
                         banList.add(template.getTemplate(-2).getNodeName());
+                        template = null;
 
                         queue.add(bitIndex);
                         continue;

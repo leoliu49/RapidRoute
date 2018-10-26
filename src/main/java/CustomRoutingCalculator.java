@@ -479,6 +479,11 @@ public class CustomRoutingCalculator {
             routes.get(bitIndex).setPath(pathIndex, candidatePath);
         }
 
+        if (liveLockCount >= 9999) {
+            RouterLog.log("Route contention aborted (live lock detected).", RouterLog.Level.ERROR);
+            return false;
+        }
+
         RouterLog.log(preemptCount + " tile paths were rerouted due to contention.", RouterLog.Level.INFO);
 
 

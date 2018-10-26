@@ -298,7 +298,7 @@ public class CustomRoutingCalculator {
                                 RouterLog.Level.INFO);
 
                         // Ban this snk entrance since it is no accessible
-                        banList.add(template.getTemplate(-2).getNodeName());
+                        banList.add(template.getTemplate(-3).getNodeName());
                         template = null;
 
                         queue.add(bitIndex);
@@ -317,7 +317,7 @@ public class CustomRoutingCalculator {
                             }
                             //activeSnkTilePaths.set(b, null);
 
-                            banLists.get(b).add(t.getTemplate(-2).getNodeName());
+                            banLists.get(b).add(t.getTemplate(-3).getNodeName());
 
                             // Add them back to queue to be re-routed once again
                             queue.add(b);

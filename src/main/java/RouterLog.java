@@ -50,15 +50,15 @@ public class RouterLog {
 
     public static void indent(int delta) {
         indentLevel += delta;
-        String indentString = "";
+        String indents = "";
         for (int i = 0; i < indentLevel; i++)
-            indentString += indentString;
+            indents += indentString;
 
-        prefixMap.put(Level.VERBOSE.ordinal(), "VERBOSE\t" + indentString);
-        prefixMap.put(Level.INFO.ordinal(), "INFO\t" + indentString);
-        prefixMap.put(Level.NORMAL.ordinal(), "NORMAL\t" + indentString);
-        prefixMap.put(Level.WARNING.ordinal(), "WARNING\t" + indentString);
-        prefixMap.put(Level.ERROR.ordinal(), "ERROR\t" + indentString);
+        prefixMap.put(Level.VERBOSE.ordinal(), "VERBOSE\t" + indents);
+        prefixMap.put(Level.INFO.ordinal(), "INFO\t" + indents);
+        prefixMap.put(Level.NORMAL.ordinal(), "NORMAL\t" + indents);
+        prefixMap.put(Level.WARNING.ordinal(), "WARNING\t" + indents);
+        prefixMap.put(Level.ERROR.ordinal(), "ERROR\t" + indents);
     }
 
 }

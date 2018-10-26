@@ -111,6 +111,8 @@ public class CustomRoute {
     }
 
     public void setPath(int i, TilePath path) {
+        if (i < 0)
+            i += pathSubs.size();
         route.set(i, path);
         cost += path.getCost();
     }
@@ -118,6 +120,12 @@ public class CustomRoute {
     public void removePath(int i) {
         cost -= route.get(i).getCost();
         route.set(i, null);
+    }
+
+    public ArrayList<TilePath> getPathSub(int i) {
+        if (i < 0)
+            i += pathSubs.size();
+        return pathSubs.get(i);
     }
 
     public void setPathSub(int i, ArrayList<TilePath> pathSub) {

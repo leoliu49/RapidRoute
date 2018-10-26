@@ -82,25 +82,6 @@ public class CustomRoutingCalculator {
         return results;
     }
 
-    /*
-    public static void lockTilePath(TilePath path) {
-        for (String nodeName : path.getNodePath())
-            CustomRouter.lock(nodeName);
-    }
-
-    public static boolean isTilePathConflicted(TilePath path) {
-        // Source and sink junctions are assumed to be unlocked
-        for (int i = 1; i < path.getNodePath().size() - 1; i++) {
-            if (CustomRouter.isLocked(path.getNodeName(i))) {
-                System.out.println(path.getNodeName(i));
-                return true;
-            }
-        }
-
-        return false;
-    }
-    */
-
     public static RouteTemplate createRouteTemplate(Design d, EnterWireJunction src, ExitWireJunction snk) {
 
         RouterLog.log("Routing template for " + src + " --> " + snk + " (omni BFS).", RouterLog.Level.INFO);
@@ -189,7 +170,7 @@ public class CustomRoutingCalculator {
         int rerouteCount = 0;
         int preemptCount = 0;
 
-        ArrayList<RouteTemplate> results = new ArrayList<>();
+        ArrayList<RouteTemplate> templates = new ArrayList<>();
         ArrayList<Set<String>> banLists = new ArrayList<>();
 
         HashMap<Integer, Set<String>> srcSnkExclusives = new HashMap<>();
@@ -197,7 +178,7 @@ public class CustomRoutingCalculator {
         Queue<Integer> queue = new LinkedList<>();
 
         for (int i = 0; i < bitwidth; i++) {
-            results.add(null);
+            templates.add(null);
             banLists.add(new HashSet<>());
             srcSnkExclusives.put(i, new HashSet<>());
 
@@ -249,7 +230,7 @@ public class CustomRoutingCalculator {
                      */
                     int costForPreemption = 0;
                     for (int b : conflictedBits) {
-                        RouteTemplate t = results.get(b);
+                        RouteTemplate t = templates.get(b);
                         if (t.getCost() > costForPreemption)
                             costForPreemption = t.getCost();
                     }
@@ -269,8 +250,8 @@ public class CustomRoutingCalculator {
                     else {
                         preemptCount += 1;
                         for (int b : conflictedBits) {
-                            RouteTemplate t = results.get(b);
-                            results.set(b, null);
+                            RouteTemplate t = templates.get(b);
+                            templates.set(b, null);
 
                             // Purge usages of preempted routes
                             srcSnkExclusives.put(b, new HashSet<>());
@@ -295,7 +276,7 @@ public class CustomRoutingCalculator {
                     rerouteCount += 1;
                     int costForPreemption = 0;
                     for (int b : conflictedBits) {
-                        RouteTemplate t = results.get(b);
+                        RouteTemplate t = templates.get(b);
                         if (t.getCost() > costForPreemption)
                             costForPreemption = t.getCost();
                     }
@@ -315,8 +296,8 @@ public class CustomRoutingCalculator {
                     else {
                         preemptCount += 1;
                         for (int b : conflictedBits) {
-                            RouteTemplate t = results.get(b);
-                            results.set(b, null);
+                            RouteTemplate t = templates.get(b);
+                            templates.set(b, null);
 
                             // Purge usages of preempted routes
                             srcSnkExclusives.put(b, new HashSet<>());
@@ -336,7 +317,7 @@ public class CustomRoutingCalculator {
 
                 }
 
-                results.set(bitIndex, template);
+                templates.set(bitIndex, template);
 
                 for (WireJunction junction : template.getTemplate()) {
                     CustomRouter.lock(junction.getNodeName());
@@ -354,7 +335,7 @@ public class CustomRoutingCalculator {
         RouterLog.log("Found all templates for bus:", RouterLog.Level.INFO);
         RouterLog.indent();
         for (int i = 0; i < bitwidth; i++) {
-            RouteTemplate result = results.get(i);
+            RouteTemplate result = templates.get(i);
             RouterLog.log("b" + i + ":\t" + result.hopSummary(), RouterLog.Level.INFO);
         }
         RouterLog.indent(-1);
@@ -362,24 +343,126 @@ public class CustomRoutingCalculator {
         RouterLog.log(rerouteCount + " templates were rerouted. " + preemptCount + " of which are rerouted due to preemption.",
                 RouterLog.Level.INFO);
 
-        return results;
+        return templates;
+    }
+
+    private static ArrayList<TilePath> deriveBestSinkPathsRecurse(int depth, ArrayList<TilePath> validPathsState,
+                                                                  HashSet<String> footprint,
+                                                                  ArrayList<HashSet<TilePath>> allPaths) {
+        if (depth == allPaths.size())
+            return validPathsState;
+
+        HashSet<TilePath> paths = allPaths.get(depth);
+        if (paths == null || paths.isEmpty())
+            return null;
+
+        for (TilePath candidate : paths) {
+            boolean isValid = true;
+            for (String nodeName : candidate.getNodePath()) {
+                if (footprint.contains(nodeName)) {
+                    isValid = false;
+                    break;
+                }
+            }
+
+            if (isValid) {
+                HashSet<String> nextDepthFootprint = new HashSet<>(footprint);
+                nextDepthFootprint.addAll(candidate.getNodePath());
+
+                validPathsState.set(depth, candidate);
+
+                ArrayList<TilePath> results = deriveBestSinkPathsRecurse(depth + 1, validPathsState, nextDepthFootprint,
+                        allPaths);
+                if (results != null)
+                    return results;
+            }
+        }
+
+        return null;
+    }
+
+    public static boolean deriveBestSinkPaths(Design d, ArrayList<CustomRoute> routes) {
+
+        // Highest cost possible
+        int threshMax = 0;
+        // Lost cost possible (max of min's across each bit)
+        int threshMin = 0;
+
+        ArrayList<HashSet<TilePath>> allPaths = new ArrayList<>();
+        {
+            for (CustomRoute route : routes) {
+                allPaths.add(new HashSet<>(route.getPathSub(-1)));
+
+                int min = 99;
+                for (TilePath path : route.getPathSub(-1)) {
+                    if (path.getCost() > threshMax)
+                        threshMax = path.getCost();
+                    if (path.getCost() < min)
+                        min = path.getCost();
+                }
+
+                if (min > threshMin)
+                    threshMin = min;
+            }
+        }
+
+        for (int threshold = threshMin; threshold <= threshMax; threshold++) {
+            ArrayList<HashSet<TilePath>> candidatePool = new ArrayList<>();
+            for (HashSet<TilePath> pathChoices : allPaths) {
+                HashSet<TilePath> bitCandidates = new HashSet<>();
+                for (TilePath path : pathChoices) {
+                    if (path.getCost() <= threshold)
+                        bitCandidates.add(path);
+                }
+                candidatePool.add(bitCandidates);
+            }
+
+            for (int i = 0; i < routes.size(); i++) {
+
+                ArrayList<HashSet<TilePath>> candidates = new ArrayList<>(candidatePool);
+
+                HashSet<TilePath> threshSet = new HashSet<>();
+                for (TilePath path : candidates.get(i)) {
+                    if (path.getCost() <= threshold)
+                        threshSet.add(path);
+                }
+                candidates.set(i, threshSet);
+
+                ArrayList<TilePath> results = new ArrayList<>();
+                for (int j = 0; j < routes.size(); j++)
+                    results.add(null);
+                results = deriveBestSinkPathsRecurse(0, results, new HashSet<>(), candidates);
+
+                if (results != null) {
+                    for (int j = 0; j < routes.size(); j++)
+                        routes.get(j).setPath(-1, results.get(j));
+
+                    RouterLog.log("Route found at a worst-case cost of " + threshold + ".", RouterLog.Level.INFO);
+                    return true;
+                }
+            }
+        }
+
+
+        return false;
     }
 
     public static boolean routeContention(Design d, ArrayList<CustomRoute> routes) {
         int preemptCount = 0;
+        int liveLockCount = 0;
 
         Queue<Pair<Integer, Integer>> routeQueue = new LinkedList<>();
 
         for (int i = 0; i < routes.size(); i++) {
-            for (int j = 0; j < routes.get(i).getRoute().size(); j++) {
+            for (int j = 0; j < routes.get(i).getRoute().size() - 1; j++) {
                 routeQueue.add(new ImmutablePair<>(i, j));
             }
         }
 
-        // TODO: May still live-lock (?)
         // TODO: Doesn't produce absolutely optimal solutions
-        while (!routeQueue.isEmpty()) {
+        while (!routeQueue.isEmpty() && liveLockCount < 9999) {
             Pair next = routeQueue.remove();
+            liveLockCount += 1;
 
             int bitIndex = (int) next.getLeft();
             int pathIndex = (int) next.getRight();

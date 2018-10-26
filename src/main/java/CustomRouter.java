@@ -189,24 +189,42 @@ public class CustomRouter {
                 RouterLog.Level.NORMAL);
 
         /*
-         * Step 4: Programmatically determine which INT tile paths to take
+         * Step 4: Since sink tile paths suffer heavy congestion, use "easing" method to determine best-case sink paths
+         *  TODO: Is this necessary?
          */
-        RouterLog.log("4: Performing route contention", RouterLog.Level.INFO);
+        RouterLog.log("4: Using \"easing\" method to find best sink tile paths.", RouterLog.Level.INFO);
         RouterLog.indent();
         long tStep4Begin = System.currentTimeMillis();
+        if (!CustomRoutingCalculator.deriveBestSinkPaths(d, routes)) {
+            // TODO: No failure recovery
+            RouterLog.indent(-1);
+            RouterLog.log("Failed to find sink tile paths", RouterLog.Level.ERROR);
+            return null;
+        }
+        RouterLog.indent(-1);
+        RouterLog.log("Sink paths found in " + (System.currentTimeMillis() - tStep4Begin) + " ms.",
+                RouterLog.Level.NORMAL);
+
+        /*
+         * Step 5: Programmatically determine which INT tile paths to take
+         */
+        RouterLog.log("5: Performing route contention", RouterLog.Level.INFO);
+        RouterLog.indent();
+        long tStep5Begin = System.currentTimeMillis();
 
         if (!CustomRoutingCalculator.routeContention(d, routes)) {
+            // TODO: No failure recovery
             RouterLog.indent(-1);
             RouterLog.log("Failed to complete route contention.", RouterLog.Level.ERROR);
             return null;
         }
         RouterLog.indent(-1);
-        RouterLog.log("Route contention completed in " + (System.currentTimeMillis() - tStep4Begin) + " ms.",
+        RouterLog.log("Route contention completed in " + (System.currentTimeMillis() - tStep5Begin) + " ms.",
                 RouterLog.Level.NORMAL);
 
 
         /*
-         * Step 5: Associate each CustomRoute with its corresponding net
+         * Step 6: Associate each CustomRoute with its corresponding net
          */
         {
             int bitIndex = 0;

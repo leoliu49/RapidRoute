@@ -11,7 +11,7 @@ public class FabricBrowser {
     public static HashMap<String, Set<String>> exitFanOutCache = new HashMap<>();
     public static HashMap<String, Set<String>> entranceFanOutCache = new HashMap<>();
 
-    private static final int TILE_TRAVERSAL_MAX_DEPTH = 8;
+    private static final int TILE_TRAVERSAL_MAX_DEPTH = 10;
     private static class NodeDepthPair {
         /*
          * Internal class used to track depth of BFS searches

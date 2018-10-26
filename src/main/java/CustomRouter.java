@@ -16,6 +16,9 @@ public class CustomRouter {
 
     private static Set<String> nodeLock = new HashSet<>();
 
+    private static final int SUGGESTED_STANDARD_TILE_TRAVERSAL_MAX_DEPTH = 8;
+    private static final int SUGGESTED_SINK_TILE_TRAVERSAL_MAX_DEPTH = 10;
+
     public static void flushNodeLock() {
         nodeLock.clear();
     }
@@ -179,10 +182,17 @@ public class CustomRouter {
 
         for (CustomRoute route : routes) {
             RouteTemplate template = route.getTemplate();
-            for (int i = 0; i < template.getTemplate().size() / 2; i ++) {
-                route.setPathSub(i, FabricBrowser.findTilePaths(d, (EnterWireJunction) template.getTemplate(i * 2),
+
+            for (int i = 0; i < template.getTemplate().size() / 2 - 1; i ++) {
+                route.setPathSub(i, FabricBrowser.findTilePaths(d, SUGGESTED_STANDARD_TILE_TRAVERSAL_MAX_DEPTH,
+                        (EnterWireJunction) template.getTemplate(i * 2),
                         (ExitWireJunction) template.getTemplate(i * 2 + 1)));
             }
+            // Leave more slack for sink tile path
+            route.setPathSub(-1, FabricBrowser.findTilePaths(d, SUGGESTED_SINK_TILE_TRAVERSAL_MAX_DEPTH,
+                    (EnterWireJunction) template.getTemplate(-2),
+                    (ExitWireJunction) template.getTemplate(-1)));
+
         }
         RouterLog.indent(-1);
         RouterLog.log("All tile paths found in " + (System.currentTimeMillis() - tStep3Begin) + " ms.",

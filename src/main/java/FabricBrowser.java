@@ -11,7 +11,7 @@ public class FabricBrowser {
     public static HashMap<String, Set<String>> exitFanOutCache = new HashMap<>();
     public static HashMap<String, Set<String>> entranceFanOutCache = new HashMap<>();
 
-    private static final int TILE_TRAVERSAL_MAX_DEPTH = 10;
+    private static final int TILE_TRAVERSAL_MAX_DEPTH = 8;
     private static class NodeDepthPair {
         /*
          * Internal class used to track depth of BFS searches
@@ -288,6 +288,60 @@ public class FabricBrowser {
             TilePath trav = queue.remove();
 
             if (trav.getCost() >= TILE_TRAVERSAL_MAX_DEPTH + 1)
+                break;
+
+            for (PIP pip : getFwdPIPs(d, tileName, trav.getNodeName(-2))) {
+                String nextNodeName = pip.getEndNode().getName();
+
+                if (nextNodeName.equals(exit.getNodeName())) {
+                    results.add(new TilePath(trav));
+                }
+                else if (RouteUtil.isNodeBuffer(d, tileName, nextNodeName)) {
+
+                    if (globalNodeFootprint.contains(nextNodeName)
+                            || (CustomRouter.isLocked(nextNodeName)))
+                        continue;
+
+                    TilePath travCopy = new TilePath(trav);
+
+                    // To prevent cycles in buffer traversal, don't queue previously traversed buffers
+                    if (travCopy.addNode(nextNodeName))
+                        queue.add(travCopy);
+                }
+            }
+        }
+
+        RouterLog.log("Found " + results.size() + " INT tile paths for " + entrance + " --> " + exit + ".",
+                RouterLog.Level.INFO);
+        if (!results.isEmpty()) {
+            RouterLog.indent();
+            RouterLog.log("Minimum cost of tile paths is " + results.get(0).getCost() + ".", RouterLog.Level.VERBOSE);
+            RouterLog.indent(-1);
+        }
+
+        return results;
+    }
+
+    /*
+     * Same as above, with custom max traversal depth
+     */
+    public static ArrayList<TilePath> findTilePaths(Design d, int maxDepth, EnterWireJunction entrance,
+                                                    ExitWireJunction exit) {
+        ArrayList<TilePath> results = new ArrayList<>();
+
+        // Not applicable unless entrance and exit are on the same INT tile.
+        if (!entrance.getTileName().equals(exit.getTileName()))
+            return results;
+
+        String tileName = entrance.getTileName();
+
+        Queue<TilePath> queue = new LinkedList<>();
+        queue.add(new TilePath(entrance, exit));
+
+        while (!queue.isEmpty()) {
+            TilePath trav = queue.remove();
+
+            if (trav.getCost() >= maxDepth + 1)
                 break;
 
             for (PIP pip : getFwdPIPs(d, tileName, trav.getNodeName(-2))) {

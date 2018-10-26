@@ -14,7 +14,7 @@ public class CustomRouter {
 
     private static Set<String> nodeLock = new HashSet<>();
 
-    private static final int SUGGESTED_STANDARD_TILE_TRAVERSAL_MAX_DEPTH = 8;
+    private static final int SUGGESTED_STANDARD_TILE_TRAVERSAL_MAX_DEPTH = FabricBrowser.TILE_TRAVERSAL_MAX_DEPTH;
     private static final int SUGGESTED_SINK_TILE_TRAVERSAL_MAX_DEPTH = 10;
 
     public static void flushNodeLock() {
@@ -171,10 +171,11 @@ public class CustomRouter {
                     RouterLog.Level.NORMAL);
 
             /*
-             * Step 3: Iterate through all templates, construct CustomRoute's based on templates, then populate with path
-             *   subs
+             * Step 3: Since sink tile paths suffer heavy congestion, use "easing" method to determine best-case sink
+             *  paths
+             * Errors at this stage will result in repeating step 2
              */
-            RouterLog.log("3: Calculating tile paths for templates.", RouterLog.Level.INFO);
+            RouterLog.log("3: Using \"easing\" method to find best sink tile paths.", RouterLog.Level.INFO);
             RouterLog.indent();
             long tStep3Begin = System.currentTimeMillis();
 
@@ -182,31 +183,15 @@ public class CustomRouter {
             for (RouteTemplate template : templates)
                 routes.add(new CustomRoute(template));
 
+            // Calculate sink tile paths
             for (CustomRoute route : routes) {
                 RouteTemplate template = route.getTemplate();
-
-                for (int i = 0; i < template.getTemplate().size() / 2 - 1; i++) {
-                    route.setPathSub(i, FabricBrowser.findTilePaths(d, SUGGESTED_STANDARD_TILE_TRAVERSAL_MAX_DEPTH,
-                            (EnterWireJunction) template.getTemplate(i * 2),
-                            (ExitWireJunction) template.getTemplate(i * 2 + 1)));
-                }
-                // Leave more slack for sink tile path
                 route.setPathSub(-1, FabricBrowser.findTilePaths(d, SUGGESTED_SINK_TILE_TRAVERSAL_MAX_DEPTH,
                         (EnterWireJunction) template.getTemplate(-2),
                         (ExitWireJunction) template.getTemplate(-1)));
-
             }
-            RouterLog.indent(-1);
-            RouterLog.log("All tile paths found in " + (System.currentTimeMillis() - tStep3Begin) + " ms.",
-                    RouterLog.Level.NORMAL);
 
-            /*
-             * Step 4: Since sink tile paths suffer heavy congestion, use "easing" method to determine best-case sink paths
-             *  TODO: Is this necessary?
-             */
-            RouterLog.log("4: Using \"easing\" method to find best sink tile paths.", RouterLog.Level.INFO);
-            RouterLog.indent();
-            long tStep4Begin = System.currentTimeMillis();
+            // Finding best sink path configuration
             if (!CustomRoutingCalculator.deriveBestSinkPaths(d, routes)) {
                 RouterLog.indent(-1);
                 RouterLog.log("Failed to find sink tile paths. The connection will be rerouted completely.",
@@ -215,11 +200,33 @@ public class CustomRouter {
                 continue;
             }
             RouterLog.indent(-1);
-            RouterLog.log("Sink paths found in " + (System.currentTimeMillis() - tStep4Begin) + " ms.",
+            RouterLog.log("Sink paths found in " + (System.currentTimeMillis() - tStep3Begin) + " ms.",
+                    RouterLog.Level.NORMAL);
+
+            /*
+             * Step 4: Populate all CustomRoute's with inner tile path choices
+             * Next step determines which paths to take
+             */
+            RouterLog.log("4: Calculating tile paths for templates.", RouterLog.Level.INFO);
+            RouterLog.indent();
+            long tStep4Begin = System.currentTimeMillis();
+
+            // Calculate tile paths for all except sink tile paths (already done in step 3)
+            for (CustomRoute route : routes) {
+                RouteTemplate template = route.getTemplate();
+                for (int i = 0; i < template.getTemplate().size() / 2 - 1; i++) {
+                    route.setPathSub(i, FabricBrowser.findTilePaths(d, SUGGESTED_STANDARD_TILE_TRAVERSAL_MAX_DEPTH,
+                            (EnterWireJunction) template.getTemplate(i * 2),
+                            (ExitWireJunction) template.getTemplate(i * 2 + 1)));
+                }
+            }
+            RouterLog.indent(-1);
+            RouterLog.log("All tile paths found in " + (System.currentTimeMillis() - tStep4Begin) + " ms.",
                     RouterLog.Level.NORMAL);
 
             /*
              * Step 5: Programmatically determine which INT tile paths to take
+             * Errors at this stage will result in repeating step 2
              */
             RouterLog.log("5: Performing route contention", RouterLog.Level.INFO);
             RouterLog.indent();

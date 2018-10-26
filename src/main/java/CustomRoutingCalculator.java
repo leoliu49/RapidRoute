@@ -81,6 +81,10 @@ public class CustomRoutingCalculator {
         return results;
     }
 
+    /*
+     * Run omni-directional BFS from source to sink to find all hops necessary. Hops wires are aggregated and put into
+     *  a RouteTemplate
+     */
     public static RouteTemplate createRouteTemplate(Design d, EnterWireJunction src, ExitWireJunction snk) {
 
         RouterLog.log("Routing template for " + src + " --> " + snk + " (omni BFS).", RouterLog.Level.INFO);
@@ -163,6 +167,9 @@ public class CustomRoutingCalculator {
         return new RouteTemplate(d, src, snk);
     }
 
+    /*
+     * Systematically determine a (usually) conflict-free configuration of RouteTemplates for a single bus
+     */
     public static ArrayList<RouteTemplate> createBussedRouteTemplates(Design d, ArrayList<EnterWireJunction> srcs,
                                                                       ArrayList<ExitWireJunction> snks) {
         int bitwidth = srcs.size();

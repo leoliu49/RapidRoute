@@ -1,4 +1,3 @@
-import com.kenai.jffi.Array;
 import com.xilinx.rapidwright.design.Design;
 import com.xilinx.rapidwright.device.Tile;
 import org.apache.commons.lang3.tuple.ImmutablePair;
@@ -15,7 +14,7 @@ public class CustomRoutingCalculator {
     /*
      * From a list of potential paths, find any nodes that are "must-haves"
      */
-    public static Set<String> deriveExclusiveNodes(ArrayList<TilePath> pathChoices) {
+    private static Set<String> deriveExclusiveNodes(ArrayList<TilePath> pathChoices) {
         HashMap<String, Integer> nodeUsages = new HashMap<>();
         Set<String> exclusives = new HashSet<>();
 
@@ -173,6 +172,10 @@ public class CustomRoutingCalculator {
         ArrayList<RouteTemplate> templates = new ArrayList<>();
         ArrayList<Set<String>> banLists = new ArrayList<>();
 
+        ArrayList<HashSet<TilePath>> activeSnkTilePaths = new ArrayList<>();
+        for (int i = 0; i < bitwidth; i++)
+            activeSnkTilePaths.add(null);
+
         HashMap<Integer, Set<String>> srcSnkExclusives = new HashMap<>();
 
         Queue<Integer> queue = new LinkedList<>();
@@ -247,8 +250,8 @@ public class CustomRoutingCalculator {
                         continue;
                     }
                     else {
-                        preemptCount += 1;
                         for (int b : conflictedBits) {
+                            preemptCount += 1;
                             RouteTemplate t = templates.get(b);
                             templates.set(b, null);
 
@@ -257,6 +260,7 @@ public class CustomRoutingCalculator {
                             for (int i = 1; i < t.getTemplate().size() - 1; i++) {
                                 CustomRouter.unlock(t.getTemplate(i).getNodeName());
                             }
+                            activeSnkTilePaths.set(b, null);
 
                             banLists.get(b).add(t.getTemplate(1).getNodeName());
 
@@ -292,8 +296,8 @@ public class CustomRoutingCalculator {
                         continue;
                     }
                     else {
-                        preemptCount += 1;
                         for (int b : conflictedBits) {
+                            preemptCount += 1;
                             RouteTemplate t = templates.get(b);
                             templates.set(b, null);
 
@@ -302,6 +306,7 @@ public class CustomRoutingCalculator {
                             for (int i = 1; i < t.getTemplate().size() - 1; i++) {
                                 CustomRouter.unlock(t.getTemplate(i).getNodeName());
                             }
+                            activeSnkTilePaths.set(b, null);
 
                             banLists.get(b).add(t.getTemplate(-2).getNodeName());
 
@@ -315,6 +320,34 @@ public class CustomRoutingCalculator {
 
                 }
 
+                // Check to see if there are valid tile paths in sink - which is a high-congestion area
+                {
+                    ArrayList<TilePath> paths = new ArrayList<>();
+                    for (int i = 0; i < bitwidth; i++)
+                        paths.add(null);
+                    ArrayList<HashSet<TilePath>> allPaths = new ArrayList<>();
+                    for (HashSet<TilePath> pathChoices : activeSnkTilePaths) {
+                        if (pathChoices != null)
+                            allPaths.add(pathChoices);
+                    }
+                    allPaths.add(new HashSet<>(snkPathChoices));
+
+                    if (deriveValidTilePaths(0, paths, new HashSet<>(), allPaths) == null) {
+                        rerouteCount += 1;
+
+                        // Failure condition slipped through exclusivity checks - yield self at a later time
+                        RouterLog.log("Unroutable configuration detected at sink: rerouting current template at a later time.",
+                                RouterLog.Level.INFO);
+
+                        banList.add(template.getTemplate(-2).getNodeName());
+                        template = null;
+
+                        queue.add(bitIndex);
+                        continue;
+                    }
+
+                }
+
                 templates.set(bitIndex, template);
 
                 for (WireJunction junction : template.getTemplate()) {
@@ -323,6 +356,7 @@ public class CustomRoutingCalculator {
 
                 srcSnkExclusives.put(bitIndex, mustHavesSrc);
                 srcSnkExclusives.get(bitIndex).addAll(mustHavesSnk);
+                activeSnkTilePaths.set(bitIndex, new HashSet<>(snkPathChoices));
 
             } while (template == null);
 
@@ -344,9 +378,12 @@ public class CustomRoutingCalculator {
         return templates;
     }
 
-    private static ArrayList<TilePath> deriveBestSinkPathsRecurse(int depth, ArrayList<TilePath> validPathsState,
-                                                                  HashSet<String> footprint,
-                                                                  ArrayList<HashSet<TilePath>> allPaths) {
+    /*
+     * Recursive function finding (usually worst-case) any valid tile paths configuration
+     */
+    private static ArrayList<TilePath> deriveValidTilePaths(int depth, ArrayList<TilePath> validPathsState,
+                                                            HashSet<String> footprint,
+                                                            ArrayList<HashSet<TilePath>> allPaths) {
         if (depth == allPaths.size())
             return validPathsState;
 
@@ -369,7 +406,7 @@ public class CustomRoutingCalculator {
 
                 validPathsState.set(depth, candidate);
 
-                ArrayList<TilePath> results = deriveBestSinkPathsRecurse(depth + 1, validPathsState, nextDepthFootprint,
+                ArrayList<TilePath> results = deriveValidTilePaths(depth + 1, validPathsState, nextDepthFootprint,
                         allPaths);
                 if (results != null)
                     return results;
@@ -379,6 +416,9 @@ public class CustomRoutingCalculator {
         return null;
     }
 
+    /*
+     * Uses "easing" method to derive the "best-worst-case" configuration of a set of potential routes
+     */
     public static boolean deriveBestSinkPaths(Design d, ArrayList<CustomRoute> routes) {
 
         // Highest cost possible
@@ -429,7 +469,7 @@ public class CustomRoutingCalculator {
                 ArrayList<TilePath> results = new ArrayList<>();
                 for (int j = 0; j < routes.size(); j++)
                     results.add(null);
-                results = deriveBestSinkPathsRecurse(0, results, new HashSet<>(), candidates);
+                results = deriveValidTilePaths(0, results, new HashSet<>(), candidates);
 
                 if (results != null) {
                     for (int j = 0; j < routes.size(); j++)
@@ -449,6 +489,7 @@ public class CustomRoutingCalculator {
         int preemptCount = 0;
         int liveLockCount = 0;
 
+        int[] deflectionCount = new int[routes.size()];
         Queue<Pair<Integer, Integer>> routeQueue = new LinkedList<>();
 
         for (int i = 0; i < routes.size(); i++) {
@@ -473,6 +514,7 @@ public class CustomRoutingCalculator {
                 conflictedRoute.removePath(conflict.getRight());
 
                 preemptCount += 1;
+                deflectionCount[bitIndex] += 1;
                 routeQueue.add(conflict);
             }
 
@@ -481,6 +523,8 @@ public class CustomRoutingCalculator {
 
         if (liveLockCount >= 9999) {
             RouterLog.log("Route contention aborted (live lock detected).", RouterLog.Level.ERROR);
+
+            RoutingErrorSalvage.routeContentionLiveLockReport.report(deflectionCount, routes);
             return false;
         }
 

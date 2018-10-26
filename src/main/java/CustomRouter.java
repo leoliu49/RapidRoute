@@ -3,8 +3,6 @@ import java.util.*;
 import com.xilinx.rapidwright.design.Design;
 import com.xilinx.rapidwright.design.Net;
 import com.xilinx.rapidwright.design.PIP;
-import com.xilinx.rapidwright.device.Site;
-import com.xilinx.rapidwright.device.Tile;
 import com.xilinx.rapidwright.edif.EDIFNetlist;
 import com.xilinx.rapidwright.edif.EDIFTools;
 
@@ -155,83 +153,88 @@ public class CustomRouter {
         }
         RouterLog.indent(-1);
 
-        /*
-         * Step 2: Calculate which hops (WireJunctions) should be used to connect each source/sink
-         *  If there are conflicts in hops, reroute
-         */
-        RouterLog.log("2: Calculating route templates", RouterLog.Level.INFO);
-        RouterLog.indent();
-        long tStep2Begin = System.currentTimeMillis();
-        ArrayList<RouteTemplate> templates = CustomRoutingCalculator.createBussedRouteTemplates(d, srcJunctions,
-                snkJunctions);
-        RouterLog.indent(-1);
-        RouterLog.log("All templates found in " + (System.currentTimeMillis() - tStep2Begin) + " ms.",
-                RouterLog.Level.NORMAL);
 
-        /*
-         * Step 3: Iterate through all templates, construct CustomRoute's based on templates, then populate with path
-         *   subs
-         */
-        RouterLog.log("3: Calculating tile paths for templates.", RouterLog.Level.INFO);
-        RouterLog.indent();
-        long tStep3Begin = System.currentTimeMillis();
+        boolean success = false;
+        ArrayList<RouteTemplate> templates;
+        ArrayList<CustomRoute> routes;
+        do {
+            /*
+             * Step 2: Calculate which hops (WireJunctions) should be used to connect each source/sink
+             *  If there are conflicts in hops, reroute
+             */
+            RouterLog.log("2: Calculating route templates", RouterLog.Level.INFO);
+            RouterLog.indent();
+            long tStep2Begin = System.currentTimeMillis();
+            templates = CustomRoutingCalculator.createBussedRouteTemplates(d, srcJunctions, snkJunctions);
+            RouterLog.indent(-1);
+            RouterLog.log("All templates found in " + (System.currentTimeMillis() - tStep2Begin) + " ms.",
+                    RouterLog.Level.NORMAL);
 
-        ArrayList<CustomRoute> routes = new ArrayList<>();
-        for (RouteTemplate template : templates)
-            routes.add(new CustomRoute(template));
+            /*
+             * Step 3: Iterate through all templates, construct CustomRoute's based on templates, then populate with path
+             *   subs
+             */
+            RouterLog.log("3: Calculating tile paths for templates.", RouterLog.Level.INFO);
+            RouterLog.indent();
+            long tStep3Begin = System.currentTimeMillis();
 
-        for (CustomRoute route : routes) {
-            RouteTemplate template = route.getTemplate();
+            routes = new ArrayList<>();
+            for (RouteTemplate template : templates)
+                routes.add(new CustomRoute(template));
 
-            for (int i = 0; i < template.getTemplate().size() / 2 - 1; i ++) {
-                route.setPathSub(i, FabricBrowser.findTilePaths(d, SUGGESTED_STANDARD_TILE_TRAVERSAL_MAX_DEPTH,
-                        (EnterWireJunction) template.getTemplate(i * 2),
-                        (ExitWireJunction) template.getTemplate(i * 2 + 1)));
+            for (CustomRoute route : routes) {
+                RouteTemplate template = route.getTemplate();
+
+                for (int i = 0; i < template.getTemplate().size() / 2 - 1; i++) {
+                    route.setPathSub(i, FabricBrowser.findTilePaths(d, SUGGESTED_STANDARD_TILE_TRAVERSAL_MAX_DEPTH,
+                            (EnterWireJunction) template.getTemplate(i * 2),
+                            (ExitWireJunction) template.getTemplate(i * 2 + 1)));
+                }
+                // Leave more slack for sink tile path
+                route.setPathSub(-1, FabricBrowser.findTilePaths(d, SUGGESTED_SINK_TILE_TRAVERSAL_MAX_DEPTH,
+                        (EnterWireJunction) template.getTemplate(-2),
+                        (ExitWireJunction) template.getTemplate(-1)));
+
             }
-            // Leave more slack for sink tile path
-            route.setPathSub(-1, FabricBrowser.findTilePaths(d, SUGGESTED_SINK_TILE_TRAVERSAL_MAX_DEPTH,
-                    (EnterWireJunction) template.getTemplate(-2),
-                    (ExitWireJunction) template.getTemplate(-1)));
-
-        }
-        RouterLog.indent(-1);
-        RouterLog.log("All tile paths found in " + (System.currentTimeMillis() - tStep3Begin) + " ms.",
-                RouterLog.Level.NORMAL);
-
-        /*
-         * Step 4: Since sink tile paths suffer heavy congestion, use "easing" method to determine best-case sink paths
-         *  TODO: Is this necessary?
-         */
-        RouterLog.log("4: Using \"easing\" method to find best sink tile paths.", RouterLog.Level.INFO);
-        RouterLog.indent();
-        long tStep4Begin = System.currentTimeMillis();
-        if (!CustomRoutingCalculator.deriveBestSinkPaths(d, routes)) {
-            // TODO: No failure recovery
             RouterLog.indent(-1);
-            RouterLog.log("Failed to find sink tile paths", RouterLog.Level.ERROR);
-            return null;
-        }
-        RouterLog.indent(-1);
-        RouterLog.log("Sink paths found in " + (System.currentTimeMillis() - tStep4Begin) + " ms.",
-                RouterLog.Level.NORMAL);
+            RouterLog.log("All tile paths found in " + (System.currentTimeMillis() - tStep3Begin) + " ms.",
+                    RouterLog.Level.NORMAL);
 
-        /*
-         * Step 5: Programmatically determine which INT tile paths to take
-         */
-        RouterLog.log("5: Performing route contention", RouterLog.Level.INFO);
-        RouterLog.indent();
-        long tStep5Begin = System.currentTimeMillis();
-
-        if (!CustomRoutingCalculator.routeContention(d, routes)) {
-            // TODO: No failure recovery
+            /*
+             * Step 4: Since sink tile paths suffer heavy congestion, use "easing" method to determine best-case sink paths
+             *  TODO: Is this necessary?
+             */
+            RouterLog.log("4: Using \"easing\" method to find best sink tile paths.", RouterLog.Level.INFO);
+            RouterLog.indent();
+            long tStep4Begin = System.currentTimeMillis();
+            if (!CustomRoutingCalculator.deriveBestSinkPaths(d, routes)) {
+                // TODO: What to do here?
+                RouterLog.indent(-1);
+                RouterLog.log("Failed to find sink tile paths", RouterLog.Level.ERROR);
+                return null;
+            }
             RouterLog.indent(-1);
-            RouterLog.log("Failed to complete route contention.", RouterLog.Level.ERROR);
-            return null;
-        }
-        RouterLog.indent(-1);
-        RouterLog.log("Route contention completed in " + (System.currentTimeMillis() - tStep5Begin) + " ms.",
-                RouterLog.Level.NORMAL);
+            RouterLog.log("Sink paths found in " + (System.currentTimeMillis() - tStep4Begin) + " ms.",
+                    RouterLog.Level.NORMAL);
 
+            /*
+             * Step 5: Programmatically determine which INT tile paths to take
+             */
+            RouterLog.log("5: Performing route contention", RouterLog.Level.INFO);
+            RouterLog.indent();
+            long tStep5Begin = System.currentTimeMillis();
+
+            if (!CustomRoutingCalculator.routeContention(d, routes)) {
+                RouterLog.indent(-1);
+                RouterLog.log("Failed to complete route contention.", RouterLog.Level.ERROR);
+                RoutingErrorSalvage.routeContentionLiveLockReport.actOnReport();
+                continue;
+            }
+            RouterLog.indent(-1);
+            RouterLog.log("Route contention completed in " + (System.currentTimeMillis() - tStep5Begin) + " ms.",
+                    RouterLog.Level.NORMAL);
+
+        } while (!success);
 
         /*
          * Step 6: Associate each CustomRoute with its corresponding net

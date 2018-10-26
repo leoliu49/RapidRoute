@@ -208,10 +208,11 @@ public class CustomRouter {
             RouterLog.indent();
             long tStep4Begin = System.currentTimeMillis();
             if (!CustomRoutingCalculator.deriveBestSinkPaths(d, routes)) {
-                // TODO: What to do here?
                 RouterLog.indent(-1);
-                RouterLog.log("Failed to find sink tile paths", RouterLog.Level.ERROR);
-                return null;
+                RouterLog.log("Failed to find sink tile paths. The connection will be rerouted completely.",
+                        RouterLog.Level.ERROR);
+                RoutingErrorSalvage.deriveBestSinkPathsDeadlockReport.actOnReport();
+                continue;
             }
             RouterLog.indent(-1);
             RouterLog.log("Sink paths found in " + (System.currentTimeMillis() - tStep4Begin) + " ms.",

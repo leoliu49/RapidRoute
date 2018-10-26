@@ -172,9 +172,11 @@ public class CustomRoutingCalculator {
         ArrayList<RouteTemplate> templates = new ArrayList<>();
         ArrayList<Set<String>> banLists = new ArrayList<>();
 
+        /*
         ArrayList<HashSet<TilePath>> activeSnkTilePaths = new ArrayList<>();
         for (int i = 0; i < bitwidth; i++)
             activeSnkTilePaths.add(null);
+        */
 
         HashMap<Integer, Set<String>> srcSnkExclusives = new HashMap<>();
 
@@ -260,7 +262,7 @@ public class CustomRoutingCalculator {
                             for (int i = 1; i < t.getTemplate().size() - 1; i++) {
                                 CustomRouter.unlock(t.getTemplate(i).getNodeName());
                             }
-                            activeSnkTilePaths.set(b, null);
+                            //activeSnkTilePaths.set(b, null);
 
                             banLists.get(b).add(t.getTemplate(1).getNodeName());
 
@@ -306,7 +308,7 @@ public class CustomRoutingCalculator {
                             for (int i = 1; i < t.getTemplate().size() - 1; i++) {
                                 CustomRouter.unlock(t.getTemplate(i).getNodeName());
                             }
-                            activeSnkTilePaths.set(b, null);
+                            //activeSnkTilePaths.set(b, null);
 
                             banLists.get(b).add(t.getTemplate(-2).getNodeName());
 
@@ -320,6 +322,7 @@ public class CustomRoutingCalculator {
 
                 }
 
+                /*
                 // Check to see if there are valid tile paths in sink - which is a high-congestion area
                 {
                     ArrayList<TilePath> paths = new ArrayList<>();
@@ -345,8 +348,8 @@ public class CustomRoutingCalculator {
                         queue.add(bitIndex);
                         continue;
                     }
-
                 }
+                */
 
                 templates.set(bitIndex, template);
 
@@ -356,7 +359,7 @@ public class CustomRoutingCalculator {
 
                 srcSnkExclusives.put(bitIndex, mustHavesSrc);
                 srcSnkExclusives.get(bitIndex).addAll(mustHavesSnk);
-                activeSnkTilePaths.set(bitIndex, new HashSet<>(snkPathChoices));
+                //activeSnkTilePaths.set(bitIndex, new HashSet<>(snkPathChoices));
 
             } while (template == null);
 
@@ -481,6 +484,8 @@ public class CustomRoutingCalculator {
             }
         }
 
+        RouterLog.log("Deadlock detected. No sink tile paths configuration is possible.", RouterLog.Level.ERROR);
+        RoutingErrorSalvage.deriveBestSinkPathsDeadlockReport.report(routes);
 
         return false;
     }

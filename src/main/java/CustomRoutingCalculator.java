@@ -152,7 +152,9 @@ public class CustomRoutingCalculator {
                 ExitWireJunction wireSrc = entrance.getSrcJunction(d);
 
                 if (FabricBrowser.globalNodeFootprint.contains(wireSrc.getNodeName())
-                        || footprint.contains(wireSrc.getNodeName()) || CustomRouter.isLocked(wireSrc.getNodeName()))
+                        || footprint.contains(wireSrc.getNodeName()) || CustomRouter.isLocked(wireSrc.getNodeName())
+                        || FabricBrowser.globalNodeFootprint.contains(entrance.getNodeName())
+                        || footprint.contains(entrance.getNodeName()) || CustomRouter.isLocked(entrance.getNodeName()))
                     continue;
 
                 queue.add(new JunctionsTracer(wireSrc, head, head.getDepth() + 1));
@@ -206,13 +208,14 @@ public class CustomRoutingCalculator {
 
             RouteTemplate template;
 
-            for (String node : banList)
-                CustomRouter.lock(node);
-
             // Purge any old usages
             srcSnkExclusives.put(bitIndex, new HashSet<>());
 
             do {
+
+                for (String node : banList)
+                    CustomRouter.lock(node);
+
                 template = createRouteTemplate(d, src, snk);
                 template.setBitIndex(bitIndex);
 

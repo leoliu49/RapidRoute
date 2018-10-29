@@ -3,7 +3,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import com.xilinx.rapidwright.design.Design;
-import com.xilinx.rapidwright.design.PIP;
+import com.xilinx.rapidwright.device.PIP;
 import com.xilinx.rapidwright.device.Site;
 import com.xilinx.rapidwright.device.Tile;
 import com.xilinx.rapidwright.device.Wire;
@@ -58,6 +58,10 @@ public class RouteUtil {
             return WireDirection.SELF;
         }
         return null;
+    }
+
+    public static String getPIPNodeName(String tileName, String wireName) {
+        return tileName + "/" + wireName;
     }
 
     /*
@@ -171,9 +175,9 @@ public class RouteUtil {
         boolean hasIncomingPIPs = false;
 
         for (PIP pip : FabricBrowser.getTilePIPs(d, tileName)) {
-            if (pip.getStartNode().getName().equals(nodeName))
+            if (getPIPNodeName(tileName, pip.getStartWireName()).equals(nodeName))
                 hasOutgoingPIPs = true;
-            if (pip.getEndNode().getName().equals(nodeName))
+            if (getPIPNodeName(tileName, pip.getEndWireName()).equals(nodeName))
                 hasIncomingPIPs = true;
         }
 

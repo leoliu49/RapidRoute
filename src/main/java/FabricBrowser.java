@@ -1,5 +1,5 @@
 import com.xilinx.rapidwright.design.Design;
-import com.xilinx.rapidwright.design.PIP;
+import com.xilinx.rapidwright.device.PIP;
 import com.xilinx.rapidwright.device.Tile;
 
 import java.util.*;
@@ -54,7 +54,7 @@ public class FabricBrowser {
         Set<PIP> pipSet = new HashSet<>();
 
         for (PIP pip : getTilePIPs(d, tileName)) {
-            if (pip.getStartNode().getName().equals(nodeName))
+            if (RouteUtil.getPIPNodeName(tileName, pip.getStartWireName()).equals(nodeName))
                 pipSet.add(pip);
         }
         return pipSet;
@@ -64,7 +64,7 @@ public class FabricBrowser {
         Set<PIP> pipSet = new HashSet<>();
 
         for (PIP pip : getTilePIPs(d, tileName)) {
-            if (pip.getEndNode().getName().equals(nodeName))
+            if (RouteUtil.getPIPNodeName(tileName, pip.getEndWireName()).equals(nodeName))
                 pipSet.add(pip);
         }
         return pipSet;
@@ -125,7 +125,7 @@ public class FabricBrowser {
                 break;
 
             for (PIP pip : getBkwdPIPs(d, tileName, trav.getNodeName())) {
-                String nextNodeName = pip.getStartNode().getName();
+                String nextNodeName = RouteUtil.getPIPNodeName(tileName, pip.getStartWireName());
 
                 WireDirection dir = RouteUtil.extractEnterWireDirection(d, tileName, pip.getStartWireName());
                 int wireLength = RouteUtil.extractEnterWireLength(d, tileName, pip.getStartWireName());
@@ -165,7 +165,7 @@ public class FabricBrowser {
                 break;
 
             for (PIP pip : getFwdPIPs(d, tileName, trav.getNodeName())) {
-                String nextNodeName = pip.getEndNode().getName();
+                String nextNodeName = RouteUtil.getPIPNodeName(tileName, pip.getEndWireName());
 
                 WireDirection dir = RouteUtil.extractExitWireDirection(d, tileName, pip.getEndWireName());
                 int wireLength = RouteUtil.extractExitWireLength(d, tileName, pip.getEndWireName());
@@ -205,7 +205,7 @@ public class FabricBrowser {
                 break;
 
             for (PIP pip : getBkwdPIPs(d, exit.getTileName(), trav.getNodeName())) {
-                String nextNodeName = pip.getStartNode().getName();
+                String nextNodeName = RouteUtil.getPIPNodeName(tileName, pip.getStartWireName());
 
                 WireDirection dir = RouteUtil.extractEnterWireDirection(d, tileName, pip.getStartWireName());
                 int wireLength = RouteUtil.extractEnterWireLength(d, tileName, pip.getStartWireName());
@@ -246,7 +246,7 @@ public class FabricBrowser {
                 continue;
 
             for (PIP pip : getFwdPIPs(d, tileName, trav.getNodeName())) {
-                String nextNodeName = pip.getEndNode().getName();
+                String nextNodeName = RouteUtil.getPIPNodeName(tileName, pip.getEndWireName());
 
                 WireDirection dir = RouteUtil.extractExitWireDirection(d, tileName, pip.getEndWireName());
                 int wireLength = RouteUtil.extractExitWireLength(d, tileName, pip.getEndWireName());
@@ -291,7 +291,7 @@ public class FabricBrowser {
                 break;
 
             for (PIP pip : getFwdPIPs(d, tileName, trav.getNodeName(-2))) {
-                String nextNodeName = pip.getEndNode().getName();
+                String nextNodeName = RouteUtil.getPIPNodeName(tileName, pip.getEndWireName());
 
                 if (nextNodeName.equals(exit.getNodeName())) {
                     results.add(new TilePath(trav));
@@ -345,7 +345,7 @@ public class FabricBrowser {
                 break;
 
             for (PIP pip : getFwdPIPs(d, tileName, trav.getNodeName(-2))) {
-                String nextNodeName = pip.getEndNode().getName();
+                String nextNodeName = RouteUtil.getPIPNodeName(tileName, pip.getEndWireName());
 
                 if (nextNodeName.equals(exit.getNodeName())) {
                     results.add(new TilePath(trav));
@@ -399,7 +399,7 @@ public class FabricBrowser {
                 return false;
 
             for (PIP pip : getFwdPIPs(d, tileName, trav.getNodeName())) {
-                String nextNodeName = pip.getEndNode().getName();
+                String nextNodeName = RouteUtil.getPIPNodeName(tileName, pip.getEndWireName());
 
                 if (nextNodeName.equals(exit.getNodeName())) {
                     return true;

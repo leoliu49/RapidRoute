@@ -37,6 +37,16 @@ public class CustomDesign {
 
     public static void main(String[] args) throws IOException {
 
+        int r = 0;
+
+            Design aaa = Design.readCheckpoint("src/main/resources/reg_bank/addsub.dcp");
+            System.out.println(aaa.getPartName());
+
+        if (r == 0)
+            return;
+
+
+
         OptionParser parser = createOptionParser();
         OptionSet options = parser.parse(args);
 
@@ -63,7 +73,7 @@ public class CustomDesign {
         EDIFCell top = d.getNetlist().getTopCell();
         EDIFPort clkPort = top.createPort(ComplexRegister.CLK_NAME, EDIFDirection.INPUT, 1);
         EDIFNet clk = top.createNet(ComplexRegister.CLK_NAME);
-        clk.createPortRef(clkPort);
+        clk.createPortInst(clkPort);
 
         HashMap<String, ComplexRegister> registers = ResourcesManager.registersFromPlacements(d);
 
@@ -88,8 +98,8 @@ public class CustomDesign {
             }
         }
 
-        EDIFPortRef[] srcPortRefs = EDIFTools.createPortRefs(top, "src", EDIFDirection.INPUT, inBitWidth);
-        EDIFPortRef[] resPortRefs = EDIFTools.createPortRefs(top, "res", EDIFDirection.OUTPUT, outBitWidth);
+        EDIFPortInst[] srcPortRefs = EDIFTools.createPortInsts(top, "src", EDIFDirection.INPUT, inBitWidth);
+        EDIFPortInst[] resPortRefs = EDIFTools.createPortInsts(top, "res", EDIFDirection.OUTPUT, outBitWidth);
         int srcIndex = 0;
         int resIndex = 0;
         for (RegisterConnection connection : connections) {
@@ -107,12 +117,12 @@ public class CustomDesign {
 
         for (int i = 0; i < inBitWidth; i++) {
             EDIFNet srcNet = top.getNet("src[" + i + "]");
-            srcNet.addPortRef(srcPortRefs[i]);
+            srcNet.addPortInst(srcPortRefs[i]);
         }
 
         for (int i = 0; i < outBitWidth; i++) {
             EDIFNet resNet = top.getNet("res[" + i + "]");
-            resNet.addPortRef(resPortRefs[i]);
+            resNet.addPortInst(resPortRefs[i]);
         }
 
         /*

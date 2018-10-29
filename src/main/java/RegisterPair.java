@@ -50,7 +50,7 @@ public class RegisterPair {
         EDIFCell top = d.getNetlist().getTopCell();
         EDIFPort clkPort = top.createPort(ComplexRegister.CLK_NAME, EDIFDirection.INPUT, 1);
         EDIFNet clk = top.createNet(ComplexRegister.CLK_NAME);
-        clk.createPortRef(clkPort);
+        clk.createPortInst(clkPort);
 
         HashMap<String, ComplexRegister> registers = ResourcesManager.registersFromPlacements(d);
 
@@ -59,15 +59,15 @@ public class RegisterPair {
 
         int bitWidth = reg1.getBitWidth();
 
-        EDIFPortRef[] srcPortRefs = EDIFTools.createPortRefs(top, "src", EDIFDirection.INPUT, bitWidth);
-        EDIFPortRef[] resPortRefs = EDIFTools.createPortRefs(top, "res", EDIFDirection.OUTPUT, bitWidth);
+        EDIFPortInst[] srcPortRefs = EDIFTools.createPortInsts(top, "src", EDIFDirection.INPUT, bitWidth);
+        EDIFPortInst[] resPortRefs = EDIFTools.createPortInsts(top, "res", EDIFDirection.OUTPUT, bitWidth);
 
         for (int i = 0; i < bitWidth; i++) {
             EDIFNet srcNet = top.createNet("src[" + i + "]");
-            srcNet.addPortRef(srcPortRefs[i]);
+            srcNet.addPortInst(srcPortRefs[i]);
 
             EDIFNet resNet = top.createNet("res[" + i + "]");
-            resNet.addPortRef(resPortRefs[i]);
+            resNet.addPortInst(resPortRefs[i]);
         }
 
         reg1.createInputEDIFPortRefs(d, "src");

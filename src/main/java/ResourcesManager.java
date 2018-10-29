@@ -1,4 +1,3 @@
-import com.xilinx.rapidwright.dcp.CheckpointTools;
 import com.xilinx.rapidwright.design.Design;
 import com.xilinx.rapidwright.edif.EDIFCell;
 import com.xilinx.rapidwright.edif.EDIFLibrary;
@@ -64,7 +63,7 @@ public class ResourcesManager {
     public static Design newDesignFromSources(String designName) throws IOException {
         ComplexRegister.loadRegModulesFromConfig();
         Design d = new Design(designName, ResourcesManager.PART_NAME);
-        d.setDCPXMLAttribute(CheckpointTools.DISABLE_AUTO_IO_BUFFERS_NAME, "1");
+        d.setAutoIOBuffers(false);
 
         for (ComplexRegModule module : ComplexRegister.typeToRegModuleMap.values()) {
             Design regDesign = module.getSrcDesign();

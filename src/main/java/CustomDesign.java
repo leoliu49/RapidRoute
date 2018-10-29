@@ -36,17 +36,6 @@ public class CustomDesign {
     }
 
     public static void main(String[] args) throws IOException {
-
-        int r = 0;
-
-            Design aaa = Design.readCheckpoint("src/main/resources/reg_bank/addsub.dcp");
-            System.out.println(aaa.getPartName());
-
-        if (r == 0)
-            return;
-
-
-
         OptionParser parser = createOptionParser();
         OptionSet options = parser.parse(args);
 

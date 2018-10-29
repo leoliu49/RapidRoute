@@ -7,11 +7,11 @@ BUILD_DIR=$ROOT_DIR/build/libs
 DEPS_DIR=$ROOT_DIR/deps
 
 
-#export RAPIDWRIGHT_PATH=$RAPIDWRIGHT_PATH
+export RAPIDWRIGHT_PATH=$RAPIDWRIGHT_PATH
 
-#export CLASSPATH=$CLASSPATH:$RAPIDWRIGHT_PATH/build/libs/rapidwright.jar
+export CLASSPATH=$CLASSPATH:$RAPIDWRIGHT_PATH/build/libs/rapidwright.jar
 
-#export CLASSPATH=$CLASSPATH:$(echo $RAPIDWRIGHT_PATH/jars/*.jar | tr ' ' ':')
+export CLASSPATH=$CLASSPATH:$(echo $RAPIDWRIGHT_PATH/jars/*.jar | tr ' ' ':')
 
 export CLASSPATH=$CLASSPATH:$(echo $BUILD_DIR/*.jar | tr ' ' ':')
 

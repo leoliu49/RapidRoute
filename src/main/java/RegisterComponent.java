@@ -1,5 +1,5 @@
-import com.xilinx.rapidwright.design.ModuleInstance;
-import com.xilinx.rapidwright.edif.EDIFCellInstance;
+import com.xilinx.rapidwright.design.ModuleInst;
+import com.xilinx.rapidwright.edif.EDIFCellInst;
 
 public class RegisterComponent {
 
@@ -13,7 +13,7 @@ public class RegisterComponent {
     private String siteName;
     private int bitWidth;
 
-    private ModuleInstance moduleInstance;
+    private ModuleInst moduleInstance;
 
     public RegisterComponent(String name, int type, String siteName) {
         this.name = name;
@@ -54,15 +54,15 @@ public class RegisterComponent {
         return bitWidth;
     }
 
-    public ModuleInstance getModuleInstance() {
+    public ModuleInst getModuleInstance() {
         return moduleInstance;
     }
 
-    public EDIFCellInstance getCellInstance() {
-        return moduleInstance.getCellInstance();
+    public EDIFCellInst getCellInstance() {
+        return moduleInstance.getCellInst();
     }
 
-    public void setModuleInstance(ModuleInstance moduleInstance) {
+    public void setModuleInstance(ModuleInst moduleInstance) {
         this.moduleInstance = moduleInstance;
     }
 

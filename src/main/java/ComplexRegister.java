@@ -1,6 +1,6 @@
-import com.xilinx.rapidwright.dcp.CheckpointTools;
 import com.xilinx.rapidwright.design.Design;
-import com.xilinx.rapidwright.design.ModuleInstance;
+import com.xilinx.rapidwright.design.ModuleInst;
+
 import com.xilinx.rapidwright.device.Site;
 import com.xilinx.rapidwright.edif.*;
 import joptsimple.OptionParser;
@@ -117,17 +117,17 @@ public class ComplexRegister {
 
             if (!component.hasName())
                 component.setName("component" + i++);
-            EDIFCellInstance ci = top.createChildCellInstance(name + "_" + component.getName(),
+            EDIFCellInst ci = top.createChildCellInst(name + "_" + component.getName(),
                     regModule.getModule().getNetlist().getTopCell());
-            ModuleInstance mi = d.createModuleInstance(name + "_" + component.getName(), regModule.getModule());
-            mi.setCellInstance(ci);
+            ModuleInst mi = d.createModuleInst(name + "_" + component.getName(), regModule.getModule());
+            mi.setCellInst(ci);
 
             Site anchorSite = d.getDevice().getSite(component.getSiteName());
             mi.place(anchorSite);
 
             component.setModuleInstance(mi);
 
-            top.getNet(ComplexRegister.CLK_NAME).createPortRef(ComplexRegister.CLK_NAME, ci);
+            top.getNet(ComplexRegister.CLK_NAME).createPortInst(ComplexRegister.CLK_NAME, ci);
 
             RouterLog.log("Placed component " + component.toString() + " for <" + name + "> at site <"
                             + component.getSiteName() + ">.", RouterLog.Level.INFO);
@@ -166,7 +166,7 @@ public class ComplexRegister {
                 EDIFNet net = top.getNet(netPrefix + "[" + i + "]");
                 if (net == null)
                     net = top.createNet(netPrefix + "[" + i + "]");
-                net.createPortRef(ComplexRegister.INPUT_NAME, j, component.getCellInstance());
+                net.createPortInst(ComplexRegister.INPUT_NAME, j, component.getCellInstance());
             }
         }
     }
@@ -182,7 +182,7 @@ public class ComplexRegister {
                     EDIFNet net = top.getNet(netPrefix + "[" + (i + indexOffset) + "]");
                     if (net == null)
                         net = top.createNet(netPrefix + "[" + (i + indexOffset) + "]");
-                    net.createPortRef(ComplexRegister.INPUT_NAME, j, component.getCellInstance());
+                    net.createPortInst(ComplexRegister.INPUT_NAME, j, component.getCellInstance());
                 }
             }
         }
@@ -198,7 +198,7 @@ public class ComplexRegister {
                 EDIFNet net = top.getNet(netPrefix + "[" + i + "]");
                 if (net == null)
                     net = top.createNet(netPrefix + "[" + i + "]");
-                net.createPortRef(ComplexRegister.OUTPUT_NAME, j, component.getCellInstance());
+                net.createPortInst(ComplexRegister.OUTPUT_NAME, j, component.getCellInstance());
             }
         }
 
@@ -215,7 +215,7 @@ public class ComplexRegister {
                     EDIFNet net = top.getNet(netPrefix + "[" + (i + indexOffset) + "]");
                     if (net == null)
                         net = top.createNet(netPrefix + "[" + (i + indexOffset) + "]");
-                    net.createPortRef(ComplexRegister.OUTPUT_NAME, j, component.getCellInstance());
+                    net.createPortInst(ComplexRegister.OUTPUT_NAME, j, component.getCellInstance());
                 }
             }
         }
@@ -262,7 +262,7 @@ public class ComplexRegister {
         EDIFCell top = d.getNetlist().getTopCell();
         EDIFPort clkPort = top.createPort(ComplexRegister.CLK_NAME, EDIFDirection.INPUT, 1);
         EDIFNet clk = top.createNet(ComplexRegister.CLK_NAME);
-        clk.createPortRef(clkPort);
+        clk.createPortInst(clkPort);
 
         ArrayList<RegisterComponent> components = new ArrayList<RegisterComponent>();
         components.add(new RegisterComponent(0, "SLICE_X56Y120"));

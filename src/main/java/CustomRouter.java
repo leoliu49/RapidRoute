@@ -2,7 +2,7 @@ import java.util.*;
 
 import com.xilinx.rapidwright.design.Design;
 import com.xilinx.rapidwright.design.Net;
-import com.xilinx.rapidwright.design.PIP;
+import com.xilinx.rapidwright.device.PIP;
 import com.xilinx.rapidwright.edif.EDIFNetlist;
 import com.xilinx.rapidwright.edif.EDIFTools;
 
@@ -72,12 +72,9 @@ public class CustomRouter {
 
     public static void findAndRoute(Design d, Net n, String tileName, String startNodeName, String endNodeName) {
         for (PIP pip : d.getDevice().getTile(tileName).getPIPs()) {
-            if (pip.getStartNode().getName().equals(startNodeName) && pip.getEndNode().getName().equals(endNodeName)) {
+            if (RouteUtil.getPIPNodeName(tileName, pip.getStartWireName()).equals(startNodeName)
+                    && (RouteUtil.getPIPNodeName(tileName, pip.getEndWireName())).equals(endNodeName)) {
                 RouterLog.log("Junction <" + startNodeName + "> ---> <" + endNodeName + ">", RouterLog.Level.INFO);
-                String startWire = Integer
-                        .toString(d.getDevice().getTile(tileName).getGlobalWireID(pip.getStartWire()));
-                String endWire = Integer.toString(d.getDevice().getTile(tileName).getGlobalWireID(pip.getEndWire()));
-
                 n.addPIP(pip);
                 return;
             }

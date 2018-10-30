@@ -15,7 +15,7 @@ public class CustomRouter {
     private static Set<String> nodeLock = new HashSet<>();
 
     private static final int SUGGESTED_STANDARD_TILE_TRAVERSAL_MAX_DEPTH = FabricBrowser.TILE_TRAVERSAL_MAX_DEPTH;
-    private static final int SUGGESTED_SINK_TILE_TRAVERSAL_MAX_DEPTH = 10;
+    private static final int SUGGESTED_SINK_TILE_TRAVERSAL_MAX_DEPTH = 8;
 
     public static void flushNodeLock() {
         nodeLock.clear();

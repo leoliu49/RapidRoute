@@ -62,10 +62,6 @@ public class EnterWireJunction extends WireJunction {
                 wireLength, direction);
     }
 
-    public boolean equals(EnterWireJunction o) {
-        return nodeName.equals(o.getNodeName());
-    }
-
     @Override
     public String toString() {
         if (isSrc)

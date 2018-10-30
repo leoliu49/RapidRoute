@@ -119,7 +119,7 @@ public class CustomDesign {
 
         for (RegisterConnection connection : connections) {
             if (!connection.isInputConnection() && !connection.isOutputConnection())
-                CustomRouter.routeConnection(d, connection).commit(d);
+                CustomRouter.routeConnectionViaBatching(d, connection).commit(d);
         }
 
         d.writeCheckpoint(ResourcesManager.OUTPUT_DIR + options.valueOf("out") + "_custom_routed.dcp");

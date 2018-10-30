@@ -98,9 +98,9 @@ public class RouteTemplate {
         return template.isEmpty();
     }
 
-    public void addExitWireJunction(Design d, ExitWireJunction exJunc) {
-        template.add(1, exJunc.getDestJunction(d));
-        template.add(1, exJunc);
+    public void pushEnterWireJunction(Design d, EnterWireJunction enJunc) {
+        template.add(1, enJunc);
+        template.add(1, enJunc.getSrcJunction(d));
         cost += 1;
     }
 

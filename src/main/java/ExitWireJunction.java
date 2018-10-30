@@ -63,10 +63,6 @@ public class ExitWireJunction extends WireJunction {
                 wireLength, direction);
     }
 
-    public boolean equals(ExitWireJunction o) {
-        return nodeName.equals(o.getNodeName());
-    }
-
     @Override
     public String toString() {
         if (isSnk)

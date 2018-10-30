@@ -35,6 +35,10 @@ public class WireJunction {
         return wireLength;
     }
 
+    public boolean equals(WireJunction o) {
+        return nodeName.equals(o.getNodeName());
+    }
+
     @Override
     public String toString() {
         return "<" + nodeName + ">";

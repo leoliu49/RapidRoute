@@ -63,38 +63,38 @@ public class RouteUtil {
 
     public static WireDirection extractExitWireDirection(Design d, String tileName, String exitWireName) {
         Tile baseTile = d.getDevice().getTile(tileName);
-        Tile offsetTile = null;
+        Tile destTile = null;
         for (Wire endWire : baseTile.getWireConnections(exitWireName)) {
             if (endWire.getTile().getTileTypeEnum().equals(TileTypeEnum.INT)) {
-                offsetTile = endWire.getTile();
+                destTile = endWire.getTile();
                 break;
             }
         }
 
-        if (offsetTile == null)
+        if (destTile == null)
             return null;
-        if (offsetTile.equals(baseTile))
+        if (destTile.equals(baseTile))
             return WireDirection.SELF;
-        return baseTile.getTileXCoordinate() == offsetTile.getTileXCoordinate()
-                ? (baseTile.getTileYCoordinate() < offsetTile.getTileYCoordinate() ? WireDirection.NORTH : WireDirection.SOUTH)
-                : (baseTile.getTileXCoordinate() < offsetTile.getTileYCoordinate() ? WireDirection.EAST : WireDirection.WEST);
+        return baseTile.getTileXCoordinate() == destTile.getTileXCoordinate()
+                ? (destTile.getTileYCoordinate() > baseTile.getTileYCoordinate() ? WireDirection.NORTH : WireDirection.SOUTH)
+                : (destTile.getTileXCoordinate() > baseTile.getTileXCoordinate() ? WireDirection.EAST : WireDirection.WEST);
     }
 
     public static int extractExitWireLength(Design d, String tileName, String exitWireName) {
         Tile baseTile = d.getDevice().getTile(tileName);
-        Tile offsetTile = null;
+        Tile destTile = null;
         for (Wire endWire : baseTile.getWireConnections(exitWireName)) {
             if (endWire.getTile().getTileTypeEnum().equals(TileTypeEnum.INT)) {
-                offsetTile = endWire.getTile();
+                destTile = endWire.getTile();
                 break;
             }
         }
 
-        if (offsetTile == null)
+        if (destTile == null)
             return 0;
-        return (baseTile.getTileXCoordinate() == offsetTile.getTileXCoordinate())
-                ? Math.abs(baseTile.getTileYCoordinate() - offsetTile.getTileYCoordinate())
-                : Math.abs(baseTile.getTileXCoordinate() - offsetTile.getTileXCoordinate());
+        return (baseTile.getTileXCoordinate() == destTile.getTileXCoordinate())
+                ? Math.abs(destTile.getTileYCoordinate() - baseTile.getTileYCoordinate())
+                : Math.abs(destTile.getTileXCoordinate() - baseTile.getTileXCoordinate());
     }
 
     public static WireDirection extractEnterWireDirection(Design d, String tileName, String enterWireName) {

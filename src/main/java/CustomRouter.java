@@ -82,6 +82,208 @@ public class CustomRouter {
         RouterLog.log("Junction <" + startNodeName + "> ---> <" + endNodeName + "> failed.", RouterLog.Level.ERROR);
     }
 
+    public static RoutingFootprint routeConnectionViaBatching(Design d, RegisterConnection connection) {
+        sanitizeNets(d);
+
+        RouterLog.log("Routing " + connection.toString() + ".", RouterLog.Level.NORMAL);
+        ComplexRegister srcReg = connection.getSrcReg();
+        ComplexRegister snkReg = connection.getSnkReg();
+
+        RoutingFootprint footprint = new RoutingFootprint();
+
+        int bitwidth = connection.getBitWidth();
+
+        long tBegin = System.currentTimeMillis();
+
+
+        /*
+         * Step 0: Stop router from using register input/output PIPs as buffers
+         */
+        RouterLog.log("0: Locking in/out PIPs of registers.", RouterLog.Level.INFO);
+        for (RegisterComponent component : srcReg.getComponents()) {
+            String intTileName = d.getDevice().getSite(component.getSiteName()).getIntTile().getName();
+            for (int i = 0; i < component.getBitWidth(); i++) {
+                lock(intTileName + "/" + component.getInPIPName(i));
+                lock(intTileName + "/" + component.getOutPIPName(i));
+            }
+        }
+
+        for (RegisterComponent component : snkReg.getComponents()) {
+            String intTileName = d.getDevice().getSite(component.getSiteName()).getIntTile().getName();
+            for (int i = 0; i < component.getBitWidth(); i++) {
+                lock(intTileName + "/" + component.getInPIPName(i));
+                lock(intTileName + "/" + component.getOutPIPName(i));
+            }
+        }
+
+
+        /*
+         * Step 1: Determine which source and sink junctions to route together
+         */
+        RouterLog.log("1: Finding corresponding src/snk junctions.", RouterLog.Level.INFO);
+        ArrayList<EnterWireJunction> srcJunctions = new ArrayList<>();
+        ArrayList<ExitWireJunction> snkJunctions = new ArrayList<>();
+
+        {
+            int bitIndex = 0;
+            for (RegisterComponent component : srcReg.getComponents()) {
+                String intTileName = d.getDevice().getSite(component.getSiteName()).getIntTile().getName();
+                for (int i = 0; i < component.getBitWidth(); i++, bitIndex++) {
+                    if (bitIndex >= connection.getSrcRegLowestBit() && bitIndex <= connection.getSrcRegHighestBit()) {
+                        srcJunctions.add(EnterWireJunction.newSrcJunction(intTileName, component.getOutPIPName(i)));
+                    }
+                }
+            }
+        }
+        {
+            int bitIndex = 0;
+            for (RegisterComponent component : snkReg.getComponents()) {
+                String intTileName = d.getDevice().getSite(component.getSiteName()).getIntTile().getName();
+                for (int i = 0; i < component.getBitWidth(); i++, bitIndex++) {
+                    if (bitIndex >= connection.getSnkRegLowestBit() && bitIndex <= connection.getSnkRegHighestBit()) {
+                        snkJunctions.add(ExitWireJunction.newSnkJunction(intTileName, component.getInPIPName(i)));
+                    }
+                }
+            }
+        }
+        RouterLog.indent();
+        for (int i = 0; i < bitwidth; i++)
+            RouterLog.log(srcJunctions.get(i) + " --> " + snkJunctions.get(i), RouterLog.Level.VERBOSE);
+        RouterLog.indent(-1);
+
+
+        /*
+         * Step 2: Calculate which hops (WireJunctions) should be used to connect each source/sink
+         *  If there are conflicts in hops, reroute
+         */
+        RouterLog.log("2: Calculating route templates", RouterLog.Level.INFO);
+        RouterLog.indent();
+        long tStep2Begin = System.currentTimeMillis();
+        ArrayList<ArrayList<RouteTemplate>> templateBatches = CustomRoutingCalculator.createBussedRouteTemplateBatches(d,
+                srcJunctions, snkJunctions);
+        RouterLog.indent(-1);
+        RouterLog.log("All templates found in " + (System.currentTimeMillis() - tStep2Begin) + " ms.",
+                RouterLog.Level.NORMAL);
+
+
+        /*
+         * Step 3: Since sink tile paths suffer heavy congestion, use "easing" method to determine best-case sink
+         *  paths
+         * TODO: Error salvaging
+         */
+        RouterLog.log("3: Using \"easing\" method to find best sink tile paths.", RouterLog.Level.INFO);
+        RouterLog.indent();
+        long tStep3Begin = System.currentTimeMillis();
+
+        ArrayList<HashSet<TilePath>> allEndPathChoices = new ArrayList<>();
+        for (ArrayList<RouteTemplate> templateChoices : templateBatches) {
+            HashSet<TilePath> pathChoices = new HashSet<>();
+            for (RouteTemplate template : templateChoices)
+                pathChoices.addAll(FabricBrowser.findTilePaths(d, SUGGESTED_SINK_TILE_TRAVERSAL_MAX_DEPTH,
+                        (EnterWireJunction) template.getTemplate(-2), (ExitWireJunction) template.getTemplate(-1)));
+            allEndPathChoices.add(pathChoices);
+        }
+
+        ArrayList<TilePath> endPaths = CustomRoutingCalculator.deriveBestTilePathConfiguration(d, allEndPathChoices);
+        if (endPaths == null) {
+            RouterLog.indent(-1);
+            RouterLog.log("Failed to find sink tile paths.", RouterLog.Level.ERROR);
+            return null;
+        }
+        RouterLog.log("Sink paths found in " + (System.currentTimeMillis() - tStep3Begin) + " ms.",
+                RouterLog.Level.NORMAL);
+
+        ArrayList<CustomRoute> routes = new ArrayList<>();
+        for (int i = 0; i < bitwidth; i++) {
+            for (RouteTemplate templateChoice : templateBatches.get(i)) {
+                if (templateChoice.getTemplate(-2).equals(endPaths.get(i).getEnterJunction())) {
+                    CustomRoute route = new CustomRoute(templateChoice);
+                    route.setPath(-1, endPaths.get(i));
+                    routes.add(route);
+                    break;
+                }
+            }
+        }
+
+
+        /*
+         * Step 4: Populate all CustomRoute's with inner tile path choices
+         * Next step determines which paths to take
+         */
+        RouterLog.log("4: Calculating tile paths for templates.", RouterLog.Level.INFO);
+        RouterLog.indent();
+        long tStep4Begin = System.currentTimeMillis();
+
+        // Calculate tile paths for all except sink tile paths (already done in step 3)
+        for (CustomRoute route : routes) {
+            RouteTemplate template = route.getTemplate();
+            for (int i = 0; i < template.getTemplate().size() / 2 - 1; i++) {
+                route.setPathSub(i, FabricBrowser.findTilePaths(d, SUGGESTED_STANDARD_TILE_TRAVERSAL_MAX_DEPTH,
+                        (EnterWireJunction) template.getTemplate(i * 2),
+                        (ExitWireJunction) template.getTemplate(i * 2 + 1)));
+            }
+        }
+        RouterLog.indent(-1);
+        RouterLog.log("All tile paths found in " + (System.currentTimeMillis() - tStep4Begin) + " ms.",
+                RouterLog.Level.NORMAL);
+
+
+        /*
+         * Step 5: Programmatically determine which INT tile paths to take
+         * TODO: Error salvaging
+         */
+        RouterLog.log("5: Performing route contention", RouterLog.Level.INFO);
+        RouterLog.indent();
+        long tStep5Begin = System.currentTimeMillis();
+
+        if (!CustomRoutingCalculator.routeContention(d, routes)) {
+            RouterLog.indent(-1);
+            RouterLog.log("Failed to complete route contention.", RouterLog.Level.ERROR);
+            return null;
+        }
+        RouterLog.indent(-1);
+        RouterLog.log("Route contention completed in " + (System.currentTimeMillis() - tStep5Begin) + " ms.",
+                RouterLog.Level.NORMAL);
+
+
+        /*
+         * Step 6: Associate each CustomRoute with its corresponding net
+         */
+        {
+            int bitIndex = 0;
+            int routeIndex = 0;
+            for (RegisterComponent component : srcReg.getComponents()) {
+                for (int i = 0; i < component.getBitWidth(); i++, bitIndex++) {
+                    if (bitIndex >= connection.getSrcRegLowestBit() && bitIndex <= connection.getSrcRegHighestBit()) {
+                        Net net = d.getNet(srcReg.getName() + "_" + component.getName() + "/"
+                                + ComplexRegister.OUTPUT_NAME + "[" + i + "]");
+
+                        // This is the route's true bit index
+                        routes.get(routeIndex).setBitIndex(bitIndex);
+                        footprint.add(routes.get(routeIndex), net);
+                        routeIndex += 1;
+                    }
+                }
+            }
+        }
+
+        RouterLog.log("Connection routed in " + (System.currentTimeMillis() - tBegin) + " ms.",
+                RouterLog.Level.NORMAL);
+        flushNodeLock();
+
+        return footprint;
+    }
+
+
+
+
+
+
+    @Deprecated
+    /*
+     * 7-step method of routing using createRouteTemplate
+     *  Deprecated in favor of batching
+     */
     public static RoutingFootprint routeConnection(Design d, RegisterConnection connection) {
         sanitizeNets(d);
 
@@ -264,8 +466,6 @@ public class CustomRouter {
                 }
             }
         }
-
-
 
         RouterLog.log("Connection routed in " + (System.currentTimeMillis() - tBegin) + " ms.",
                 RouterLog.Level.NORMAL);

@@ -1,5 +1,6 @@
 import com.xilinx.rapidwright.design.Design;
 import com.xilinx.rapidwright.device.Tile;
+import com.xilinx.rapidwright.device.Wire;
 import com.xilinx.rapidwright.edif.*;
 import joptsimple.OptionParser;
 import joptsimple.OptionSet;
@@ -113,31 +114,6 @@ public class CustomDesign {
             EDIFNet resNet = top.getNet("res[" + i + "]");
             resNet.addPortInst(resPortRefs[i]);
         }
-
-        /*
-        int a = 1;
-
-
-        Tile tile = d.getDevice().getTile("INT_X37Y24");
-        Tile tile2 = d.getDevice().getTile("INT_X37Y0");
-
-        ExitWireJunction w8 = ExitWireJunction.newSnkJunction(tile2.getName(), "BYPASS_W8");
-        EnterWireJunction w30 = EnterWireJunction.newSrcJunction(tile.getName(), "LOGIC_OUTS_W30");
-
-        ExitWireJunction w12 = ExitWireJunction.newSnkJunction(tile2.getName(), "BYPASS_W12");
-        EnterWireJunction w7 = EnterWireJunction.newSrcJunction(tile.getName(), "LOGIC_OUTS_W7");
-
-        EnterWireJunction test = new EnterWireJunction(d, tile2.getName(), "NN12_END0");
-
-        long t = System.currentTimeMillis();
-        for (TilePath path : FabricBrowser.findTilePaths(d, test, w8))
-            System.out.println(path);
-        System.out.println(System.currentTimeMillis() - t);
-
-
-
-        if (a == 1) return;*/
-
 
         d.writeCheckpoint(ResourcesManager.OUTPUT_DIR + options.valueOf("out") + "_unrouted.dcp");
 

@@ -15,7 +15,7 @@ public class StatefulBatchRouter {
 
     private static final int SINK_TILE_TRAVERSAL_MAX_DEPTH = 8;
     private static final int TILE_TRAVERSAL_MAX_DEPTH = FabricBrowser.TILE_TRAVERSAL_MAX_DEPTH;
-    private static final int TEMPLATE_COST_TOLERANCE = 5;
+    //private static final int TEMPLATE_COST_TOLERANCE = 8;
 
     private long tBegin;
     private long tEnd;
@@ -180,8 +180,9 @@ public class StatefulBatchRouter {
                 if (foundTemplate) {
                     templateCount += 1;
                     leadIns.remove(validEntrance);
-                    continue;
                 }
+
+                continue;
             }
 
             Set<ExitWireJunction> fanOut = ((EnterWireJunction) head.getJunction()).isSrc()
@@ -467,6 +468,7 @@ public class StatefulBatchRouter {
             allTemplateCandidates.set(i, new ArrayList<>(templateCandidatesCache.get(i)));
 
         // Purge results of any unreasonable costly templates
+        /*
         for (int i = 0; i < bitwidth; i++) {
             ArrayList<RouteTemplate> templateCandidates = allTemplateCandidates.get(i);
             int minCost = 99;
@@ -483,6 +485,7 @@ public class StatefulBatchRouter {
                     j += 1;
             }
         }
+        */
 
         // Purge results of any conflicting templates
         // Favor based on remaining number of choices

@@ -9,23 +9,13 @@ public class RouteTemplate {
      * Wrapper around an ArrayList of WireJunctions, which describe the hops needed to complete a route
      */
 
-    public static class RouteTemplateCostComparator implements Comparator<RouteTemplate> {
-
-        @Override
-        public int compare(RouteTemplate o1, RouteTemplate o2) {
-            return o1.getCost() - o2.getCost();
-        }
-    }
-
-    public static class RouteTemplateBitIndexComparator implements Comparator<RouteTemplate> {
-
-        @Override
-        public int compare(RouteTemplate o1, RouteTemplate o2) {
-            return o1.getBitIndex() - o2.getBitIndex();
-        }
-    }
-
     private int cost;
+
+    // Unique score documenting how many turns this template has taken:
+    // 1. Parallel redirection (i.e. E <--> W, N <--> S): +1
+    // 2. Orthogonal redirection (i.e. E/W <--> N/S): +4
+    private int redirectionScore;
+    private WireDirection lastDirection;
 
     // Relative bit index of connection
     private int bitIndex;
@@ -56,8 +46,13 @@ public class RouteTemplate {
         template.add(snk);
     }
 
-    public int getCost() {
-        return cost;
+    public int getRedirectionScore() {
+        return redirectionScore;
+    }
+
+    // Gets cost factoring readjustment score
+    public int getAdjustedCost() {
+        return cost + redirectionScore;
     }
 
     public int getBitIndex() {
@@ -102,12 +97,15 @@ public class RouteTemplate {
         template.add(1, enJunc);
         template.add(1, enJunc.getSrcJunction(d));
         cost += 1;
-    }
 
-    public void pushExitWireJunction(Design d, ExitWireJunction exJunc) {
-        template.add(template.size() - 1, exJunc);
-        template.add(template.size() - 1, exJunc.getDestJunction(d));
-        cost += 1;
+        if (enJunc.getDirection().equals(lastDirection))
+            return;
+        if (RouteUtil.isParallel(enJunc.getDirection(), lastDirection))
+            redirectionScore += 1;
+        else if (RouteUtil.isOrthogonal(enJunc.getDirection(), lastDirection))
+            redirectionScore += 4;
+
+        lastDirection = enJunc.getDirection();
     }
 
     @Override
@@ -127,13 +125,15 @@ public class RouteTemplate {
     }
 
     public String hopSummary() {
-        String repr = " [ ";
-        for (int i = 1; i < template.size() - 1; i += 2) {
+        String repr = "<";
+        for (int i = 1; i < template.size() - 3; i += 2) {
             repr += RouteUtil.directionToString(template.get(i).getDirection());
             repr += template.get(i).getWireLength();
             repr += " ";
         }
-        repr += "]";
+        repr += RouteUtil.directionToString(template.get(template.size() - 2).getDirection());
+        repr += template.get(template.size() - 2).getWireLength();
+        repr += ">[" + getAdjustedCost() + "]";
         return repr;
     }
 }

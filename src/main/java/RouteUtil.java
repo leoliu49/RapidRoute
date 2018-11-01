@@ -57,6 +57,30 @@ public class RouteUtil {
         return null;
     }
 
+    public static boolean isParallel(WireDirection dir1, WireDirection dir2) {
+        if (dir1 == null || dir2 == null)
+            return false;
+
+        if (dir1.equals(WireDirection.NORTH) || dir1.equals(WireDirection.SOUTH))
+            return dir2.equals(WireDirection.NORTH) || dir2.equals(WireDirection.SOUTH);
+        else if (dir1.equals(WireDirection.EAST) || dir1.equals(WireDirection.WEST))
+            return dir2.equals(WireDirection.EAST) || dir2.equals(WireDirection.WEST);
+        else
+            return false;
+    }
+
+    public static boolean isOrthogonal(WireDirection dir1, WireDirection dir2) {
+        if (dir1 == null || dir2 == null)
+            return false;
+
+        if (dir1.equals(WireDirection.NORTH) || dir1.equals(WireDirection.SOUTH))
+            return dir2.equals(WireDirection.EAST) || dir2.equals(WireDirection.WEST);
+        else if (dir1.equals(WireDirection.EAST) || dir1.equals(WireDirection.WEST))
+            return dir2.equals(WireDirection.NORTH) || dir2.equals(WireDirection.SOUTH);
+        else
+            return false;
+    }
+
     public static String getPIPNodeName(String tileName, String wireName) {
         return tileName + "/" + wireName;
     }

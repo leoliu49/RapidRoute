@@ -55,4 +55,13 @@ public class RoutingCalculator {
 
         return results;
     }
+
+    public static RouteTemplate findTemplateWithSinkTilePath(TilePath path, ArrayList<RouteTemplate> templates) {
+        for (int i = 0; i < templates.size(); i++) {
+            if (templates.get(i).getTemplate(-2).equals(path.getEnterJunction())) {
+                return templates.get(i);
+            }
+        }
+        return null;
+    }
 }

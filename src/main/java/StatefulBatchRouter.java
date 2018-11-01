@@ -15,6 +15,7 @@ public class StatefulBatchRouter {
 
     private static final int SINK_TILE_TRAVERSAL_MAX_DEPTH = 8;
     private static final int TILE_TRAVERSAL_MAX_DEPTH = FabricBrowser.TILE_TRAVERSAL_MAX_DEPTH;
+    private static final int TEMPLATE_COST_TOLERANCE = 5;
 
     private long tBegin;
     private long tEnd;
@@ -101,11 +102,15 @@ public class StatefulBatchRouter {
         tEnd = System.currentTimeMillis();
     }
 
-    public long getElapsedTime() {
+    private long getElapsedTime() {
         return tEnd - tBegin;
     }
 
-    public RoutingFootprint getFootprint() {
+    private ArrayList<CustomRoute> getRoutes() {
+        return routes;
+    }
+
+    private RoutingFootprint getFootprint() {
         return footprint;
     }
 
@@ -214,10 +219,23 @@ public class StatefulBatchRouter {
     }
 
     /*
+     * Unique cost calculation for deriving best tile paths
+     */
+    private int getAdjustedCost(TilePath path, RouteTemplate template) {
+        return path.getCost() + template.getAdjustedCost();
+    }
+
+    private int getAdjustedCost(TilePath path, ArrayList<RouteTemplate> templates, HashMap<TilePath, Integer> cache) {
+        if (!cache.containsKey(path))
+            cache.put(path, getAdjustedCost(path, RoutingCalculator.findTemplateWithSinkTilePath(path, templates)));
+        return cache.get(path);
+    }
+
+    /*
      * Find any TilePath configuration which has no conflicts
      * Results are not optimized for cost
      */
-    private static ArrayList<TilePath> deriveValidTilePaths(int depth, ArrayList<TilePath> validPathsState,
+    private ArrayList<TilePath> deriveValidTilePaths(int depth, ArrayList<TilePath> validPathsState,
                                                             HashSet<String> footprint,
                                                             ArrayList<HashSet<TilePath>> allPaths) {
         if (depth == allPaths.size())
@@ -255,19 +273,24 @@ public class StatefulBatchRouter {
     /*
      * Uses an "easing" method to find the best TilePath configuration
      */
-    private static ArrayList<TilePath> deriveBestTilePathConfiguration(ArrayList<HashSet<TilePath>> allPaths) {
+    private ArrayList<TilePath> deriveBestTilePathConfiguration(ArrayList<HashSet<TilePath>> allPaths) {
+
+        // Given that finding adjusted cost is pretty expensive, cache results
+        HashMap<TilePath, Integer> adjustedCostMap = new HashMap<>();
+
         // Highest cost possible
         int threshMax = 0;
         // Lost cost possible (max of min's across each bit)
         int threshMin = 0;
 
-        for (HashSet<TilePath> paths : allPaths) {
+        for (int i = 0; i < bitwidth; i++) {
+            HashSet<TilePath> paths = allPaths.get(i);
             int min = 99;
             for (TilePath path : paths) {
-                if (path.getCost() > threshMax)
-                    threshMax = path.getCost();
-                if (path.getCost() < min)
-                    min = path.getCost();
+                if (getAdjustedCost(path, allTemplateCandidates.get(i), adjustedCostMap) > threshMax)
+                    threshMax = getAdjustedCost(path, allTemplateCandidates.get(i), adjustedCostMap);
+                if (getAdjustedCost(path, allTemplateCandidates.get(i), adjustedCostMap) < min)
+                    min = getAdjustedCost(path, allTemplateCandidates.get(i), adjustedCostMap);
             }
 
             if (min > threshMin)
@@ -302,7 +325,8 @@ public class StatefulBatchRouter {
                 results = deriveValidTilePaths(0, results, new HashSet<>(), candidates);
 
                 if (results != null) {
-                    RouterLog.log("Sink paths found at a worst-case cost of " + threshold + ".", RouterLog.Level.INFO);
+                    RouterLog.log("Sink paths found at a worst-case adjusted cost of " + threshold + ".",
+                            RouterLog.Level.INFO);
                     return new ArrayList<>(results);
                 }
             }
@@ -379,7 +403,8 @@ public class StatefulBatchRouter {
     private void extendTemplateBatchesForBus(Design d, int batchSize) {
         long tBegin = System.currentTimeMillis();
 
-        int purgeCount = 0;
+        int costPurgeCount = 0;
+        int conflictPurgeCount = 0;
         HashMap<Integer, Set<String>> allNodeUsages = new HashMap<>();
 
         for (int i = 0; i < bitwidth; i++) {
@@ -395,6 +420,24 @@ public class StatefulBatchRouter {
         // Copy cache contents so purge doesn't destroy cache
         for (int i = 0; i < bitwidth; i++)
             allTemplateCandidates.set(i, new ArrayList<>(templateCandidatesCache.get(i)));
+
+        // Purge results of any unreasonable costly templates
+        for (int i = 0; i < bitwidth; i++) {
+            ArrayList<RouteTemplate> templateCandidates = allTemplateCandidates.get(i);
+            int minCost = 99;
+            for (RouteTemplate template : templateCandidates) {
+                if (template.getAdjustedCost() < minCost)
+                    minCost = template.getAdjustedCost();
+            }
+            for (int j = 0; j < templateCandidates.size();) {
+                if (templateCandidates.get(j).getAdjustedCost() - minCost > TEMPLATE_COST_TOLERANCE) {
+                    templateCandidates.remove(j);
+                    costPurgeCount += 1;
+                }
+                else
+                    j += 1;
+            }
+        }
 
         // Purge results of any conflicting templates
         // Favor based on remaining number of choices
@@ -422,7 +465,7 @@ public class StatefulBatchRouter {
                      */
                     if (minTemplateChoices < templateCandidates.size()) {
                         templateCandidates.remove(j);
-                        purgeCount += 1;
+                        conflictPurgeCount += 1;
                         continue;
                     }
 
@@ -440,7 +483,7 @@ public class StatefulBatchRouter {
 
                             if (isConflicted) {
                                 allTemplateCandidates.get(b).remove(k);
-                                purgeCount += 1;
+                                conflictPurgeCount += 1;
                             }
                             else
                                 k += 1;
@@ -456,8 +499,10 @@ public class StatefulBatchRouter {
         ArrayList<Integer> sizes = new ArrayList<>();
         for (ArrayList<RouteTemplate> templateCandidates : allTemplateCandidates)
             sizes.add(templateCandidates.size());
-        RouterLog.log("Updated template choices: " + sizes + ". A total of " + purgeCount
-                + " templates were purged due to conflicts.", RouterLog.Level.INFO);
+        RouterLog.log("Updated template choices: " + sizes + ".", RouterLog.Level.INFO);
+        RouterLog.log("A total of " + (costPurgeCount + conflictPurgeCount)
+                + " templates were purged. " + conflictPurgeCount + " were purged due to conflicts.",
+                RouterLog.Level.INFO);
         RouterLog.log("Batch search took " + (System.currentTimeMillis() - tBegin) + " ms.",
                 RouterLog.Level.NORMAL);
     }
@@ -491,14 +536,11 @@ public class StatefulBatchRouter {
                 RouterLog.Level.NORMAL);
 
         for (int i = 0; i < bitwidth; i++) {
-            for (RouteTemplate templateChoice : allTemplateCandidates.get(i)) {
-                if (templateChoice.getTemplate(-2).equals(endPaths.get(i).getEnterJunction())) {
-                    CustomRoute route = new CustomRoute(templateChoice);
-                    route.setPath(-1, endPaths.get(i));
-                    routes.set(i, route);
-                    break;
-                }
-            }
+            RouteTemplate template = RoutingCalculator.findTemplateWithSinkTilePath(endPaths.get(i),
+                    allTemplateCandidates.get(i));
+            CustomRoute route = new CustomRoute(template);
+            route.setPath(-1, endPaths.get(i));
+            routes.set(i, route);
         }
         return true;
     }
@@ -726,6 +768,11 @@ public class StatefulBatchRouter {
         RouterLog.indent(-1);
         RouterLog.log("Routing success. Connection routed in " + router.getElapsedTime() + " ms.", RouterLog.Level.NORMAL);
 
+        RouterLog.log("Hop summary of connection:", RouterLog.Level.NORMAL);
+        RouterLog.indent();
+        for (CustomRoute route : router.getRoutes())
+            RouterLog.log(route.getTemplate().hopSummary(), RouterLog.Level.NORMAL);
+        RouterLog.indent(-1);
         return router.getFootprint();
 
 

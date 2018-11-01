@@ -248,7 +248,6 @@ public class StatefulBatchRouter {
      */
     private ArrayList<TilePath> deriveValidTilePaths(int depth, ArrayList<TilePath> validPathsState,
                                                             HashSet<String> tilePathFootprint,
-                                                            HashSet<String> templateFootprint,
                                                             ArrayList<HashSet<TilePath>> allPaths) {
         if (depth == allPaths.size())
             return validPathsState;
@@ -269,6 +268,8 @@ public class StatefulBatchRouter {
             if (!isValid)
                 continue;
 
+            /*
+             * Remove for now: makes things too slow
             Set<String> templateUsage = RoutingCalculator.findTemplateWithSinkTilePath(candidate,
                     allTemplateCandidates.get(depth)).getUsage();
             for (String junctionName : templateUsage) {
@@ -280,17 +281,21 @@ public class StatefulBatchRouter {
 
             if (!isValid)
                 continue;
+            */
 
             HashSet<String> nextDepthTilePathFootprint = new HashSet<>(tilePathFootprint);
             nextDepthTilePathFootprint.addAll(candidate.getNodePath());
 
+            /*
+             * Remove for now: makes things too slow
             HashSet<String> nextDepthTemplateFootprint = new HashSet<>(templateFootprint);
             nextDepthTemplateFootprint.addAll(templateUsage);
+            */
 
             validPathsState.set(depth, candidate);
 
             ArrayList<TilePath> results = deriveValidTilePaths(depth + 1, validPathsState, nextDepthTilePathFootprint,
-                    nextDepthTemplateFootprint, allPaths);
+                    allPaths);
             if (results != null)
                 return results;
         }
@@ -362,7 +367,7 @@ public class StatefulBatchRouter {
                 ArrayList<TilePath> results = new ArrayList<>();
                 for (int j = 0; j < allPaths.size(); j++)
                     results.add(null);
-                results = deriveValidTilePaths(0, results, new HashSet<>(), new HashSet<>(), candidates);
+                results = deriveValidTilePaths(0, results, new HashSet<>(), candidates);
 
                 if (results != null) {
                     RouterLog.log("Sink paths found at a worst-case adjusted cost of " + threshold + ".",
@@ -481,7 +486,6 @@ public class StatefulBatchRouter {
 
         // Purge results of any conflicting templates
         // Favor based on remaining number of choices
-        /*
         for (int i = 0; i < bitwidth; i++) {
             ArrayList<RouteTemplate> templateCandidates = allTemplateCandidates.get(i);
             for (int j = 0; j < templateCandidates.size();) {
@@ -493,48 +497,74 @@ public class StatefulBatchRouter {
 
                 ArrayList<Integer> conflictedBits = RoutingCalculator.locateTemplateCollisions(nodeUsage, remainingUsages);
                 if (!conflictedBits.isEmpty()) {
+
+                    boolean shouldPreempt;
+
                     int minTemplateChoices = 99;
                     for (int b : conflictedBits) {
                         if (allTemplateCandidates.get(b).size() < minTemplateChoices)
                             minTemplateChoices = allTemplateCandidates.get(b).size();
                     }
 
-                    //
-                    // Make a decision based on how many template choices we have:
-                    // 1. Conflicted templates have less choices: remove this template candidate
-                    // 2. Conflicted templates have more choices: remove conflicting bit template candidates
-                    //
-                    if (minTemplateChoices < templateCandidates.size()) {
-                        templateCandidates.remove(j);
-                        conflictPurgeCount += 1;
-                        continue;
-                    }
-
-                    // Remove conflicted bits' route templates
-                    for (int b : conflictedBits) {
-                        for (int k = 0; k < allTemplateCandidates.get(b).size();) {
-
-                            boolean isConflicted = false;
-                            for (WireJunction junction : allTemplateCandidates.get(b).get(k).getTemplate()) {
-                                if (nodeUsage.contains(junction.getNodeName())) {
-                                    isConflicted = true;
-                                    break;
+                    /*
+                     * Make a decision based on how many template choices we have and adjusted cost:
+                     * 1. Conflicted templates have less choices: remove this template candidate
+                     * 2. Conflicted templates have more choices: remove conflicting bit template candidates
+                     * 3. Conflicted templates have more or less the same choices: remove more expensive candidates
+                     */
+                    if (minTemplateChoices < templateCandidates.size() - 1)
+                        shouldPreempt = false;
+                    else if (minTemplateChoices > templateCandidates.size() + 1)
+                        shouldPreempt = true;
+                    else {
+                        int minCost = 99;
+                        for (int b : conflictedBits) {
+                            for (int k = 0; k < allTemplateCandidates.get(b).size(); k++) {
+                                for (WireJunction junction : allTemplateCandidates.get(b).get(k).getTemplate()) {
+                                    if (nodeUsage.contains(junction.getNodeName())
+                                            && allTemplateCandidates.get(b).get(k).getAdjustedCost() < minCost) {
+                                        minCost = allTemplateCandidates.get(b).get(k).getAdjustedCost();
+                                        break;
+                                    }
                                 }
                             }
-
-                            if (isConflicted) {
-                                allTemplateCandidates.get(b).remove(k);
-                                conflictPurgeCount += 1;
-                            }
-                            else
-                                k += 1;
                         }
+
+                        if (minCost <= templateCandidates.get(j).getAdjustedCost())
+                            shouldPreempt = false;
+                        else
+                            shouldPreempt = true;
+                    }
+
+                    if (shouldPreempt) {
+                        // Remove conflicted bits' route templates
+                        for (int b : conflictedBits) {
+                            for (int k = 0; k < allTemplateCandidates.get(b).size();) {
+
+                                boolean isConflicted = false;
+                                for (WireJunction junction : allTemplateCandidates.get(b).get(k).getTemplate()) {
+                                    if (nodeUsage.contains(junction.getNodeName())) {
+                                        isConflicted = true;
+                                        break;
+                                    }
+                                }
+
+                                if (isConflicted) {
+                                    allTemplateCandidates.get(b).remove(k);
+                                    conflictPurgeCount += 1;
+                                } else
+                                    k += 1;
+                            }
+                        }
+                    }
+                    else {
+                        templateCandidates.remove(j);
+                        conflictPurgeCount += 1;
                     }
                 }
                 j++;
             }
         }
-        */
 
         cumulativeBatchSize += batchSize;
 

@@ -105,7 +105,7 @@ public class TilePath {
 
     public void commitPIPsToNet(Design d, Net net) {
         for (int i = 0; i < nodePath.size() - 1; i++) {
-            CustomRouter.findAndRoute(d, net, tileName, nodePath.get(i), nodePath.get(i + 1));
+            RouteForge.findAndRoute(d, net, tileName, nodePath.get(i), nodePath.get(i + 1));
         }
     }
 

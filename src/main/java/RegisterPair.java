@@ -78,7 +78,7 @@ public class RegisterPair {
         /*
         d.writeCheckpoint(ResourcesManager.OUTPUT_DIR + options.valueOf("out") + "_unrouted.dcp");
 
-        RoutingFootprint footprint = CustomRouter.routeComplexRegisters(d, reg1, reg2);
+        RoutingFootprint footprint = RouteForge.routeComplexRegisters(d, reg1, reg2);
 
         footprint.commit(d);
 

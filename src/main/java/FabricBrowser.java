@@ -1,6 +1,5 @@
 import com.xilinx.rapidwright.design.Design;
 import com.xilinx.rapidwright.device.PIP;
-import com.xilinx.rapidwright.device.Tile;
 
 import java.util.*;
 
@@ -211,7 +210,7 @@ public class FabricBrowser {
                 int wireLength = RouteUtil.extractEnterWireLength(d, tileName, pip.getStartWireName());
 
                 if (globalNodeFootprint.contains(nextNodeName) || footprint.contains(nextNodeName)
-                        || CustomRouter.isLocked(nextNodeName))
+                        || RouteForge.isLocked(nextNodeName))
                     continue;
 
                 if (dir != null && dir != WireDirection.SELF && wireLength != 0 && !RouteUtil.isClkNode(nextNodeName))
@@ -252,7 +251,7 @@ public class FabricBrowser {
                 int wireLength = RouteUtil.extractExitWireLength(d, tileName, pip.getEndWireName());
 
                 if (globalNodeFootprint.contains(nextNodeName) || footprint.contains(nextNodeName)
-                        || CustomRouter.isLocked(nextNodeName))
+                        || RouteForge.isLocked(nextNodeName))
                     continue;
 
                 if (dir != null && dir != WireDirection.SELF && wireLength != 0 && !RouteUtil.isClkNode(nextNodeName))
@@ -299,7 +298,7 @@ public class FabricBrowser {
                 else if (RouteUtil.isNodeBuffer(d, tileName, nextNodeName)) {
 
                     if (globalNodeFootprint.contains(nextNodeName)
-                            || (CustomRouter.isLocked(nextNodeName)))
+                            || (RouteForge.isLocked(nextNodeName)))
                         continue;
 
                     TilePath travCopy = new TilePath(trav);
@@ -353,7 +352,7 @@ public class FabricBrowser {
                 else if (RouteUtil.isNodeBuffer(d, tileName, nextNodeName)) {
 
                     if (globalNodeFootprint.contains(nextNodeName)
-                            || (CustomRouter.isLocked(nextNodeName)))
+                            || (RouteForge.isLocked(nextNodeName)))
                         continue;
 
                     TilePath travCopy = new TilePath(trav);
@@ -406,7 +405,7 @@ public class FabricBrowser {
                 }
 
                 if (globalNodeFootprint.contains(nextNodeName) || footprint.contains(nextNodeName)
-                        || CustomRouter.isLocked(nextNodeName))
+                        || RouteForge.isLocked(nextNodeName))
                     continue;
 
                 if (RouteUtil.isNodeBuffer(d, tileName, nextNodeName))

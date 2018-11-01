@@ -40,7 +40,7 @@ public class CustomDesign {
         OptionParser parser = createOptionParser();
         OptionSet options = parser.parse(args);
 
-        RouterLog.Level logLevel = (options.has("verbose")) ? RouterLog.Level.VERBOSE : RouterLog.Level.INFO;
+        RouterLog.Level logLevel = (options.has("verbose")) ? RouterLog.Level.VERBOSE : RouterLog.Level.NORMAL;
         RouterLog.init(logLevel);
 
         if (options.has("help")) {
@@ -119,7 +119,7 @@ public class CustomDesign {
 
         for (RegisterConnection connection : connections) {
             if (!connection.isInputConnection() && !connection.isOutputConnection())
-                CustomRouter.routeConnectionViaBatching(d, connection).commit(d);
+                StatefulBatchRouter.routeConnection(d, connection).commit(d);
         }
 
         d.writeCheckpoint(ResourcesManager.OUTPUT_DIR + options.valueOf("out") + "_custom_routed.dcp");

@@ -654,6 +654,9 @@ public class StatefulBatchRouter {
                     RouterLog.indent(-1);
 
                     if (!success) {
+                        RouterLog.indent();
+                        RouterLog.log("Restarting at step 2.", RouterLog.Level.NORMAL);
+                        RouterLog.indent(-1);
                         nextState = 2;
                         break;
                     }
@@ -678,6 +681,9 @@ public class StatefulBatchRouter {
                     boolean success = router.routeContention(d);
                     RouterLog.indent(-1);
                     if (!success) {
+                        RouterLog.indent();
+                        RouterLog.log("Restarting at step 2.", RouterLog.Level.NORMAL);
+                        RouterLog.indent(-1);
                         nextState = 2;
                         break;
                     }

@@ -247,20 +247,11 @@ public class StatefulBatchRouter {
      * Results are not optimized for cost
      */
     private ArrayList<TilePath> deriveValidTilePaths(int depth, ArrayList<TilePath> validPathsState,
-                                                            HashSet<String> footprint,
+                                                            HashSet<String> tilePathFootprint,
+                                                            HashSet<String> templateFootprint,
                                                             ArrayList<HashSet<TilePath>> allPaths) {
-        if (depth == allPaths.size()) {
-            // Knowing sink paths are valid, check if the RouteTemplates themselves are valid
-            ArrayList<RouteTemplate> candidateTemplates = new ArrayList<>();
-            for (int i = 0; i < bitwidth; i++) {
-                candidateTemplates.add(RoutingCalculator.findTemplateWithSinkTilePath(validPathsState.get(i),
-                        allTemplateCandidates.get(i)));
-            }
-
-            if (RoutingCalculator.isTemplateConfigurationValid(candidateTemplates))
-                return validPathsState;
-            return null;
-        }
+        if (depth == allPaths.size())
+            return validPathsState;
 
         HashSet<TilePath> paths = allPaths.get(depth);
         if (paths == null || paths.isEmpty())
@@ -269,23 +260,39 @@ public class StatefulBatchRouter {
         for (TilePath candidate : paths) {
             boolean isValid = true;
             for (String nodeName : candidate.getNodePath()) {
-                if (footprint.contains(nodeName)) {
+                if (tilePathFootprint.contains(nodeName)) {
                     isValid = false;
                     break;
                 }
             }
 
-            if (isValid) {
-                HashSet<String> nextDepthFootprint = new HashSet<>(footprint);
-                nextDepthFootprint.addAll(candidate.getNodePath());
+            if (!isValid)
+                continue;
 
-                validPathsState.set(depth, candidate);
-
-                ArrayList<TilePath> results = deriveValidTilePaths(depth + 1, validPathsState, nextDepthFootprint,
-                        allPaths);
-                if (results != null)
-                    return results;
+            Set<String> templateUsage = RoutingCalculator.findTemplateWithSinkTilePath(candidate,
+                    allTemplateCandidates.get(depth)).getUsage();
+            for (String junctionName : templateUsage) {
+                if (templateFootprint.contains(junctionName)) {
+                    isValid = false;
+                    break;
+                }
             }
+
+            if (!isValid)
+                continue;
+
+            HashSet<String> nextDepthTilePathFootprint = new HashSet<>(tilePathFootprint);
+            nextDepthTilePathFootprint.addAll(candidate.getNodePath());
+
+            HashSet<String> nextDepthTemplateFootprint = new HashSet<>(templateFootprint);
+            nextDepthTemplateFootprint.addAll(templateUsage);
+
+            validPathsState.set(depth, candidate);
+
+            ArrayList<TilePath> results = deriveValidTilePaths(depth + 1, validPathsState, nextDepthTilePathFootprint,
+                    nextDepthTemplateFootprint, allPaths);
+            if (results != null)
+                return results;
         }
 
         return null;
@@ -355,7 +362,7 @@ public class StatefulBatchRouter {
                 ArrayList<TilePath> results = new ArrayList<>();
                 for (int j = 0; j < allPaths.size(); j++)
                     results.add(null);
-                results = deriveValidTilePaths(0, results, new HashSet<>(), candidates);
+                results = deriveValidTilePaths(0, results, new HashSet<>(), new HashSet<>(), candidates);
 
                 if (results != null) {
                     RouterLog.log("Sink paths found at a worst-case adjusted cost of " + threshold + ".",

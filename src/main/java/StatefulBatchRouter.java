@@ -139,6 +139,8 @@ public class StatefulBatchRouter {
         int srcTileX = srcIntTile.getTileXCoordinate();
         int srcTileY = srcIntTile.getTileYCoordinate();
 
+        ArrayList<WireDirection> primaryDirs = RouteUtil.primaryDirections(snkTileX - srcTileX, snkTileY - srcTileY);
+
         HashSet<String> footprint = getSearchState(bitIndex).getRight();
         Queue<JunctionsTracer> queue = getSearchState(bitIndex).getLeft();
 
@@ -194,7 +196,16 @@ public class StatefulBatchRouter {
                         || footprint.contains(exit.getNodeName()) || RouteForge.isLocked(exit.getNodeName()))
                     continue;
 
-                queue.add(new JunctionsTracer(wireDest, head, head.getDepth() + 1));
+                // Check to see if search has veered far too off track
+                if (head.isAlignedWithDeviationDirection(exit.getDirection()))
+                    continue;
+
+                // Set deviation from primary directions
+                JunctionsTracer nextTracer = new JunctionsTracer(wireDest, head, head.getDepth() + 1);
+                if (!primaryDirs.contains(exit.getDirection()))
+                    nextTracer.addDeviation(exit.getDirection());
+
+                queue.add(nextTracer);
                 footprint.add(wireDest.getNodeName());
             }
 

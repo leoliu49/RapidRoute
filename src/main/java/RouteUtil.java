@@ -81,6 +81,31 @@ public class RouteUtil {
             return false;
     }
 
+    public static ArrayList<WireDirection> primaryDirections(int dx, int dy) {
+        ArrayList<WireDirection> dirs = new ArrayList<>();
+        if (dx == 0) {
+            dirs.add(WireDirection.NORTH);
+            dirs.add(WireDirection.SOUTH);
+            return dirs;
+        }
+        if (dy == 0) {
+            dirs.add(WireDirection.EAST);
+            dirs.add(WireDirection.WEST);
+            return dirs;
+        }
+
+        if (dx > 0)
+            dirs.add(WireDirection.EAST);
+        else
+            dirs.add(WireDirection.WEST);
+        if (dy > 0)
+            dirs.add(WireDirection.NORTH);
+        else
+            dirs.add(WireDirection.SOUTH);
+
+        return dirs;
+    }
+
     public static String getPIPNodeName(String tileName, String wireName) {
         return tileName + "/" + wireName;
     }

@@ -238,8 +238,18 @@ public class StatefulBatchRouter {
     private ArrayList<TilePath> deriveValidTilePaths(int depth, ArrayList<TilePath> validPathsState,
                                                             HashSet<String> footprint,
                                                             ArrayList<HashSet<TilePath>> allPaths) {
-        if (depth == allPaths.size())
-            return validPathsState;
+        if (depth == allPaths.size()) {
+            // Knowing sink paths are valid, check if the RouteTemplates themselves are valid
+            ArrayList<RouteTemplate> candidateTemplates = new ArrayList<>();
+            for (int i = 0; i < bitwidth; i++) {
+                candidateTemplates.add(RoutingCalculator.findTemplateWithSinkTilePath(validPathsState.get(i),
+                        allTemplateCandidates.get(i)));
+            }
+
+            if (RoutingCalculator.isTemplateConfigurationValid(candidateTemplates))
+                return validPathsState;
+            return null;
+        }
 
         HashSet<TilePath> paths = allPaths.get(depth);
         if (paths == null || paths.isEmpty())
@@ -297,18 +307,30 @@ public class StatefulBatchRouter {
                 threshMin = min;
         }
 
+        ArrayList<HashSet<TilePath>> candidatePool = new ArrayList<>();
+        for (int i = 0; i < bitwidth; i++)
+            candidatePool.add(new HashSet<>());
+
         for (int threshold = threshMin; threshold <= threshMax; threshold++) {
-            ArrayList<HashSet<TilePath>> candidatePool = new ArrayList<>();
-            for (HashSet<TilePath> pathChoices : allPaths) {
+
+            int additionsToCandidatePool = 0;
+            for (int i = 0; i < bitwidth; i++) {
+                HashSet<TilePath> pathChoices = allPaths.get(i);
                 HashSet<TilePath> bitCandidates = new HashSet<>();
                 for (TilePath path : pathChoices) {
-                    if (path.getCost() <= threshold)
+                    if (getAdjustedCost(path, allTemplateCandidates.get(i), adjustedCostMap) == threshold) {
                         bitCandidates.add(path);
+                        additionsToCandidatePool += 1;
+                    }
                 }
-                candidatePool.add(bitCandidates);
+                candidatePool.get(i).addAll(bitCandidates);
             }
 
-            for (int i = 0; i < allPaths.size(); i++) {
+            // If nothing new was added to the candidate pool this round, simply move on to the next threshold
+            if (additionsToCandidatePool == 0)
+                continue;
+
+            for (int i = 0; i < bitwidth; i++) {
 
                 ArrayList<HashSet<TilePath>> candidates = new ArrayList<>(candidatePool);
 
@@ -441,6 +463,7 @@ public class StatefulBatchRouter {
 
         // Purge results of any conflicting templates
         // Favor based on remaining number of choices
+        /*
         for (int i = 0; i < bitwidth; i++) {
             ArrayList<RouteTemplate> templateCandidates = allTemplateCandidates.get(i);
             for (int j = 0; j < templateCandidates.size();) {
@@ -458,11 +481,11 @@ public class StatefulBatchRouter {
                             minTemplateChoices = allTemplateCandidates.get(b).size();
                     }
 
-                    /*
-                     * Make a decision based on how many template choices we have:
-                     * 1. Conflicted templates have less choices: remove this template candidate
-                     * 2. Conflicted templates have more choices: remove conflicting bit template candidates
-                     */
+                    //
+                    // Make a decision based on how many template choices we have:
+                    // 1. Conflicted templates have less choices: remove this template candidate
+                    // 2. Conflicted templates have more choices: remove conflicting bit template candidates
+                    //
                     if (minTemplateChoices < templateCandidates.size()) {
                         templateCandidates.remove(j);
                         conflictPurgeCount += 1;
@@ -493,6 +516,7 @@ public class StatefulBatchRouter {
                 j++;
             }
         }
+        */
 
         cumulativeBatchSize += batchSize;
 

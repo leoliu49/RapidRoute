@@ -11,9 +11,24 @@ public class RoutingCalculator {
      * Collection of verbose functions for utility in routing
      */
 
+    /*
+     * Checks to see if the family of RouteTemplates is valid
+     */
+    public static boolean isTemplateConfigurationValid(ArrayList<RouteTemplate> templates) {
+        HashSet<String> nodeUsages = new HashSet<>();
+        for (RouteTemplate template : templates) {
+            for (WireJunction junction : template.getTemplate()) {
+                if (nodeUsages.contains(junction.getNodeName()))
+                    return false;
+                nodeUsages.add(junction.getNodeName());
+            }
+        }
+
+        return true;
+    }
 
     /*
-     * Finds, out of a family of RouteTemplate's, which RouteTemplate is colliding with the family
+     * Finds, out of a family of RouteTemplates, which RouteTemplate is colliding with the candidate
      * Returns indexes of collisions
      */
     public static ArrayList<Integer> locateTemplateCollisions(Set<String> candidateSet,

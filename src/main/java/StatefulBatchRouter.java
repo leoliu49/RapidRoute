@@ -32,6 +32,7 @@ public class StatefulBatchRouter {
     private ArrayList<Set<EnterWireJunction>> snkTileEntrances;
 
     private ArrayList<ArrayList<RouteTemplate>> templateCandidatesCache;
+    private ArrayList<HashMap<EnterWireJunction, ArrayList<TilePath>>> snkTilePathsCache;
     private ArrayList<ArrayList<RouteTemplate>> allTemplateCandidates;
     private ArrayList<CustomRoute> routes;
 
@@ -50,6 +51,7 @@ public class StatefulBatchRouter {
         searchStates = new ArrayList<>();
         snkTileEntrances = new ArrayList<>();
         templateCandidatesCache = new ArrayList<>();
+        snkTilePathsCache = new ArrayList<>();
         allTemplateCandidates = new ArrayList<>();
         routes = new ArrayList<>();
 
@@ -59,6 +61,7 @@ public class StatefulBatchRouter {
             searchStates.add(null);
             snkTileEntrances.add(null);
             templateCandidatesCache.add(new ArrayList<>());
+            snkTilePathsCache.add(new HashMap<>());
             allTemplateCandidates.add(null);
             routes.add(null);
         }
@@ -80,6 +83,14 @@ public class StatefulBatchRouter {
         if (snkTileEntrances.get(bitIndex) == null)
             snkTileEntrances.set(bitIndex, FabricBrowser.findReachableEntrances(d, snkJunctions.get(bitIndex)));
         return snkTileEntrances.get(bitIndex);
+    }
+
+    private ArrayList<TilePath> findTilePathsToSink(Design d, EnterWireJunction entrance, int bitIndex) {
+        if (!snkTilePathsCache.get(bitIndex).containsKey(entrance)) {
+            snkTilePathsCache.get(bitIndex).put(entrance, FabricBrowser.findTilePaths(d, SINK_TILE_TRAVERSAL_MAX_DEPTH,
+                    entrance, snkJunctions.get(bitIndex)));
+        }
+        return snkTilePathsCache.get(bitIndex).get(entrance);
     }
 
     private void beginTiming() {
@@ -461,11 +472,12 @@ public class StatefulBatchRouter {
         long tBegin = System.currentTimeMillis();
 
         ArrayList<HashSet<TilePath>> allEndPathChoices = new ArrayList<>();
-        for (ArrayList<RouteTemplate> templateChoices : allTemplateCandidates) {
+        for (int i = 0; i < bitwidth; i++) {
+            ArrayList<RouteTemplate> templateChoices = allTemplateCandidates.get(i);
             HashSet<TilePath> pathChoices = new HashSet<>();
-            for (RouteTemplate template : templateChoices)
-                pathChoices.addAll(FabricBrowser.findTilePaths(d, SINK_TILE_TRAVERSAL_MAX_DEPTH,
-                        (EnterWireJunction) template.getTemplate(-2), (ExitWireJunction) template.getTemplate(-1)));
+            for (RouteTemplate template : templateChoices) {
+                pathChoices.addAll(findTilePathsToSink(d, (EnterWireJunction) template.getTemplate(-2), i));
+            }
             allEndPathChoices.add(pathChoices);
         }
 

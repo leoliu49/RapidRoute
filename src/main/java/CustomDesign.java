@@ -40,7 +40,7 @@ public class CustomDesign {
         OptionParser parser = createOptionParser();
         OptionSet options = parser.parse(args);
 
-        RouterLog.Level logLevel = (options.has("verbose")) ? RouterLog.Level.VERBOSE : RouterLog.Level.NORMAL;
+        RouterLog.Level logLevel = (options.has("verbose")) ? RouterLog.Level.VERBOSE : RouterLog.Level.INFO;
         RouterLog.init(logLevel);
 
         if (options.has("help")) {

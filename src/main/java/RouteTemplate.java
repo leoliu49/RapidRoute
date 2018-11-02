@@ -12,10 +12,6 @@ public class RouteTemplate {
     // True for all Ultrascale+; 16 for Ultrascale
     private static final int LONG_LINE_LENGTH = 12;
 
-    // Unique score documenting how 'expensive' these hops are:
-    // 1. Parallel redirection (i.e. E <--> W, N <--> S): +2
-    // 2. Orthogonal redirection (i.e. E/W <--> N/S): +6
-    // 3. Excessive use of small hops (i.e. for each usage of small hops): +2
     private int adjustedCost;
     private WireDirection lastDirection;
 
@@ -52,6 +48,20 @@ public class RouteTemplate {
     // Gets cost factoring readjustment score
     public int getAdjustedCost() {
         return adjustedCost;
+    }
+
+    private void readjustCost(EnterWireJunction enJunc) {
+        adjustedCost += 2;
+
+        // Punish short hops: short hops tend to be more expensive to route
+        if (enJunc.getWireLength() < 12)
+            adjustedCost += 4;
+        // Punish reversals: sometimes they are necessary
+        if (RouteUtil.reverseDirection(enJunc.getDirection()).equals(lastDirection))
+            adjustedCost += 2;
+        // Punish orthogonal turns: these routes seem to be very slow
+        else if (RouteUtil.isOrthogonal(enJunc.getDirection(), lastDirection))
+            adjustedCost += 8;
     }
 
     public int getBitIndex() {
@@ -95,18 +105,8 @@ public class RouteTemplate {
     public void pushEnterWireJunction(Design d, EnterWireJunction enJunc) {
         template.add(1, enJunc);
         template.add(1, enJunc.getSrcJunction(d));
-        adjustedCost += 2;
 
-        if (enJunc.getWireLength() < 12)
-            adjustedCost += 2;
-
-        if (enJunc.getDirection().equals(lastDirection))
-            return;
-        if (RouteUtil.isParallel(enJunc.getDirection(), lastDirection))
-            adjustedCost += 2;
-        else if (RouteUtil.isOrthogonal(enJunc.getDirection(), lastDirection))
-            adjustedCost += 6;
-
+        readjustCost(enJunc);
         lastDirection = enJunc.getDirection();
     }
 

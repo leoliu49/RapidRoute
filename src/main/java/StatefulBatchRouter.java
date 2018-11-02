@@ -360,7 +360,7 @@ public class StatefulBatchRouter {
 
                 HashSet<TilePath> threshSet = new HashSet<>();
                 for (TilePath path : candidates.get(i)) {
-                    if (path.getCost() <= threshold)
+                    if (getAdjustedCost(path, allTemplateCandidates.get(i), adjustedCostMap) <= threshold)
                         threshSet.add(path);
                 }
                 candidates.set(i, threshSet);

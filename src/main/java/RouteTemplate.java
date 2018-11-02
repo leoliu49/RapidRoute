@@ -17,10 +17,9 @@ public class RouteTemplate {
     // Unique score documenting how many turns this template has taken:
     // 1. Parallel redirection (i.e. E <--> W, N <--> S): +1
     // 2. Orthogonal redirection (i.e. E/W <--> N/S): +4
-    // 3. Excessive use of small hops (i.e. anytime short hops can make up a total of 12 tiles travelled): +4
+    // 3. Excessive use of small hops (i.e. for each usage of small hops): +2
     private int redirectionScore;
     private WireDirection lastDirection;
-    private int shortHopAccumulate;
 
     // Relative bit index of connection
     private int bitIndex;
@@ -38,7 +37,6 @@ public class RouteTemplate {
         cost = 0;
         redirectionScore = 0;
         lastDirection = null;
-        shortHopAccumulate = 0;
 
         this.src = src;
         this.snk = snk;
@@ -115,9 +113,8 @@ public class RouteTemplate {
 
         lastDirection = enJunc.getDirection();
 
-        if (shortHopAccumulate + enJunc.getWireLength() > LONG_LINE_LENGTH)
-            redirectionScore += 4;
-        shortHopAccumulate = (shortHopAccumulate + enJunc.getWireLength()) % LONG_LINE_LENGTH;
+        if (enJunc.getWireLength() < 12)
+            redirectionScore += 2;
     }
 
     @Override

@@ -9,13 +9,18 @@ public class RouteTemplate {
      * Wrapper around an ArrayList of WireJunctions, which describe the hops needed to complete a route
      */
 
+    // True for all Ultrascale+; 16 for Ultrascale
+    private static final int LONG_LINE_LENGTH = 12;
+
     private int cost;
 
     // Unique score documenting how many turns this template has taken:
     // 1. Parallel redirection (i.e. E <--> W, N <--> S): +1
     // 2. Orthogonal redirection (i.e. E/W <--> N/S): +4
+    // 3. Excessive use of small hops (i.e. anytime short hops can make up a total of 12 tiles travelled): +4
     private int redirectionScore;
     private WireDirection lastDirection;
+    private int shortHopAccumulate;
 
     // Relative bit index of connection
     private int bitIndex;
@@ -31,6 +36,9 @@ public class RouteTemplate {
 
     public RouteTemplate(Design d, EnterWireJunction src, ExitWireJunction snk) {
         cost = 0;
+        redirectionScore = 0;
+        lastDirection = null;
+        shortHopAccumulate = 0;
 
         this.src = src;
         this.snk = snk;
@@ -106,6 +114,10 @@ public class RouteTemplate {
             redirectionScore += 4;
 
         lastDirection = enJunc.getDirection();
+
+        if (shortHopAccumulate + enJunc.getWireLength() > LONG_LINE_LENGTH)
+            redirectionScore += 4;
+        shortHopAccumulate = (shortHopAccumulate + enJunc.getWireLength()) % LONG_LINE_LENGTH;
     }
 
     @Override

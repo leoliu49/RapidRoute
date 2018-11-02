@@ -225,6 +225,43 @@ public class FabricBrowser {
         return results;
     }
 
+    public static Set<EnterWireJunction> findReachableEntrances(Design d, int maxDepth, ExitWireJunction exit) {
+        Set<EnterWireJunction> results = new HashSet<>();
+        String tileName = exit.getTileName();
+
+        Queue<NodeDepthPair> queue = new LinkedList<>();
+        queue.add(new NodeDepthPair(exit.getNodeName()));
+
+        HashSet<String> footprint = new HashSet<>();
+
+        while (!queue.isEmpty()) {
+            NodeDepthPair trav = queue.remove();
+
+            if (trav.getDepth() >= maxDepth)
+                break;
+
+            for (PIP pip : getBkwdPIPs(d, exit.getTileName(), trav.getNodeName())) {
+                String nextNodeName = RouteUtil.getPIPNodeName(tileName, pip.getStartWireName());
+
+                WireDirection dir = RouteUtil.extractEnterWireDirection(d, tileName, pip.getStartWireName());
+                int wireLength = RouteUtil.extractEnterWireLength(d, tileName, pip.getStartWireName());
+
+                if (globalNodeFootprint.contains(nextNodeName) || footprint.contains(nextNodeName)
+                        || RouteForge.isLocked(nextNodeName))
+                    continue;
+
+                if (dir != null && dir != WireDirection.SELF && wireLength != 0 && !RouteUtil.isClkNode(nextNodeName))
+                    results.add(new EnterWireJunction(d, tileName, pip.getStartWireName()));
+                if (RouteUtil.isNodeBuffer(d, tileName, nextNodeName))
+                    queue.add(new NodeDepthPair(nextNodeName, trav.getDepth() + 1));
+
+                footprint.add(nextNodeName);
+            }
+        }
+
+        return results;
+    }
+
     /*
      * Conduct BFS for all exits from entrance junction independent of fan-out caches
      *   Takes into consideration the router global footprint and any locked nodes
@@ -242,6 +279,43 @@ public class FabricBrowser {
             NodeDepthPair trav = queue.remove();
 
             if (trav.getDepth() >= TILE_TRAVERSAL_MAX_DEPTH)
+                continue;
+
+            for (PIP pip : getFwdPIPs(d, tileName, trav.getNodeName())) {
+                String nextNodeName = RouteUtil.getPIPNodeName(tileName, pip.getEndWireName());
+
+                WireDirection dir = RouteUtil.extractExitWireDirection(d, tileName, pip.getEndWireName());
+                int wireLength = RouteUtil.extractExitWireLength(d, tileName, pip.getEndWireName());
+
+                if (globalNodeFootprint.contains(nextNodeName) || footprint.contains(nextNodeName)
+                        || RouteForge.isLocked(nextNodeName))
+                    continue;
+
+                if (dir != null && dir != WireDirection.SELF && wireLength != 0 && !RouteUtil.isClkNode(nextNodeName))
+                    results.add(new ExitWireJunction(d, tileName, pip.getEndWireName()));
+                if (RouteUtil.isNodeBuffer(d, tileName, nextNodeName))
+                    queue.add(new NodeDepthPair(nextNodeName, trav.getDepth() + 1));
+
+                footprint.add(nextNodeName);
+            }
+        }
+
+        return results;
+    }
+
+    public static Set<ExitWireJunction> findReachableExits(Design d, int maxDepth, EnterWireJunction entrance) {
+        Set<ExitWireJunction> results = new HashSet<>();
+        String tileName = entrance.getTileName();
+
+        Queue<NodeDepthPair> queue = new LinkedList<>();
+        queue.add(new NodeDepthPair(entrance.getNodeName()));
+
+        HashSet<String> footprint = new HashSet<>();
+
+        while (!queue.isEmpty()) {
+            NodeDepthPair trav = queue.remove();
+
+            if (trav.getDepth() >= maxDepth)
                 continue;
 
             for (PIP pip : getFwdPIPs(d, tileName, trav.getNodeName())) {

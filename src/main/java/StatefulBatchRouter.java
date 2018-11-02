@@ -81,8 +81,10 @@ public class StatefulBatchRouter {
     }
 
     private Set<EnterWireJunction> getLeadIns(Design d, int bitIndex) {
-        if (snkTileEntrances.get(bitIndex) == null)
-            snkTileEntrances.set(bitIndex, FabricBrowser.findReachableEntrances(d, snkJunctions.get(bitIndex)));
+        if (snkTileEntrances.get(bitIndex) == null) {
+            snkTileEntrances.set(bitIndex, FabricBrowser.findReachableEntrances(d, SINK_TILE_TRAVERSAL_MAX_DEPTH,
+                    snkJunctions.get(bitIndex)));
+        }
         return snkTileEntrances.get(bitIndex);
     }
 

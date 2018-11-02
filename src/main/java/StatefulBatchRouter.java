@@ -382,7 +382,6 @@ public class StatefulBatchRouter {
         return null;
     }
 
-
     /* Functions for actual steps in routing */
     /*
      * Function for step 0
@@ -686,6 +685,18 @@ public class StatefulBatchRouter {
 
         if (liveLockCount >= 9999) {
             RouterLog.log("Route contention aborted (live lock detected).", RouterLog.Level.NORMAL);
+
+            // Remove conflicting route: most likely the one with the highest deflection count
+            int index = 0;
+            int highestDeflection = 0;
+            for (int i = 0; i < deflectionCount.length; i++) {
+                if (highestDeflection < deflectionCount[i]) {
+                    index = i;
+                    highestDeflection = deflectionCount[i];
+                }
+            }
+            templateCandidatesCache.remove(routes.get(index).getTemplate());
+
             return false;
         }
 

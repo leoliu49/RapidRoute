@@ -12,13 +12,11 @@ public class RouteTemplate {
     // True for all Ultrascale+; 16 for Ultrascale
     private static final int LONG_LINE_LENGTH = 12;
 
-    private int cost;
-
-    // Unique score documenting how many turns this template has taken:
-    // 1. Parallel redirection (i.e. E <--> W, N <--> S): +1
-    // 2. Orthogonal redirection (i.e. E/W <--> N/S): +4
+    // Unique score documenting how 'expensive' these hops are:
+    // 1. Parallel redirection (i.e. E <--> W, N <--> S): +2
+    // 2. Orthogonal redirection (i.e. E/W <--> N/S): +6
     // 3. Excessive use of small hops (i.e. for each usage of small hops): +2
-    private int redirectionScore;
+    private int adjustedCost;
     private WireDirection lastDirection;
 
     // Relative bit index of connection
@@ -34,8 +32,7 @@ public class RouteTemplate {
     private ArrayList<WireJunction> template;
 
     public RouteTemplate(Design d, EnterWireJunction src, ExitWireJunction snk) {
-        cost = 0;
-        redirectionScore = 0;
+        adjustedCost = 0;
         lastDirection = null;
 
         this.src = src;
@@ -52,13 +49,9 @@ public class RouteTemplate {
         template.add(snk);
     }
 
-    public int getRedirectionScore() {
-        return redirectionScore;
-    }
-
     // Gets cost factoring readjustment score
     public int getAdjustedCost() {
-        return cost + redirectionScore;
+        return adjustedCost;
     }
 
     public int getBitIndex() {
@@ -102,17 +95,17 @@ public class RouteTemplate {
     public void pushEnterWireJunction(Design d, EnterWireJunction enJunc) {
         template.add(1, enJunc);
         template.add(1, enJunc.getSrcJunction(d));
-        cost += 1;
+        adjustedCost += 2;
 
         if (enJunc.getWireLength() < 12)
-            redirectionScore += 1;
+            adjustedCost += 2;
 
         if (enJunc.getDirection().equals(lastDirection))
             return;
         if (RouteUtil.isParallel(enJunc.getDirection(), lastDirection))
-            redirectionScore += 1;
+            adjustedCost += 2;
         else if (RouteUtil.isOrthogonal(enJunc.getDirection(), lastDirection))
-            redirectionScore += 4;
+            adjustedCost += 6;
 
         lastDirection = enJunc.getDirection();
     }
@@ -142,7 +135,7 @@ public class RouteTemplate {
         }
         repr += RouteUtil.directionToString(template.get(template.size() - 2).getDirection());
         repr += template.get(template.size() - 2).getWireLength();
-        repr += ">[" + getAdjustedCost() + "]";
+        repr += ">[" + adjustedCost + "]";
         return repr;
     }
 }

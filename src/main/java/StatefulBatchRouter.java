@@ -414,24 +414,28 @@ public class StatefulBatchRouter {
     private void populateJunctionPairs(Design d) {
         {
             int bitIndex = 0;
+            int bitIndexWithOffset = 0;
             for (RegisterComponent component : srcReg.getComponents()) {
                 String intTileName = d.getDevice().getSite(component.getSiteName()).getIntTile().getName();
                 for (int i = 0; i < component.getBitWidth(); i++, bitIndex++) {
                     if (bitIndex >= connection.getSrcRegLowestBit() && bitIndex <= connection.getSrcRegHighestBit()) {
-                        srcJunctions.set(bitIndex,
+                        srcJunctions.set(bitIndexWithOffset,
                                 EnterWireJunction.newSrcJunction(intTileName, component.getOutPIPName(i)));
+                        bitIndexWithOffset += 1;
                     }
                 }
             }
         }
         {
             int bitIndex = 0;
+            int bitIndexWithOffset = 0;
             for (RegisterComponent component : snkReg.getComponents()) {
                 String intTileName = d.getDevice().getSite(component.getSiteName()).getIntTile().getName();
                 for (int i = 0; i < component.getBitWidth(); i++, bitIndex++) {
                     if (bitIndex >= connection.getSnkRegLowestBit() && bitIndex <= connection.getSnkRegHighestBit()) {
-                        snkJunctions.set(bitIndex,
+                        snkJunctions.set(bitIndexWithOffset,
                                 ExitWireJunction.newSnkJunction(intTileName, component.getInPIPName(i)));
+                        bitIndexWithOffset += 1;
                     }
                 }
             }

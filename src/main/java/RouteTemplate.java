@@ -104,6 +104,9 @@ public class RouteTemplate {
         template.add(1, enJunc.getSrcJunction(d));
         cost += 1;
 
+        if (enJunc.getWireLength() < 12)
+            redirectionScore += 1;
+
         if (enJunc.getDirection().equals(lastDirection))
             return;
         if (RouteUtil.isParallel(enJunc.getDirection(), lastDirection))
@@ -112,9 +115,6 @@ public class RouteTemplate {
             redirectionScore += 4;
 
         lastDirection = enJunc.getDirection();
-
-        if (enJunc.getWireLength() < 12)
-            redirectionScore += 2;
     }
 
     @Override

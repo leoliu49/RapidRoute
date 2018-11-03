@@ -10,7 +10,7 @@ public class RouteTemplate {
      */
 
     // True for all Ultrascale+; 16 for Ultrascale
-    private static final int LONG_LINE_LENGTH = 12;
+    private static final int LONG_LINE_LENGTH = 6;
 
     private int adjustedCost;
     private WireDirection lastDirection;
@@ -54,7 +54,7 @@ public class RouteTemplate {
         adjustedCost += 2;
 
         // Punish short hops: short hops tend to be more expensive to route
-        if (enJunc.getWireLength() < 12)
+        if (enJunc.getWireLength() < LONG_LINE_LENGTH)
             adjustedCost += 4;
         // Punish reversals: sometimes they are necessary
         if (RouteUtil.reverseDirection(enJunc.getDirection()).equals(lastDirection))

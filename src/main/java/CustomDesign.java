@@ -1,4 +1,5 @@
 import com.xilinx.rapidwright.design.Design;
+import com.xilinx.rapidwright.device.Site;
 import com.xilinx.rapidwright.device.Tile;
 import com.xilinx.rapidwright.device.Wire;
 import com.xilinx.rapidwright.edif.*;
@@ -118,8 +119,9 @@ public class CustomDesign {
         d.writeCheckpoint(ResourcesManager.OUTPUT_DIR + options.valueOf("out") + "_unrouted.dcp");
 
         for (RegisterConnection connection : connections) {
-            if (!connection.isInputConnection() && !connection.isOutputConnection())
+            if (!connection.isInputConnection() && !connection.isOutputConnection()) {
                 StatefulBatchRouter.routeConnection(d, connection).commit(d);
+            }
         }
 
         d.writeCheckpoint(ResourcesManager.OUTPUT_DIR + options.valueOf("out") + "_custom_routed.dcp");

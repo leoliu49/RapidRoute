@@ -14,7 +14,7 @@ declare -a tiles_right_0=( 38 40 48 64 )
 declare -a slices_right_1=( 59 63 73 107 )
 declare -a tiles_right_1=( 38 41 47 71 )
 
-declare -a bw=( 2 4 6 8 )
+declare -a bw=( 2 4 6 )
 
 declare -a index=( 0 1 2 3 )
 

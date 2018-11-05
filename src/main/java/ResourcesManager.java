@@ -3,11 +3,15 @@ import com.xilinx.rapidwright.edif.EDIFCell;
 import com.xilinx.rapidwright.edif.EDIFLibrary;
 import org.ini4j.Wini;
 
+import java.io.BufferedReader;
 import java.io.File;
+import java.io.FileReader;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public class ResourcesManager {
 
@@ -27,7 +31,7 @@ public class ResourcesManager {
 
     public static Wini componentsConfig = null;
     public static Wini placementsConfig = null;
-    public static Wini routesConfig = null;
+    public static BufferedReader routesConfig = null;
 
     public static final String commonKey = "common";
     public static final String bwKey = "bw";
@@ -57,7 +61,7 @@ public class ResourcesManager {
 
     public static void initRoutesConfig() throws IOException {
         if (routesConfig == null)
-            routesConfig = new Wini(new File(ROUTES_FILE_NAME));
+            routesConfig = new BufferedReader(new FileReader(ROUTES_FILE_NAME));
     }
 
     public static Design newDesignFromSources(String designName) throws IOException {
@@ -119,12 +123,40 @@ public class ResourcesManager {
         return registersMap;
     }
 
+    private static Matcher extractRegisterInfo(String str) {
+        Matcher matcher = Pattern.compile("(.*)\\[(\\d+)\\.\\.(\\d+)]").matcher(str);
+        if (matcher.find())
+            return matcher;
+        return null;
+    }
 
     public static ArrayList<RegisterConnection> connectionsFromRoutes(Design d, HashMap<String,
             ComplexRegister> registersMap) throws IOException {
         initRoutesConfig();
         ArrayList<RegisterConnection> connections = new ArrayList<RegisterConnection>();
 
+        for(String line; (line = routesConfig.readLine()) != null;) {
+            String[] elements = line.replaceAll(" ", "").split("<=");
+
+            String dest = elements[0];
+            Matcher mDest = extractRegisterInfo(dest);
+
+            String src = elements[1];
+            Matcher mSrc = extractRegisterInfo(src);
+
+            if (mDest.group(1).equals("out"))
+                connections.add(new RegisterConnection(registersMap.get(mSrc.group(1)), null,
+                        Integer.valueOf(mSrc.group(3)), Integer.valueOf(mSrc.group(2)), 0, 0));
+            else if (mSrc.group(1).equals("in"))
+                connections.add(new RegisterConnection(null, registersMap.get(mDest.group(1)),
+                        0, 0, Integer.valueOf(mDest.group(3)), Integer.valueOf(mDest.group(2))));
+            else
+                connections.add(new RegisterConnection(registersMap.get(mSrc.group(1)), registersMap.get(mDest.group(1)),
+                        Integer.valueOf(mSrc.group(3)), Integer.valueOf(mSrc.group(2)),
+                        Integer.valueOf(mDest.group(3)), Integer.valueOf(mDest.group(2))));
+        }
+
+        /*
         List<String> inConns = routesConfig.get(routesKey).getAll(inKey);
         List<String> outConns = routesConfig.get(routesKey).getAll(outKey);
 
@@ -163,6 +195,7 @@ public class ResourcesManager {
                         srcLowBit, srcHiBit, snkLowBit, snkHiBit));
             }
         }
+        */
 
         return connections;
     }

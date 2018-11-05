@@ -77,11 +77,11 @@ public class RegisterConnection {
     @Override
     public String toString() {
         if (isInputConnection)
-            return "<INPUT> --> " + "<" + snkReg.getName() + "_b" + snkRegLowestBit + "_b" + snkRegHighestBit + ">";
+            return "<INPUT> --> " + "<" + snkReg.getName() + "[" + snkRegHighestBit + ".." + snkRegLowestBit + "]>";
         if (isOutputConnection)
-            return "<" + srcReg.getName() + "_b" + srcRegLowestBit + "_b" + srcRegHighestBit + ">" + " --> <OUTPUT>";
-        String repr = "<" + srcReg.getName() + "_b" + srcRegLowestBit + "_b" + srcRegHighestBit + "> --> ";
-        repr += "<" + snkReg.getName() + "_b" + snkRegLowestBit + "_b" + snkRegHighestBit + ">";
+            return "<" + srcReg.getName() + "[" + srcRegHighestBit + ".." + srcRegLowestBit + "]>" + " --> <OUTPUT>";
+        String repr = "<" + srcReg.getName() + "[" + srcRegHighestBit + ".." + srcRegLowestBit + "]> --> ";
+        repr += "<" + snkReg.getName() + "[" + snkRegHighestBit + ".." + snkRegLowestBit + "]>";
 
         return repr;
     }

@@ -76,6 +76,8 @@ public class RouteForge {
                 return;
             }
         }
+        globalNodeFootprint.add(startNodeName);
+        globalNodeFootprint.add(endNodeName);
         RouterLog.log("Junction <" + startNodeName + "> ---> <" + endNodeName + "> failed.", RouterLog.Level.ERROR);
     }
 }

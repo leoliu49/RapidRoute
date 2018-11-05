@@ -865,6 +865,10 @@ public class StatefulBatchRouter {
         for (CustomRoute route : router.getRoutes())
             RouterLog.log(route.getTemplate().hopSummary(), RouterLog.Level.NORMAL);
         RouterLog.indent(-1);
+
+
+        RouteForge.flushNodeLock();
+
         return router.getFootprint();
 
 

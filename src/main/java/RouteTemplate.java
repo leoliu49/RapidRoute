@@ -13,6 +13,7 @@ public class RouteTemplate {
     private static final int LONG_LINE_LENGTH = 6;
 
     private int adjustedCost;
+    private int orthogonalTurns;
     private WireDirection lastDirection;
 
     // Relative bit index of connection
@@ -24,10 +25,13 @@ public class RouteTemplate {
     private int distanceX;
     private int distanceY;
 
+    private ArrayList<WireDirection> primaryDirections;
+
     // Inclusive of src and snk
     private ArrayList<WireJunction> template;
 
     public RouteTemplate(Design d, EnterWireJunction src, ExitWireJunction snk) {
+        orthogonalTurns = 0;
         adjustedCost = 0;
         lastDirection = null;
 
@@ -40,6 +44,8 @@ public class RouteTemplate {
         distanceX = snkIntTile.getTileXCoordinate() - srcIntTile.getTileXCoordinate();
         distanceY = snkIntTile.getTileYCoordinate() - srcIntTile.getTileYCoordinate();
 
+        primaryDirections = RouteUtil.primaryDirections(distanceX, distanceY);
+
         template = new ArrayList<>();
         template.add(src);
         template.add(snk);
@@ -48,6 +54,10 @@ public class RouteTemplate {
     // Gets cost factoring readjustment score
     public int getAdjustedCost() {
         return adjustedCost;
+    }
+
+    public int getNumOrthogonalTurns() {
+        return orthogonalTurns;
     }
 
     private void readjustCost(EnterWireJunction enJunc) {
@@ -60,8 +70,10 @@ public class RouteTemplate {
         if (RouteUtil.reverseDirection(enJunc.getDirection()).equals(lastDirection))
             adjustedCost += 2;
         // Punish orthogonal turns: these routes seem to be very slow
-        else if (RouteUtil.isOrthogonal(enJunc.getDirection(), lastDirection))
+        else if (RouteUtil.isOrthogonal(enJunc.getDirection(), lastDirection)) {
             adjustedCost += 8;
+            orthogonalTurns += 1;
+        }
     }
 
     public int getBitIndex() {

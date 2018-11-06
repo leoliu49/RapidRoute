@@ -15,7 +15,7 @@ public class StatefulBatchRouter {
 
     private static final int SINK_TILE_TRAVERSAL_MAX_DEPTH = 8;
     private static final int TILE_TRAVERSAL_MAX_DEPTH = FabricBrowser.TILE_TRAVERSAL_MAX_DEPTH;
-    //private static final int TEMPLATE_COST_TOLERANCE = 8;
+    private static final int TEMPLATE_COST_TOLERANCE = 7;
 
     private long tBegin;
     private long tEnd;
@@ -26,7 +26,6 @@ public class StatefulBatchRouter {
 
     public ArrayList<EnterWireJunction> srcJunctions;
     public ArrayList<ExitWireJunction> snkJunctions;
-
 
     private int cumulativeBatchSize;
     private ArrayList<Pair<Queue<JunctionsTracer>, HashSet<String>>> searchStates;
@@ -458,8 +457,11 @@ public class StatefulBatchRouter {
         int conflictPurgeCount = 0;
         HashMap<Integer, Set<String>> allNodeUsages = new HashMap<>();
 
+        ArrayList<ArrayList<RouteTemplate>> thisBatch = new ArrayList<>();
+
         for (int i = 0; i < bitwidth; i++) {
-            templateCandidatesCache.get(i).addAll(findRouteTemplateBatch(d, batchSize, i));
+            thisBatch.add(findRouteTemplateBatch(d, batchSize, i));
+            templateCandidatesCache.get(i).addAll(thisBatch.get(i));
 
             HashSet<String> usages = new HashSet<>();
             for (RouteTemplate template : templateCandidatesCache.get(i)) {
@@ -472,25 +474,25 @@ public class StatefulBatchRouter {
         for (int i = 0; i < bitwidth; i++)
             allTemplateCandidates.set(i, new ArrayList<>(templateCandidatesCache.get(i)));
 
-        // Purge results of any unreasonable costly templates
-        /*
+        // Purge results of any templates with unreasonably high costs
         for (int i = 0; i < bitwidth; i++) {
             ArrayList<RouteTemplate> templateCandidates = allTemplateCandidates.get(i);
-            int minCost = 99;
-            for (RouteTemplate template : templateCandidates) {
-                if (template.getAdjustedCost() < minCost)
-                    minCost = template.getAdjustedCost();
+            int minCostThisBatch = 999;
+            for (RouteTemplate template : thisBatch.get(i)) {
+                if (template.getAdjustedCost() < minCostThisBatch)
+                    minCostThisBatch = template.getAdjustedCost();
             }
+
             for (int j = 0; j < templateCandidates.size();) {
-                if (templateCandidates.get(j).getAdjustedCost() - minCost > TEMPLATE_COST_TOLERANCE) {
-                    templateCandidates.remove(j);
+                if (templateCandidates.get(j).getAdjustedCost() - minCostThisBatch > TEMPLATE_COST_TOLERANCE) {
                     costPurgeCount += 1;
+                    templateCandidates.remove(j);
                 }
                 else
                     j += 1;
             }
         }
-        */
+
 
         // Purge results of any conflicting templates
         // Favor based on remaining number of choices

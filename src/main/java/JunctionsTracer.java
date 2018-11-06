@@ -1,4 +1,5 @@
 import java.util.ArrayList;
+import java.util.HashSet;
 
 public class JunctionsTracer {
 
@@ -7,14 +8,14 @@ public class JunctionsTracer {
     private JunctionsTracer parent;
     private WireJunction junction;
 
-    private ArrayList<WireDirection> deviationDirections;
+    private HashSet<WireDirection> deviationDirections;
 
     public JunctionsTracer(WireJunction junction, JunctionsTracer parent, int depth) {
         this.junction = junction;
         this.parent = parent;
         this.depth = depth;
 
-        deviationDirections = parent.getDeviationDirections();
+        deviationDirections = new HashSet<>(parent.getDeviationDirections());
     }
 
     public JunctionsTracer(WireJunction junction, int depth) {
@@ -22,7 +23,7 @@ public class JunctionsTracer {
         this.parent = null;
         this.depth = depth;
 
-        deviationDirections = new ArrayList<>();
+        deviationDirections = new HashSet<>();
     }
 
     public int getDepth() {
@@ -37,7 +38,7 @@ public class JunctionsTracer {
         return junction;
     }
 
-    public ArrayList<WireDirection> getDeviationDirections() {
+    public HashSet<WireDirection> getDeviationDirections() {
         return deviationDirections;
     }
 

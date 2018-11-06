@@ -731,11 +731,41 @@ public class StatefulBatchRouter {
 
                     // This is the route's true bit index
                     routes.get(routeIndex).setBitIndex(bitIndex);
+                    routes.get(routeIndex).setRouteIndex(routeIndex);
                     footprint.add(routes.get(routeIndex), net);
                     routeIndex += 1;
                 }
             }
         }
+    }
+
+    /*
+     * In the case that connections are congruent, simply perform a 2D transform-copy of the routes
+     */
+    private static RoutingFootprint copyRoutesToFootprint(Design d, RegisterConnection connection, RoutingFootprint ref,
+                                                          int dx, int dy) {
+        RoutingFootprint footprint = new RoutingFootprint();
+
+        int bitIndex = 0;
+        int routeIndex = 0;
+        ComplexRegister srcReg = connection.getSrcReg();
+        for (RegisterComponent component : srcReg.getComponents()) {
+            for (int i = 0; i < component.getBitWidth(); i++, bitIndex++) {
+                if (bitIndex >= connection.getSrcRegLowestBit() && bitIndex <= connection.getSrcRegHighestBit()) {
+                    Net net = d.getNet(srcReg.getName() + "_" + component.getName() + "/"
+                            + ComplexRegister.OUTPUT_NAME + "[" + i + "]");
+
+                    CustomRoute routeCopy = ref.getRoute(routeIndex).copyWithOffset(d, dx, dy);
+                    routeCopy.setBitIndex(bitIndex);
+
+                    footprint.add(routeCopy, net);
+
+                    routeIndex += 1;
+                }
+            }
+        }
+
+        return footprint;
     }
 
     /*
@@ -745,6 +775,26 @@ public class StatefulBatchRouter {
 
         RouterLog.log("Performing state-based, batch-based routing on " + connection.toString(), RouterLog.Level.NORMAL);
         RouterLog.indent();
+
+        RegisterConnection cachedConn = RoutesCache.searchCacheForCongruentConnection(d, connection);
+        if (cachedConn != null) {
+            RouterLog.log("Congruency detected for " + connection.toString()
+                    + ". A previous route may be copied with offset.", RouterLog.Level.NORMAL);
+            int dx = RoutesCache.getXOffsetOfCongruentConnection(d, cachedConn, connection);
+            int dy = RoutesCache.getYOffsetOfCongruentConnection(d, cachedConn, connection);
+
+            for (RoutingFootprint cachedFp : RoutesCache.getFootprints(cachedConn)) {
+                RoutingFootprint offsetFootprint = copyRoutesToFootprint(d, connection, cachedFp, dx, dy);
+
+                if (!RoutingCalculator.isRoutingFootprintConflicted(offsetFootprint)) {
+                    RouterLog.indent(-1);
+                    RouterLog.log("A previous route has been successfully copied.", RouterLog.Level.NORMAL);
+                    return offsetFootprint;
+                }
+            }
+            RouterLog.log("Conflict detected. The connection will be routed from scratch instead",
+                    RouterLog.Level.NORMAL);
+        }
 
         int lastState = -1;
         int state = 0;
@@ -870,6 +920,7 @@ public class StatefulBatchRouter {
 
 
         RouteForge.flushNodeLock();
+        RoutesCache.cache(connection, router.getFootprint());
 
         return router.getFootprint();
 

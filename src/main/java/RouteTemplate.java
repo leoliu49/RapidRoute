@@ -16,9 +16,6 @@ public class RouteTemplate {
     private int orthogonalTurns;
     private WireDirection lastDirection;
 
-    // Relative bit index of connection
-    private int bitIndex;
-
     private EnterWireJunction src;
     private ExitWireJunction snk;
 
@@ -82,14 +79,6 @@ public class RouteTemplate {
             adjustedCost += 8;
             orthogonalTurns += 1;
         }
-    }
-
-    public int getBitIndex() {
-        return bitIndex;
-    }
-
-    public void setBitIndex(int bitIndex) {
-        this.bitIndex = bitIndex;
     }
 
     public EnterWireJunction getSrc() {

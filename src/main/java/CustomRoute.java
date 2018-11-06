@@ -9,6 +9,7 @@ public class CustomRoute {
     private int cost;
 
     private int bitIndex;
+    private int routeIndex;
 
     private EnterWireJunction src;
     private ExitWireJunction snk;
@@ -22,8 +23,6 @@ public class CustomRoute {
 
     public CustomRoute(RouteTemplate template) {
         cost = 0;
-
-        bitIndex = template.getBitIndex();
 
         src = template.getSrc();
         snk = template.getSnk();
@@ -44,7 +43,9 @@ public class CustomRoute {
 
     public CustomRoute copyWithOffset(Design d, int dx, int dy) {
         CustomRoute copy = new CustomRoute(template.copyWithOffset(d, dx, dy));
+
         copy.setBitIndex(bitIndex);
+        copy.setRouteIndex(routeIndex);
 
         for (int i = 0; i < route.size(); i++) {
             copy.setPath(i, route.get(i).copyWithOffset(d, dx, dy));
@@ -80,6 +81,14 @@ public class CustomRoute {
 
     public void setBitIndex(int bitIndex) {
         this.bitIndex = bitIndex;
+    }
+
+    public int getRouteIndex() {
+        return routeIndex;
+    }
+
+    public void setRouteIndex(int routeIndex) {
+        this.routeIndex = routeIndex;
     }
 
     public EnterWireJunction getSrc() {

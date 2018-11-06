@@ -79,4 +79,17 @@ public class RoutingCalculator {
         }
         return null;
     }
+
+    public static boolean isRoutingFootprintConflicted(RoutingFootprint footprint) {
+        for (CustomRoute route : footprint.getRoutes()) {
+            for (TilePath path : route.getRoute()) {
+                for (String node : path.getNodePath()) {
+                    if (RouteForge.globalNodeFootprint.contains(node))
+                        return true;
+                }
+            }
+        }
+
+        return false;
+    }
 }

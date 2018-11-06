@@ -1,5 +1,6 @@
 import com.xilinx.rapidwright.design.Design;
 import com.xilinx.rapidwright.design.Net;
+import com.xilinx.rapidwright.device.Tile;
 
 import java.util.ArrayList;
 
@@ -51,6 +52,17 @@ public class TilePath {
         tileName = ref.getTileName();
 
         nodePath = new ArrayList<>(ref.getNodePath());
+    }
+
+    public TilePath copyWithOffset(Design d, int dx, int dy) {
+        Tile offsetTile = d.getDevice().getTile(tileName).getTileXYNeighbor(dx, dy);
+
+        TilePath copy = new TilePath(enterJunction.copyWithOffset(d, dx, dy), exitJunction.copyWithOffset(d, dx, dy));
+
+        for (String nodeName : nodePath)
+            copy.addNode(offsetTile.getName() + "/" + RouteUtil.extractNodeWireName(nodeName));
+
+        return copy;
     }
 
     public int getCost() {

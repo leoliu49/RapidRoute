@@ -126,6 +126,5 @@ public class CustomDesign {
 
         d.writeCheckpoint(ResourcesManager.OUTPUT_DIR + options.valueOf("out") + "_custom_routed.dcp");
 
-
     }
 }

@@ -234,4 +234,12 @@ public class RouteUtil {
         return wire.getStartWire().getWireName();
     }
 
+    public static String extractNodeTileName(String nodeName) {
+        return nodeName.split("/")[0];
+    }
+
+    public static String extractNodeWireName(String nodeName) {
+        return nodeName.split("/")[1];
+    }
+
 }

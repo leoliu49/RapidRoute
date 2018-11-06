@@ -51,6 +51,14 @@ public class RouteTemplate {
         template.add(snk);
     }
 
+    public RouteTemplate copyWithOffset(Design d, int dx, int dy) {
+        RouteTemplate copy = new RouteTemplate(d, src.copyWithOffset(d, dx, dy), snk.copyWithOffset(d, dx, dy));
+        for (int i = 1; i < template.size() - 1; i++) {
+            copy.getTemplate().add(i, template.get(i).copyWithOffset(d, dx, dy));
+        }
+        return copy;
+    }
+
     // Gets cost factoring readjustment score
     public int getAdjustedCost() {
         return adjustedCost;

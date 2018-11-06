@@ -28,6 +28,16 @@ public class ExitWireJunction extends WireJunction {
         this.direction = direction;
     }
 
+    @Override
+    public ExitWireJunction copyWithOffset(Design d, int dx, int dy) {
+        Tile offsetTile = d.getDevice().getTile(tileName).getTileXYNeighbor(dx, dy);
+
+        ExitWireJunction copy = new ExitWireJunction(d, offsetTile.getName(), wireName);
+        copy.isSnk = isSnk;
+
+        return copy;
+    }
+
     public boolean isSnk() {
         return isSnk;
     }

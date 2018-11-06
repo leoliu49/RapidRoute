@@ -1,3 +1,6 @@
+import com.xilinx.rapidwright.design.Design;
+import com.xilinx.rapidwright.device.Tile;
+
 public class WireJunction {
 
 
@@ -13,6 +16,16 @@ public class WireJunction {
         this.wireName = wireName;
 
         this.nodeName = tileName + "/" + wireName;
+    }
+
+    public WireJunction copyWithOffset(Design d, int dx, int dy) {
+        Tile offsetTile = d.getDevice().getTile(tileName).getTileXYNeighbor(dx, dy);
+
+        WireJunction copy = new WireJunction(offsetTile.getName(), wireName);
+        copy.direction = direction;
+        copy.wireLength = wireLength;
+
+        return copy;
     }
 
     public WireDirection getDirection() {

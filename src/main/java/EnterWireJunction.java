@@ -28,6 +28,16 @@ public class EnterWireJunction extends WireJunction {
         this.direction = direction;
     }
 
+    @Override
+    public EnterWireJunction copyWithOffset(Design d, int dx, int dy) {
+        Tile offsetTile = d.getDevice().getTile(tileName).getTileXYNeighbor(dx, dy);
+
+        EnterWireJunction copy = new EnterWireJunction(d, offsetTile.getName(), wireName);
+        copy.isSrc = isSrc;
+
+        return copy;
+    }
+
     public boolean isSrc() {
         return isSrc;
     }
@@ -76,5 +86,4 @@ public class EnterWireJunction extends WireJunction {
 
         return ej;
     }
-
 }

@@ -42,6 +42,17 @@ public class CustomRoute {
         }
     }
 
+    public CustomRoute copyWithOffset(Design d, int dx, int dy) {
+        CustomRoute copy = new CustomRoute(template.copyWithOffset(d, dx, dy));
+        copy.setBitIndex(bitIndex);
+
+        for (int i = 0; i < route.size(); i++) {
+            copy.setPath(i, route.get(i).copyWithOffset(d, dx, dy));
+        }
+
+        return copy;
+    }
+
     /*
     private CustomRoute(Design d, EnterWireJunction src, ExitWireJunction snk) {
         cost = 0;

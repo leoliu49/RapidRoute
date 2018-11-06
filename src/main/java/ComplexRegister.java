@@ -105,7 +105,7 @@ public class ComplexRegister {
         this.name = name;
 
         this.components = components;
-        this.componentSize = components.size();
+        componentSize = components.size();
 
         EDIFCell top = d.getNetlist().getTopCell();
 

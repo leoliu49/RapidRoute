@@ -136,7 +136,11 @@ public class ResourcesManager {
         ArrayList<RegisterConnection> connections = new ArrayList<RegisterConnection>();
 
         for(String line; (line = routesConfig.readLine()) != null;) {
-            String[] elements = line.replaceAll(" ", "").split("<=");
+            line = line.replaceAll(" ", "");
+            if (line.isEmpty())
+                continue;
+
+            String[] elements = line.split("<=");
 
             String dest = elements[0];
             Matcher mDest = extractRegisterInfo(dest);

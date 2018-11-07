@@ -72,7 +72,7 @@ comp2 = type0, SLICE_X56Y123
 ```
   
 The `routes.conf` file specifies how the registers are connected. The general syntax is shown with this example:  
-  For routing `reg3` bits `[3..6]` to `reg7` bits `[7..10]`: `reg3_b3_b6 = reg7_b7_b10`.
+  For routing `reg3` bits `[6..3]` to `reg7` bits `[10..7]`: `reg7[10..7] <= reg3[6..3]`.
 
 **For each design run, an unrouted DCP is also generated, in which only the logical nets have been specified**  
 **Outputted files are in the output folder**

@@ -22,8 +22,6 @@ public class RouteTemplate {
     private int distanceX;
     private int distanceY;
 
-    private ArrayList<WireDirection> primaryDirections;
-
     // Inclusive of src and snk
     private ArrayList<WireJunction> template;
 
@@ -40,8 +38,6 @@ public class RouteTemplate {
 
         distanceX = snkIntTile.getTileXCoordinate() - srcIntTile.getTileXCoordinate();
         distanceY = snkIntTile.getTileYCoordinate() - srcIntTile.getTileYCoordinate();
-
-        primaryDirections = RouteUtil.primaryDirections(distanceX, distanceY);
 
         template = new ArrayList<>();
         template.add(src);
@@ -71,7 +67,7 @@ public class RouteTemplate {
         // Punish short hops: short hops tend to be more expensive to route
         if (enJunc.getWireLength() < LONG_LINE_LENGTH)
             adjustedCost += 4;
-        // Punish reversals: sometimes they are necessary
+        // Punish reversals: although sometimes they are necessary
         if (RouteUtil.reverseDirection(enJunc.getDirection()).equals(lastDirection))
             adjustedCost += 2;
         // Punish orthogonal turns: these routes seem to be very slow

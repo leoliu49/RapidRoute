@@ -57,6 +57,14 @@ public class RouteUtil {
         return null;
     }
 
+    public static boolean isHorizontal(WireDirection dir) {
+        return dir.equals(WireDirection.EAST) || dir.equals(WireDirection.WEST);
+    }
+
+    public static boolean isVertical(WireDirection dir) {
+        return dir.equals(WireDirection.NORTH) || dir.equals(WireDirection.SOUTH);
+    }
+
     public static boolean isParallel(WireDirection dir1, WireDirection dir2) {
         if (dir1 == null || dir2 == null)
             return false;
@@ -83,17 +91,24 @@ public class RouteUtil {
 
     public static ArrayList<WireDirection> primaryDirections(int dx, int dy) {
         ArrayList<WireDirection> dirs = new ArrayList<>();
-        if (dx == 0) {
-            dirs.add(WireDirection.NORTH);
-            dirs.add(WireDirection.SOUTH);
-            return dirs;
-        }
-        if (dy == 0) {
-            dirs.add(WireDirection.EAST);
-            dirs.add(WireDirection.WEST);
+
+        // Case: same tile
+        if (dx == 0 && dy == 0) {
+            dirs.add(WireDirection.SELF);
             return dirs;
         }
 
+        // Case: 1 direction only
+        if (dx == 0) {
+            dirs.add(dy > 0 ? WireDirection.NORTH : WireDirection.SOUTH);
+            return dirs;
+        }
+        if (dy == 0) {
+            dirs.add(dx > 0 ? WireDirection.EAST : WireDirection.WEST);
+            return dirs;
+        }
+
+        // Case: 2 orthogonal directions
         if (dx > 0)
             dirs.add(WireDirection.EAST);
         else
@@ -104,6 +119,18 @@ public class RouteUtil {
             dirs.add(WireDirection.SOUTH);
 
         return dirs;
+    }
+
+    public static WireDirection primaryHDirection(int dx) {
+        if (dx == 0)
+            return null;
+        return dx > 0 ? WireDirection.EAST : WireDirection.WEST;
+    }
+
+    public static WireDirection primaryVDirection(int dy) {
+        if (dy == 0)
+            return null;
+        return dy > 0 ? WireDirection.NORTH : WireDirection.SOUTH;
     }
 
     public static String getPIPNodeName(String tileName, String wireName) {

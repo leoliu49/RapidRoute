@@ -1,52 +1,48 @@
-import java.util.ArrayList;
-import java.util.HashSet;
+import java.util.*;
 
 public class JunctionsTracer {
 
     private int depth;
 
-    private JunctionsTracer parent;
-    private WireJunction junction;
+    private LinkedList<WireJunction> junctions;
 
-    private HashSet<WireDirection> deviationDirections;
-
-    public JunctionsTracer(WireJunction junction, JunctionsTracer parent, int depth) {
-        this.junction = junction;
-        this.parent = parent;
-        this.depth = depth;
-
-        deviationDirections = new HashSet<>(parent.getDeviationDirections());
+    private JunctionsTracer(WireJunction head) {
+        depth = 0;
+        junctions = new LinkedList<>();
+        junctions.addFirst(head);
     }
 
-    public JunctionsTracer(WireJunction junction, int depth) {
-        this.junction = junction;
-        this.parent = null;
-        this.depth = depth;
-
-        deviationDirections = new HashSet<>();
+    /*
+     * Deep copies reference, and appends next as head
+     */
+    public JunctionsTracer(WireJunction next, JunctionsTracer ref) {
+        depth += 1;
+        junctions = new LinkedList<>(ref.getJunctions());
+        junctions.addFirst(next);
     }
 
     public int getDepth() {
         return depth;
     }
 
-    public JunctionsTracer getParent() {
-        return parent;
+    public LinkedList<WireJunction> getJunctions() {
+        return junctions;
     }
 
-    public WireJunction getJunction() {
-        return junction;
+    public void fastForward(WireJunction next) {
+        depth += 1;
+        junctions.addFirst(next);
     }
 
-    public HashSet<WireDirection> getDeviationDirections() {
-        return deviationDirections;
+    public WireJunction getHead() {
+        return junctions.getFirst();
     }
 
-    public boolean isAlignedWithDeviationDirection(WireDirection dir) {
-        return deviationDirections.contains(dir);
+    public String toString() {
+        return junctions.getFirst().toString();
     }
 
-    public void addDeviation(WireDirection dir) {
-        deviationDirections.add(dir);
+    public static JunctionsTracer newHeadTracer(WireJunction head) {
+        return new JunctionsTracer(head);
     }
 }

@@ -26,7 +26,7 @@ public class RouteForge {
     }
 
     public static boolean isLocked(String nodeName) {
-        return nodeLock.contains(nodeName);
+        return nodeLock.contains(nodeName) || globalNodeFootprint.contains(nodeName);
     }
 
     public static void unlock(String nodeName) {

@@ -15,6 +15,10 @@ public class StatefulBatchRouter {
 
     private static final int SINK_TILE_TRAVERSAL_MAX_DEPTH = 8;
     private static final int TILE_TRAVERSAL_MAX_DEPTH = FabricBrowser.TILE_TRAVERSAL_MAX_DEPTH;
+
+    private static final int V_LONG_LINE_LENGTH = 12;
+    private static final int H_LONG_LINE_LENGTH = 6;
+
     private static final int TEMPLATE_COST_TOLERANCE = 7;
 
     private long tBegin;
@@ -28,12 +32,11 @@ public class StatefulBatchRouter {
     public ArrayList<ExitWireJunction> snkJunctions;
 
     private int cumulativeBatchSize;
-    private ArrayList<Pair<Queue<JunctionsTracer>, HashSet<String>>> searchStates;
+    private ArrayList<Pair<Queue<JunctionsTracer>, HashMap<String, Integer>>> searchStates;
     private ArrayList<Set<EnterWireJunction>> snkTileEntrances;
 
     private ArrayList<ArrayList<RouteTemplate>> templateCandidatesCache;
     private ArrayList<HashMap<EnterWireJunction, ArrayList<TilePath>>> snkTilePathsCache;
-    private ArrayList<ArrayList<RouteTemplate>> allTemplateCandidates;
     private ArrayList<CustomRoute> routes;
 
     private RoutingFootprint footprint;
@@ -52,7 +55,6 @@ public class StatefulBatchRouter {
         snkTileEntrances = new ArrayList<>();
         templateCandidatesCache = new ArrayList<>();
         snkTilePathsCache = new ArrayList<>();
-        allTemplateCandidates = new ArrayList<>();
         routes = new ArrayList<>();
 
         for (int i = 0; i < bitwidth; i++) {
@@ -62,7 +64,6 @@ public class StatefulBatchRouter {
             snkTileEntrances.add(null);
             templateCandidatesCache.add(new ArrayList<>());
             snkTilePathsCache.add(new HashMap<>());
-            allTemplateCandidates.add(null);
             routes.add(null);
         }
 
@@ -70,11 +71,10 @@ public class StatefulBatchRouter {
     }
 
     /* Accessors and modifiers */
-    private Pair<Queue<JunctionsTracer>, HashSet<String>> getSearchState(int bitIndex) {
+    private Pair<Queue<JunctionsTracer>, HashMap<String, Integer>> getSearchState(int bitIndex) {
         if (searchStates.get(bitIndex) == null) {
             Queue<JunctionsTracer> queue = new LinkedList<>();
-            queue.add(new JunctionsTracer(srcJunctions.get(bitIndex), 0));
-            searchStates.set(bitIndex, new MutablePair<>(queue, new HashSet<>()));
+            searchStates.set(bitIndex, new MutablePair<>(queue, new HashMap<>()));
         }
         return searchStates.get(bitIndex);
     }
@@ -118,7 +118,6 @@ public class StatefulBatchRouter {
     /* Utility functions */
     /*
      * Find a batch of RouteTemplates (list of hop wires) which all connect source to sink
-     * The nature of the search enforces different sink entrances, but does not care about overlaps in hops
      */
     private ArrayList<RouteTemplate> findRouteTemplateBatch(Design d, int batchSize, int bitIndex) {
         long tBegin = System.currentTimeMillis();
@@ -140,75 +139,144 @@ public class StatefulBatchRouter {
         int srcTileX = srcIntTile.getTileXCoordinate();
         int srcTileY = srcIntTile.getTileYCoordinate();
 
-        ArrayList<WireDirection> primaryDirs = RouteUtil.primaryDirections(snkTileX - srcTileX, snkTileY - srcTileY);
-
-        HashSet<String> footprint = getSearchState(bitIndex).getRight();
+        HashMap<String, Integer> footprint = getSearchState(bitIndex).getRight();
         Queue<JunctionsTracer> queue = getSearchState(bitIndex).getLeft();
+
+        // For the first time, load in exits from all directions
+        if (queue.isEmpty()) {
+            JunctionsTracer srcTracer = JunctionsTracer.newHeadTracer(srcJunctions.get(bitIndex));
+            for (ExitWireJunction exit : FabricBrowser.findReachableExits(d, srcJunctions.get(bitIndex))) {
+                EnterWireJunction wireDest = exit.getDestJunction(d);
+                if (RouteForge.isLocked(wireDest.getNodeName()) || RouteForge.isLocked(exit.getNodeName()))
+                    continue;
+
+                queue.add(new JunctionsTracer(wireDest, srcTracer));
+            }
+        }
 
         Set<EnterWireJunction> leadIns = getLeadIns(d, bitIndex);
 
         int templateCount = 0;
         while (templateCount < batchSize) {
-            JunctionsTracer head = queue.remove();
-            Tile headTile = d.getDevice().getTile(head.getJunction().getTileName());
+            JunctionsTracer trav = queue.remove();
+            Tile headTile = d.getDevice().getTile(trav.getHead().getTileName());
 
-            if (head.getDepth() > 1000)
+            if (trav.getDepth() > 1000)
                 break;
 
-            int distX = headTile.getTileXCoordinate() - snkTileX;
-            int distY = headTile.getTileYCoordinate() - snkTileY;
+            int distX = snkTileX - headTile.getTileXCoordinate();
+            int distY = snkTileY - headTile.getTileYCoordinate();
 
             if (distX == 0 && distY == 0) {
                 boolean foundTemplate = false;
-                EnterWireJunction validEntrance = null;
                 for (EnterWireJunction leadIn : leadIns) {
-                    if (leadIn.equals(head.getJunction())) {
+                    if (leadIn.equals(trav.getHead())) {
 
                         RouteTemplate template = new RouteTemplate(d, src, snk);
-                        JunctionsTracer trav = head;
-                        while (trav.getParent() != null) {
-                            template.pushEnterWireJunction(d, (EnterWireJunction) trav.getJunction());
-                            trav = trav.getParent();
-                        }
+                        while (trav.getJunctions().size() > 1)
+                            template.pushEnterWireJunction(d, (EnterWireJunction) trav.getJunctions().removeFirst());
 
                         results.add(template);
                         foundTemplate = true;
-                        validEntrance = leadIn;
                         break;
                     }
                 }
 
-                if (foundTemplate) {
+                if (foundTemplate)
                     templateCount += 1;
-                    leadIns.remove(validEntrance);
-                }
 
                 continue;
             }
 
-            Set<ExitWireJunction> fanOut = ((EnterWireJunction) head.getJunction()).isSrc()
-                    ? FabricBrowser.findReachableExits(d, (EnterWireJunction) head.getJunction())
-                    : FabricBrowser.getEntranceFanOut(d, (EnterWireJunction) head.getJunction());
+            ArrayList<WireDirection> primaryDirs = RouteUtil.primaryDirections(distX, distY);
+            Set<ExitWireJunction> fanOut = FabricBrowser.getEntranceFanOut(d, (EnterWireJunction) trav.getHead());
             for (ExitWireJunction exit : fanOut) {
                 EnterWireJunction wireDest = exit.getDestJunction(d);
 
-                if (FabricBrowser.globalNodeFootprint.contains(wireDest.getNodeName())
-                        || footprint.contains(wireDest.getNodeName()) || RouteForge.isLocked(wireDest.getNodeName())
-                        || FabricBrowser.globalNodeFootprint.contains(exit.getNodeName())
-                        || footprint.contains(exit.getNodeName()) || RouteForge.isLocked(exit.getNodeName()))
+                if (RouteForge.isLocked(wireDest.getNodeName()) || RouteForge.isLocked(exit.getNodeName()))
                     continue;
 
-                // Check to see if search has veered far too off track
-                if (head.isAlignedWithDeviationDirection(exit.getDirection()))
+                if (footprint.containsKey(wireDest.getNodeName()) && footprint.get(wireDest.getNodeName()) > 2)
                     continue;
 
-                // Set deviation from primary directions
-                JunctionsTracer nextTracer = new JunctionsTracer(wireDest, head, head.getDepth() + 1);
                 if (!primaryDirs.contains(exit.getDirection()))
-                    nextTracer.addDeviation(exit.getDirection());
+                    continue;
 
-                queue.add(nextTracer);
-                footprint.add(wireDest.getNodeName());
+                // On long lines, we can typically just fast-forward until the end
+                if (RouteUtil.isHorizontal(wireDest.getDirection()) && wireDest.getWireLength() == H_LONG_LINE_LENGTH) {
+
+                    JunctionsTracer fastFwd = new JunctionsTracer(wireDest, trav);
+                    int dx = distX
+                            - (exit.getDirection().equals(WireDirection.EAST)
+                            ? exit.getWireLength() : -1 * exit.getWireLength());
+
+                    while (Math.abs(dx) > H_LONG_LINE_LENGTH) {
+                        boolean canFastForward = false;
+                        for (ExitWireJunction nextHop : FabricBrowser.getEntranceFanOut(d,
+                                (EnterWireJunction) fastFwd.getHead())) {
+                            if (nextHop.getWireName().equals(exit.getWireName())
+                                    && !RouteForge.isLocked(nextHop.getNodeName())
+                                    && !RouteForge.isLocked(nextHop.getDestJunction(d).getNodeName())) {
+
+                                fastFwd.fastForward(nextHop.getDestJunction(d));
+                                canFastForward = true;
+
+                                dx -= nextHop.getDirection().equals(WireDirection.EAST)
+                                        ? nextHop.getWireLength() : -1 * nextHop.getWireLength();
+
+                                footprint.put(nextHop.getDestJunction(d).getNodeName(),
+                                        footprint.containsKey(nextHop.getDestJunction(d).getNodeName())
+                                                ? footprint.get(nextHop.getDestJunction(d).getNodeName()) + 1 : 1);
+                                break;
+                            }
+                        }
+
+                        if (!canFastForward)
+                            break;
+                    }
+
+                    queue.add(fastFwd);
+                }
+                else if (RouteUtil.isVertical(wireDest.getDirection()) && wireDest.getWireLength() == V_LONG_LINE_LENGTH) {
+
+                    JunctionsTracer fastFwd = new JunctionsTracer(wireDest, trav);
+                    int dy = distY
+                            - (exit.getDirection().equals(WireDirection.NORTH)
+                            ? exit.getWireLength() : -1 * exit.getWireLength());
+
+                    while (Math.abs(dy) > V_LONG_LINE_LENGTH) {
+                        boolean canFastForward = false;
+                        for (ExitWireJunction nextHop : FabricBrowser.getEntranceFanOut(d,
+                                (EnterWireJunction) fastFwd.getHead())) {
+                            if (nextHop.getWireName().equals(exit.getWireName())
+                                    && !RouteForge.isLocked(nextHop.getNodeName())
+                                    && !RouteForge.isLocked(nextHop.getDestJunction(d).getNodeName())) {
+
+                                fastFwd.fastForward(nextHop.getDestJunction(d));
+                                canFastForward = true;
+
+                                dy -= nextHop.getDirection().equals(WireDirection.NORTH)
+                                        ? nextHop.getWireLength() : -1 * nextHop.getWireLength();
+
+                                footprint.put(nextHop.getDestJunction(d).getNodeName(),
+                                        footprint.containsKey(nextHop.getDestJunction(d).getNodeName())
+                                                ? footprint.get(nextHop.getDestJunction(d).getNodeName()) + 1 : 1);
+                                break;
+                            }
+                        }
+
+                        if (!canFastForward)
+                            break;
+                    }
+
+                    queue.add(fastFwd);
+                }
+                else {
+                    queue.add(new JunctionsTracer(wireDest, trav));
+                    footprint.put(wireDest.getNodeName(),
+                            footprint.containsKey(wireDest.getNodeName())
+                                    ? footprint.get(wireDest.getNodeName()) + 1 : 1);
+                }
             }
 
         }
@@ -232,23 +300,10 @@ public class StatefulBatchRouter {
     }
 
     /*
-     * Unique cost calculation for deriving best tile paths
-     */
-    private int getAdjustedCost(TilePath path, RouteTemplate template) {
-        return path.getCost() + template.getAdjustedCost();
-    }
-
-    private int getAdjustedCost(TilePath path, ArrayList<RouteTemplate> templates, HashMap<TilePath, Integer> cache) {
-        if (!cache.containsKey(path))
-            cache.put(path, getAdjustedCost(path, RoutingCalculator.findTemplateWithSinkTilePath(path, templates)));
-        return cache.get(path);
-    }
-
-    /*
      * Find any TilePath configuration which has no conflicts
      * Results are not optimized for cost
      */
-    private ArrayList<TilePath> deriveValidTilePaths(int depth, ArrayList<TilePath> validPathsState,
+    private ArrayList<TilePath> deriveValidTilePathsRecurse(int depth, ArrayList<TilePath> validPathsState,
                                                             HashSet<String> tilePathFootprint,
                                                             ArrayList<HashSet<TilePath>> allPaths) {
         if (depth == allPaths.size())
@@ -270,34 +325,13 @@ public class StatefulBatchRouter {
             if (!isValid)
                 continue;
 
-            /*
-             * Remove for now: makes things too slow
-            Set<String> templateUsage = RoutingCalculator.findTemplateWithSinkTilePath(candidate,
-                    allTemplateCandidates.get(depth)).getUsage();
-            for (String junctionName : templateUsage) {
-                if (templateFootprint.contains(junctionName)) {
-                    isValid = false;
-                    break;
-                }
-            }
-
-            if (!isValid)
-                continue;
-            */
-
             HashSet<String> nextDepthTilePathFootprint = new HashSet<>(tilePathFootprint);
             nextDepthTilePathFootprint.addAll(candidate.getNodePath());
 
-            /*
-             * Remove for now: makes things too slow
-            HashSet<String> nextDepthTemplateFootprint = new HashSet<>(templateFootprint);
-            nextDepthTemplateFootprint.addAll(templateUsage);
-            */
-
             validPathsState.set(depth, candidate);
 
-            ArrayList<TilePath> results = deriveValidTilePaths(depth + 1, validPathsState, nextDepthTilePathFootprint,
-                    allPaths);
+            ArrayList<TilePath> results = deriveValidTilePathsRecurse(depth + 1, validPathsState,
+                    nextDepthTilePathFootprint, allPaths);
             if (results != null)
                 return results;
         }
@@ -305,27 +339,61 @@ public class StatefulBatchRouter {
         return null;
     }
 
-    /*
-     * Uses an "easing" method to find the best TilePath configuration
-     */
-    private ArrayList<TilePath> deriveBestTilePathConfiguration(ArrayList<HashSet<TilePath>> allPaths) {
+    private ArrayList<TilePath> deriveValidTilePaths(ArrayList<HashSet<TilePath>> allPaths) {
+        ArrayList<HashSet<String>> exclusives = new ArrayList<>();
 
-        // Given that finding adjusted cost is pretty expensive, cache results
-        HashMap<TilePath, Integer> adjustedCostMap = new HashMap<>();
+        for (int i = 0; i < bitwidth; i++) {
+            exclusives.add(new HashSet<>());
 
+            HashMap<String, Integer> usageCountMap = new HashMap<>();
+            HashSet<TilePath> pathChoices = allPaths.get(i);
+
+            for (TilePath pathChoice : pathChoices) {
+                for (int j = 0; j < pathChoice.getNodePath().size(); j++) {
+                    if (!usageCountMap.containsKey(pathChoice.getNodeName(j)))
+                        usageCountMap.put(pathChoice.getNodeName(j), 1);
+                    else
+                        usageCountMap.put(pathChoice.getNodeName(j), usageCountMap.get(pathChoice.getNodeName(j)) + 1);
+                }
+            }
+
+            for (String nodeName : usageCountMap.keySet()) {
+                if (usageCountMap.get(nodeName) == pathChoices.size())
+                    exclusives.get(i).add(nodeName);
+            }
+        }
+
+        HashSet<String> allExclusives = new HashSet<>();
+        for (int i = 0; i < bitwidth; i++) {
+            for (String exclusiveNode : exclusives.get(i)) {
+                if (allExclusives.contains(exclusiveNode))
+                    return null;
+                else
+                    allExclusives.add(exclusiveNode);
+            }
+        }
+
+        ArrayList<TilePath> results = new ArrayList<>();
+        for (int i = 0; i < bitwidth; i++)
+            results.add(null);
+        return deriveValidTilePathsRecurse(0, results, new HashSet<>(), allPaths);
+
+    }
+
+    private ArrayList<TilePath> deriveBestTilePathConfiguration(ArrayList<ArrayList<TilePath>> allPaths) {
         // Highest cost possible
         int threshMax = 0;
         // Lost cost possible (max of min's across each bit)
         int threshMin = 0;
 
         for (int i = 0; i < bitwidth; i++) {
-            HashSet<TilePath> paths = allPaths.get(i);
-            int min = 99;
-            for (TilePath path : paths) {
-                if (getAdjustedCost(path, allTemplateCandidates.get(i), adjustedCostMap) > threshMax)
-                    threshMax = getAdjustedCost(path, allTemplateCandidates.get(i), adjustedCostMap);
-                if (getAdjustedCost(path, allTemplateCandidates.get(i), adjustedCostMap) < min)
-                    min = getAdjustedCost(path, allTemplateCandidates.get(i), adjustedCostMap);
+            ArrayList<TilePath> pathChoices = allPaths.get(i);
+            int min = 999;
+            for (TilePath pathChoice : pathChoices) {
+                if (pathChoice.getCost() > threshMax)
+                    threshMax = pathChoice.getCost();
+                if (pathChoice.getCost() < min)
+                    min = pathChoice.getCost();
             }
 
             if (min > threshMin)
@@ -333,22 +401,29 @@ public class StatefulBatchRouter {
         }
 
         ArrayList<HashSet<TilePath>> candidatePool = new ArrayList<>();
-        for (int i = 0; i < bitwidth; i++)
+        for (int i = 0; i < bitwidth; i++) {
             candidatePool.add(new HashSet<>());
+            for (TilePath path : allPaths.get(i)) {
+                if (path.getCost() < threshMin)
+                    candidatePool.get(i).add(path);
+            }
+        }
 
         for (int threshold = threshMin; threshold <= threshMax; threshold++) {
+            ArrayList<HashSet<TilePath>> newCandidates = new ArrayList<>();
+            for (int i = 0; i < bitwidth; i++)
+                newCandidates.add(new HashSet<>());
 
             int additionsToCandidatePool = 0;
             for (int i = 0; i < bitwidth; i++) {
-                HashSet<TilePath> pathChoices = allPaths.get(i);
-                HashSet<TilePath> bitCandidates = new HashSet<>();
-                for (TilePath path : pathChoices) {
-                    if (getAdjustedCost(path, allTemplateCandidates.get(i), adjustedCostMap) == threshold) {
-                        bitCandidates.add(path);
+                ArrayList<TilePath> candidates = allPaths.get(i);
+                for (TilePath candidate : candidates) {
+                    if (candidate.getCost() == threshold) {
+                        newCandidates.get(i).add(candidate);
                         additionsToCandidatePool += 1;
                     }
                 }
-                candidatePool.get(i).addAll(bitCandidates);
+                candidatePool.get(i).addAll(newCandidates.get(i));
             }
 
             // If nothing new was added to the candidate pool this round, simply move on to the next threshold
@@ -356,30 +431,152 @@ public class StatefulBatchRouter {
                 continue;
 
             for (int i = 0; i < bitwidth; i++) {
+                if (newCandidates.get(i).isEmpty())
+                    continue;
 
                 ArrayList<HashSet<TilePath>> candidates = new ArrayList<>(candidatePool);
-
-                HashSet<TilePath> threshSet = new HashSet<>();
-                for (TilePath path : candidates.get(i)) {
-                    if (getAdjustedCost(path, allTemplateCandidates.get(i), adjustedCostMap) <= threshold)
-                        threshSet.add(path);
-                }
-                candidates.set(i, threshSet);
+                candidates.set(i, newCandidates.get(i));
 
                 ArrayList<TilePath> results = new ArrayList<>();
-                for (int j = 0; j < allPaths.size(); j++)
+                for (int j = 0; j < bitwidth; j++)
                     results.add(null);
-                results = deriveValidTilePaths(0, results, new HashSet<>(), candidates);
+
+                results = deriveValidTilePathsRecurse(0, results, new HashSet<>(), candidates);
 
                 if (results != null) {
-                    RouterLog.log("Sink paths found at a worst-case adjusted cost of " + threshold + ".",
+                    RouterLog.log("Tile paths found at a worst-case cost of " + threshold + ".",
                             RouterLog.Level.INFO);
                     return new ArrayList<>(results);
                 }
             }
         }
+        RouterLog.log("Deadlock detected. No sink paths configuration is possible.", RouterLog.Level.INFO);
+        return null;
+    }
 
-        RouterLog.log("Deadlock detected. No tile paths configuration is possible.", RouterLog.Level.INFO);
+    private ArrayList<RouteTemplate> deriveValidTemplateConfiguration(Design d, int depth,
+                                                                      ArrayList<RouteTemplate> validTemplatesState,
+                                                                      HashSet<String> templateFootprint,
+                                                                      ArrayList<HashSet<RouteTemplate>> allTemplates) {
+        if (depth == allTemplates.size()) {
+            // Once we've found a valid template configuration, see if a sink path configuration is possible
+            ArrayList<HashSet<TilePath>> sinkPaths = new ArrayList<>();
+
+            for (int i = 0; i < bitwidth; i++) {
+                sinkPaths.add(new HashSet<>());
+                sinkPaths.get(i).addAll(findTilePathsToSink(d,
+                        (EnterWireJunction) validTemplatesState.get(i).getTemplate(-2), i));
+            }
+
+            if (deriveValidTilePaths(sinkPaths) == null) {
+                return null;
+            }
+
+            return validTemplatesState;
+        }
+
+        HashSet<RouteTemplate> templateChoices = allTemplates.get(depth);
+        if (templateChoices == null || templateChoices.isEmpty())
+            return null;
+
+        for (RouteTemplate candidate : templateChoices) {
+            boolean isValid = true;
+            for (String nodeName : candidate.getUsage()) {
+                if (templateFootprint.contains(nodeName)) {
+                    isValid = false;
+                    break;
+                }
+            }
+
+            if (!isValid)
+                continue;
+
+            HashSet<String> nextDepthTemplateFootprint = new HashSet<>(templateFootprint);
+            nextDepthTemplateFootprint.addAll(candidate.getUsage());
+
+            validTemplatesState.set(depth, candidate);
+
+            ArrayList<RouteTemplate> results = deriveValidTemplateConfiguration(d, depth + 1, validTemplatesState,
+                    nextDepthTemplateFootprint, allTemplates);
+            if (results != null)
+                return results;
+        }
+
+        return null;
+    }
+
+    private ArrayList<RouteTemplate> deriveBestTemplateConfiguration(Design d,
+                                                                     ArrayList<ArrayList<RouteTemplate>> allTemplates) {
+        // Highest cost possible
+        int threshMax = 0;
+        // Lost cost possible (max of min's across each bit)
+        int threshMin = 0;
+
+        for (int i = 0; i < bitwidth; i++) {
+            ArrayList<RouteTemplate> candidates = allTemplates.get(i);
+            int min = 999;
+            for (RouteTemplate candidate : candidates) {
+                if (candidate.getAdjustedCost() > threshMax)
+                    threshMax = candidate.getAdjustedCost();
+                if (candidate.getAdjustedCost() < min)
+                    min = candidate.getAdjustedCost();
+            }
+
+            if (min > threshMin)
+                threshMin = min;
+        }
+
+        ArrayList<HashSet<RouteTemplate>> candidatePool = new ArrayList<>();
+        for (int i = 0; i < bitwidth; i++) {
+            candidatePool.add(new HashSet<>());
+            for (RouteTemplate template : allTemplates.get(i)) {
+                if (template.getAdjustedCost() < threshMin)
+                    candidatePool.get(i).add(template);
+            }
+        }
+
+        for (int threshold = threshMin; threshold <= threshMax; threshold++) {
+            ArrayList<HashSet<RouteTemplate>> newCandidates = new ArrayList<>();
+            for (int i = 0; i < bitwidth; i++)
+                newCandidates.add(new HashSet<>());
+
+            int additionsToCandidatePool = 0;
+            for (int i = 0; i < bitwidth; i++) {
+                ArrayList<RouteTemplate> candidates = allTemplates.get(i);
+                for (RouteTemplate candidate : candidates) {
+                    if (candidate.getAdjustedCost() == threshold) {
+                        newCandidates.get(i).add(candidate);
+                        additionsToCandidatePool += 1;
+                    }
+                }
+                candidatePool.get(i).addAll(newCandidates.get(i));
+            }
+
+            // If nothing new was added to the candidate pool this round, simply move on to the next threshold
+            if (additionsToCandidatePool == 0)
+                continue;
+
+            for (int i = 0; i < bitwidth; i++) {
+                if (newCandidates.get(i).isEmpty())
+                    continue;
+
+                ArrayList<HashSet<RouteTemplate>> candidates = new ArrayList<>(candidatePool);
+                candidates.set(i, newCandidates.get(i));
+
+                ArrayList<RouteTemplate> results = new ArrayList<>();
+                for (int j = 0; j < bitwidth; j++)
+                    results.add(null);
+
+                results = deriveValidTemplateConfiguration(d, 0, results, new HashSet<>(), candidates);
+
+                if (results != null) {
+                    RouterLog.log("Route templates found at a worst-case adjusted cost of " + threshold + ".",
+                            RouterLog.Level.INFO);
+                    return new ArrayList<>(results);
+                }
+            }
+        }
+        RouterLog.log("Deadlock detected. No template configuration is possible.", RouterLog.Level.INFO);
         return null;
     }
 
@@ -450,143 +647,31 @@ public class StatefulBatchRouter {
      * Calling this function again will cumulatively add more batches
      * Certain templates are purged if they conflict with others in the bus
      */
-    private void extendTemplateBatchesForBus(Design d, int batchSize) {
+    private boolean extendTemplateBatchesForBus(Design d, int batchSize) {
         long tBegin = System.currentTimeMillis();
-
-        int costPurgeCount = 0;
-        int conflictPurgeCount = 0;
-        HashMap<Integer, Set<String>> allNodeUsages = new HashMap<>();
 
         ArrayList<ArrayList<RouteTemplate>> thisBatch = new ArrayList<>();
 
-        for (int i = 0; i < bitwidth; i++) {
-            thisBatch.add(findRouteTemplateBatch(d, batchSize, i));
-            templateCandidatesCache.get(i).addAll(thisBatch.get(i));
-
-            HashSet<String> usages = new HashSet<>();
-            for (RouteTemplate template : templateCandidatesCache.get(i)) {
-                usages.addAll(template.getUsage());
+        while (true) {
+            for (int i = 0; i < bitwidth; i++) {
+                thisBatch.add(findRouteTemplateBatch(d, batchSize, i));
+                templateCandidatesCache.get(i).addAll(thisBatch.get(i));
             }
-            allNodeUsages.put(i, usages);
+
+            ArrayList<RouteTemplate> templates = deriveBestTemplateConfiguration(d, templateCandidatesCache);
+            if (templates == null) {
+                RouterLog.log("Failed to determine working template configuration.", RouterLog.Level.NORMAL);
+                continue;
+            }
+
+            for (int i = 0; i < bitwidth; i++)
+                routes.set(i, new CustomRoute(templates.get(i)));
+
+            RouterLog.log("Templates found in " + (System.currentTimeMillis() - tBegin) + " ms.",
+                    RouterLog.Level.NORMAL);
+            return true;
         }
 
-        // Copy cache contents so purge doesn't destroy cache
-        for (int i = 0; i < bitwidth; i++)
-            allTemplateCandidates.set(i, new ArrayList<>(templateCandidatesCache.get(i)));
-
-        // Purge results of any templates with unreasonably high costs
-        for (int i = 0; i < bitwidth; i++) {
-            ArrayList<RouteTemplate> templateCandidates = allTemplateCandidates.get(i);
-            int minCostThisBatch = 999;
-            for (RouteTemplate template : thisBatch.get(i)) {
-                if (template.getAdjustedCost() < minCostThisBatch)
-                    minCostThisBatch = template.getAdjustedCost();
-            }
-
-            for (int j = 0; j < templateCandidates.size();) {
-                if (templateCandidates.get(j).getAdjustedCost() - minCostThisBatch > TEMPLATE_COST_TOLERANCE) {
-                    costPurgeCount += 1;
-                    templateCandidates.remove(j);
-                }
-                else
-                    j += 1;
-            }
-        }
-
-
-        // Purge results of any conflicting templates
-        // Favor based on remaining number of choices
-        for (int i = 0; i < bitwidth; i++) {
-            ArrayList<RouteTemplate> templateCandidates = allTemplateCandidates.get(i);
-            for (int j = 0; j < templateCandidates.size();) {
-
-                HashMap<Integer, Set<String>> remainingUsages = new HashMap<>(allNodeUsages);
-                remainingUsages.remove(i);
-
-                Set<String> nodeUsage = templateCandidates.get(j).getUsage();
-
-                ArrayList<Integer> conflictedBits = RoutingCalculator.locateTemplateCollisions(nodeUsage, remainingUsages);
-                if (!conflictedBits.isEmpty()) {
-
-                    boolean shouldPreempt;
-
-                    int minTemplateChoices = 99;
-                    for (int b : conflictedBits) {
-                        if (allTemplateCandidates.get(b).size() < minTemplateChoices)
-                            minTemplateChoices = allTemplateCandidates.get(b).size();
-                    }
-
-                    /*
-                     * Make a decision based on how many template choices we have and adjusted cost:
-                     * 1. Conflicted templates have less choices: remove this template candidate
-                     * 2. Conflicted templates have more choices: remove conflicting bit template candidates
-                     * 3. Conflicted templates have more or less the same choices: remove more expensive candidates
-                     */
-                    if (minTemplateChoices < templateCandidates.size() - 1)
-                        shouldPreempt = false;
-                    else if (minTemplateChoices > templateCandidates.size() + 1)
-                        shouldPreempt = true;
-                    else {
-                        int minCost = 99;
-                        for (int b : conflictedBits) {
-                            for (int k = 0; k < allTemplateCandidates.get(b).size(); k++) {
-                                for (WireJunction junction : allTemplateCandidates.get(b).get(k).getTemplate()) {
-                                    if (nodeUsage.contains(junction.getNodeName())
-                                            && allTemplateCandidates.get(b).get(k).getAdjustedCost() < minCost) {
-                                        minCost = allTemplateCandidates.get(b).get(k).getAdjustedCost();
-                                        break;
-                                    }
-                                }
-                            }
-                        }
-
-                        if (minCost <= templateCandidates.get(j).getAdjustedCost())
-                            shouldPreempt = false;
-                        else
-                            shouldPreempt = true;
-                    }
-
-                    if (shouldPreempt) {
-                        // Remove conflicted bits' route templates
-                        for (int b : conflictedBits) {
-                            for (int k = 0; k < allTemplateCandidates.get(b).size();) {
-
-                                boolean isConflicted = false;
-                                for (WireJunction junction : allTemplateCandidates.get(b).get(k).getTemplate()) {
-                                    if (nodeUsage.contains(junction.getNodeName())) {
-                                        isConflicted = true;
-                                        break;
-                                    }
-                                }
-
-                                if (isConflicted) {
-                                    allTemplateCandidates.get(b).remove(k);
-                                    conflictPurgeCount += 1;
-                                } else
-                                    k += 1;
-                            }
-                        }
-                    }
-                    else {
-                        templateCandidates.remove(j);
-                        conflictPurgeCount += 1;
-                    }
-                }
-                j++;
-            }
-        }
-
-        cumulativeBatchSize += batchSize;
-
-        ArrayList<Integer> sizes = new ArrayList<>();
-        for (ArrayList<RouteTemplate> templateCandidates : allTemplateCandidates)
-            sizes.add(templateCandidates.size());
-        RouterLog.log("Updated template choices: " + sizes + ".", RouterLog.Level.INFO);
-        RouterLog.log("A total of " + (costPurgeCount + conflictPurgeCount)
-                + " templates were purged. " + conflictPurgeCount + " were purged due to conflicts.",
-                RouterLog.Level.INFO);
-        RouterLog.log("Batch search took " + (System.currentTimeMillis() - tBegin) + " ms.",
-                RouterLog.Level.NORMAL);
     }
 
     /*
@@ -598,14 +683,10 @@ public class StatefulBatchRouter {
     private boolean deriveBestSinkPathConfiguration(Design d) {
         long tBegin = System.currentTimeMillis();
 
-        ArrayList<HashSet<TilePath>> allEndPathChoices = new ArrayList<>();
+        ArrayList<ArrayList<TilePath>> allEndPathChoices = new ArrayList<>();
         for (int i = 0; i < bitwidth; i++) {
-            ArrayList<RouteTemplate> templateChoices = allTemplateCandidates.get(i);
-            HashSet<TilePath> pathChoices = new HashSet<>();
-            for (RouteTemplate template : templateChoices) {
-                pathChoices.addAll(findTilePathsToSink(d, (EnterWireJunction) template.getTemplate(-2), i));
-            }
-            allEndPathChoices.add(pathChoices);
+            allEndPathChoices.add(findTilePathsToSink(d,
+                    (EnterWireJunction) routes.get(i).getTemplate().getTemplate(-2), i));
         }
 
         ArrayList<TilePath> endPaths = deriveBestTilePathConfiguration(allEndPathChoices);
@@ -618,12 +699,9 @@ public class StatefulBatchRouter {
                 RouterLog.Level.NORMAL);
 
         for (int i = 0; i < bitwidth; i++) {
-            RouteTemplate template = RoutingCalculator.findTemplateWithSinkTilePath(endPaths.get(i),
-                    allTemplateCandidates.get(i));
-            CustomRoute route = new CustomRoute(template);
-            route.setPath(-1, endPaths.get(i));
-            routes.set(i, route);
+            routes.get(i).setPath(-1, endPaths.get(i));
         }
+
         return true;
     }
 
@@ -838,9 +916,14 @@ public class StatefulBatchRouter {
                     RouterLog.log("2: Calculating route templates (batch size: " + batchSize + ").", RouterLog.Level.NORMAL);
 
                     RouterLog.indent();
-                    router.extendTemplateBatchesForBus(d, batchSize);
+                    boolean success = router.extendTemplateBatchesForBus(d, batchSize);
                     RouterLog.indent(-1);
 
+                    if (!success) {
+                        RouterLog.indent();
+                        RouterLog.log("Restarting at step 2.", RouterLog.Level.NORMAL);
+                        RouterLog.indent(-1);
+                    }
                     nextState = state + 1;
                     break;
                 }

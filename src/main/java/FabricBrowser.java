@@ -189,40 +189,7 @@ public class FabricBrowser {
      *   Takes into consideration the router global footprint and any locked nodes
      */
     public static Set<EnterWireJunction> findReachableEntrances(Design d, ExitWireJunction exit) {
-        Set<EnterWireJunction> results = new HashSet<>();
-        String tileName = exit.getTileName();
-
-        Queue<NodeDepthPair> queue = new LinkedList<>();
-        queue.add(new NodeDepthPair(exit.getNodeName()));
-
-        HashSet<String> footprint = new HashSet<>();
-
-        while (!queue.isEmpty()) {
-            NodeDepthPair trav = queue.remove();
-
-            if (trav.getDepth() >= TILE_TRAVERSAL_MAX_DEPTH)
-                break;
-
-            for (PIP pip : getBkwdPIPs(d, exit.getTileName(), trav.getNodeName())) {
-                String nextNodeName = RouteUtil.getPIPNodeName(tileName, pip.getStartWireName());
-
-                WireDirection dir = RouteUtil.extractEnterWireDirection(d, tileName, pip.getStartWireName());
-                int wireLength = RouteUtil.extractEnterWireLength(d, tileName, pip.getStartWireName());
-
-                if (globalNodeFootprint.contains(nextNodeName) || footprint.contains(nextNodeName)
-                        || RouteForge.isLocked(nextNodeName))
-                    continue;
-
-                if (dir != null && dir != WireDirection.SELF && wireLength != 0 && !RouteUtil.isClkNode(nextNodeName))
-                    results.add(new EnterWireJunction(d, tileName, pip.getStartWireName()));
-                if (RouteUtil.isNodeBuffer(d, tileName, nextNodeName))
-                    queue.add(new NodeDepthPair(nextNodeName, trav.getDepth() + 1));
-
-                footprint.add(nextNodeName);
-            }
-        }
-
-        return results;
+        return findReachableEntrances(d, TILE_TRAVERSAL_MAX_DEPTH, exit);
     }
 
     public static Set<EnterWireJunction> findReachableEntrances(Design d, int maxDepth, ExitWireJunction exit) {
@@ -246,8 +213,7 @@ public class FabricBrowser {
                 WireDirection dir = RouteUtil.extractEnterWireDirection(d, tileName, pip.getStartWireName());
                 int wireLength = RouteUtil.extractEnterWireLength(d, tileName, pip.getStartWireName());
 
-                if (globalNodeFootprint.contains(nextNodeName) || footprint.contains(nextNodeName)
-                        || RouteForge.isLocked(nextNodeName))
+                if (footprint.contains(nextNodeName) || RouteForge.isLocked(nextNodeName))
                     continue;
 
                 if (dir != null && dir != WireDirection.SELF && wireLength != 0 && !RouteUtil.isClkNode(nextNodeName))
@@ -267,40 +233,7 @@ public class FabricBrowser {
      *   Takes into consideration the router global footprint and any locked nodes
      */
     public static Set<ExitWireJunction> findReachableExits(Design d, EnterWireJunction entrance) {
-        Set<ExitWireJunction> results = new HashSet<>();
-        String tileName = entrance.getTileName();
-
-        Queue<NodeDepthPair> queue = new LinkedList<>();
-        queue.add(new NodeDepthPair(entrance.getNodeName()));
-
-        HashSet<String> footprint = new HashSet<>();
-
-        while (!queue.isEmpty()) {
-            NodeDepthPair trav = queue.remove();
-
-            if (trav.getDepth() >= TILE_TRAVERSAL_MAX_DEPTH)
-                continue;
-
-            for (PIP pip : getFwdPIPs(d, tileName, trav.getNodeName())) {
-                String nextNodeName = RouteUtil.getPIPNodeName(tileName, pip.getEndWireName());
-
-                WireDirection dir = RouteUtil.extractExitWireDirection(d, tileName, pip.getEndWireName());
-                int wireLength = RouteUtil.extractExitWireLength(d, tileName, pip.getEndWireName());
-
-                if (globalNodeFootprint.contains(nextNodeName) || footprint.contains(nextNodeName)
-                        || RouteForge.isLocked(nextNodeName))
-                    continue;
-
-                if (dir != null && dir != WireDirection.SELF && wireLength != 0 && !RouteUtil.isClkNode(nextNodeName))
-                    results.add(new ExitWireJunction(d, tileName, pip.getEndWireName()));
-                if (RouteUtil.isNodeBuffer(d, tileName, nextNodeName))
-                    queue.add(new NodeDepthPair(nextNodeName, trav.getDepth() + 1));
-
-                footprint.add(nextNodeName);
-            }
-        }
-
-        return results;
+        return findReachableExits(d, TILE_TRAVERSAL_MAX_DEPTH, entrance);
     }
 
     public static Set<ExitWireJunction> findReachableExits(Design d, int maxDepth, EnterWireJunction entrance) {
@@ -324,8 +257,7 @@ public class FabricBrowser {
                 WireDirection dir = RouteUtil.extractExitWireDirection(d, tileName, pip.getEndWireName());
                 int wireLength = RouteUtil.extractExitWireLength(d, tileName, pip.getEndWireName());
 
-                if (globalNodeFootprint.contains(nextNodeName) || footprint.contains(nextNodeName)
-                        || RouteForge.isLocked(nextNodeName))
+                if (footprint.contains(nextNodeName) || RouteForge.isLocked(nextNodeName))
                     continue;
 
                 if (dir != null && dir != WireDirection.SELF && wireLength != 0 && !RouteUtil.isClkNode(nextNodeName))
@@ -346,53 +278,7 @@ public class FabricBrowser {
      */
     public static ArrayList<TilePath> findTilePaths(Design d, EnterWireJunction entrance,
                                                     ExitWireJunction exit) {
-        ArrayList<TilePath> results = new ArrayList<>();
-
-        // Not applicable unless entrance and exit are on the same INT tile.
-        if (!entrance.getTileName().equals(exit.getTileName()))
-            return results;
-
-        String tileName = entrance.getTileName();
-
-        Queue<TilePath> queue = new LinkedList<>();
-        queue.add(new TilePath(entrance, exit));
-
-        while (!queue.isEmpty()) {
-            TilePath trav = queue.remove();
-
-            if (trav.getCost() >= TILE_TRAVERSAL_MAX_DEPTH + 1)
-                break;
-
-            for (PIP pip : getFwdPIPs(d, tileName, trav.getNodeName(-2))) {
-                String nextNodeName = RouteUtil.getPIPNodeName(tileName, pip.getEndWireName());
-
-                if (nextNodeName.equals(exit.getNodeName())) {
-                    results.add(new TilePath(trav));
-                }
-                else if (RouteUtil.isNodeBuffer(d, tileName, nextNodeName)) {
-
-                    if (globalNodeFootprint.contains(nextNodeName)
-                            || (RouteForge.isLocked(nextNodeName)))
-                        continue;
-
-                    TilePath travCopy = new TilePath(trav);
-
-                    // To prevent cycles in buffer traversal, don't queue previously traversed buffers
-                    if (travCopy.addNode(nextNodeName))
-                        queue.add(travCopy);
-                }
-            }
-        }
-
-        RouterLog.log("Found " + results.size() + " INT tile paths for " + entrance + " --> " + exit + ".",
-                RouterLog.Level.INFO);
-        if (!results.isEmpty()) {
-            RouterLog.indent();
-            RouterLog.log("Minimum cost of tile paths is " + results.get(0).getCost() + ".", RouterLog.Level.VERBOSE);
-            RouterLog.indent(-1);
-        }
-
-        return results;
+        return findTilePaths(d, TILE_TRAVERSAL_MAX_DEPTH, entrance, exit);
     }
 
     /*
@@ -425,8 +311,7 @@ public class FabricBrowser {
                 }
                 else if (RouteUtil.isNodeBuffer(d, tileName, nextNodeName)) {
 
-                    if (globalNodeFootprint.contains(nextNodeName)
-                            || (RouteForge.isLocked(nextNodeName)))
+                    if (RouteForge.isLocked(nextNodeName))
                         continue;
 
                     TilePath travCopy = new TilePath(trav);
@@ -440,6 +325,7 @@ public class FabricBrowser {
 
         RouterLog.log("Found " + results.size() + " INT tile paths for " + entrance + " --> " + exit + ".",
                 RouterLog.Level.INFO);
+
         if (!results.isEmpty()) {
             RouterLog.indent();
             RouterLog.log("Minimum cost of tile paths is " + results.get(0).getCost() + ".", RouterLog.Level.VERBOSE);
@@ -478,8 +364,7 @@ public class FabricBrowser {
                     return true;
                 }
 
-                if (globalNodeFootprint.contains(nextNodeName) || footprint.contains(nextNodeName)
-                        || RouteForge.isLocked(nextNodeName))
+                if (footprint.contains(nextNodeName) || RouteForge.isLocked(nextNodeName))
                     continue;
 
                 if (RouteUtil.isNodeBuffer(d, tileName, nextNodeName))

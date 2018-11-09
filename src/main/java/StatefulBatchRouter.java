@@ -169,6 +169,7 @@ public class StatefulBatchRouter {
 
             if (distX == 0 && distY == 0) {
                 boolean foundTemplate = false;
+                EnterWireJunction validLeadIn = null;
                 for (EnterWireJunction leadIn : leadIns) {
                     if (leadIn.equals(trav.getHead())) {
 
@@ -178,12 +179,21 @@ public class StatefulBatchRouter {
 
                         results.add(template);
                         foundTemplate = true;
+                        validLeadIn = leadIn;
+
+                        footprint.put(leadIn.getNodeName(),
+                                footprint.containsKey(leadIn.getNodeName())
+                                        ? footprint.get(leadIn.getNodeName()) + 1 : 1);
+
                         break;
                     }
                 }
 
-                if (foundTemplate)
+                if (foundTemplate) {
                     templateCount += 1;
+                    if (footprint.get(validLeadIn.getNodeName()) == 5)
+                        leadIns.remove(validLeadIn);
+                }
 
                 continue;
             }
@@ -650,9 +660,8 @@ public class StatefulBatchRouter {
     private boolean extendTemplateBatchesForBus(Design d, int batchSize) {
         long tBegin = System.currentTimeMillis();
 
-        ArrayList<ArrayList<RouteTemplate>> thisBatch = new ArrayList<>();
-
         while (true) {
+            ArrayList<ArrayList<RouteTemplate>> thisBatch = new ArrayList<>();
             for (int i = 0; i < bitwidth; i++) {
                 thisBatch.add(findRouteTemplateBatch(d, batchSize, i));
                 templateCandidatesCache.get(i).addAll(thisBatch.get(i));

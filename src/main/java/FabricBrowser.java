@@ -78,7 +78,7 @@ public class FabricBrowser {
         if (!exitFanOutCache.containsKey(exit.getWireName()))
             updateExitFanOut(d, exit.getTileName(), exit.getWireName());
 
-        Set<EnterWireJunction> entrances = new HashSet<>();
+        Set<EnterWireJunction> entrances = new LinkedHashSet<>();
         String tileName = exit.getTileName();
         for (String wireName : exitFanOutCache.get(exit.getWireName())) {
             entrances.add(new EnterWireJunction(d, tileName, wireName));
@@ -95,7 +95,7 @@ public class FabricBrowser {
         if (!entranceFanOutCache.containsKey(entrance.getWireName()))
             updateEntranceFanOut(d, entrance.getTileName(), entrance.getWireName());
 
-        Set<ExitWireJunction> exits = new HashSet<>();
+        Set<ExitWireJunction> exits = new LinkedHashSet<>();
         String tileName = entrance.getTileName();
         for (String wireName : entranceFanOutCache.get(entrance.getWireName())) {
             exits.add(new ExitWireJunction(d, tileName, wireName));
@@ -110,7 +110,7 @@ public class FabricBrowser {
      */
     private static void updateExitFanOut(Design d, String tileName, String exitWireName) {
 
-        Set<String> results = new HashSet<>();
+        Set<String> results = new LinkedHashSet<>();
 
         Queue<NodeDepthPair> queue = new LinkedList<>();
         queue.add(new NodeDepthPair(tileName + "/" + exitWireName));
@@ -150,7 +150,7 @@ public class FabricBrowser {
      */
     private static void updateEntranceFanOut(Design d, String tileName, String entranceWireName) {
 
-        Set<String> results = new HashSet<>();
+        Set<String> results = new LinkedHashSet<>();
 
         Queue<NodeDepthPair> queue = new LinkedList<>();
         queue.add(new NodeDepthPair(tileName + "/" + entranceWireName));
@@ -193,7 +193,7 @@ public class FabricBrowser {
     }
 
     public static Set<EnterWireJunction> findReachableEntrances(Design d, int maxDepth, ExitWireJunction exit) {
-        Set<EnterWireJunction> results = new HashSet<>();
+        Set<EnterWireJunction> results = new LinkedHashSet<>();
         String tileName = exit.getTileName();
 
         Queue<NodeDepthPair> queue = new LinkedList<>();
@@ -237,7 +237,7 @@ public class FabricBrowser {
     }
 
     public static Set<ExitWireJunction> findReachableExits(Design d, int maxDepth, EnterWireJunction entrance) {
-        Set<ExitWireJunction> results = new HashSet<>();
+        Set<ExitWireJunction> results = new LinkedHashSet<>();
         String tileName = entrance.getTileName();
 
         Queue<NodeDepthPair> queue = new LinkedList<>();

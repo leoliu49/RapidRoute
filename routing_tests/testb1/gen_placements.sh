@@ -13,16 +13,16 @@ do
     p2=$((3*$sep+120))
     echo "[reg0]" > placements/testb1_4b_place_N"$sep"_0.conf
     echo "name = reg0" >> placements/testb1_4b_place_N"$sep"_0.conf
-    echo "comp0 = type4, SLICE_X56Y120" >> placements/testb1_4b_place_N"$sep"_0.conf
+    echo "comp0 = type2, SLICE_X56Y120" >> placements/testb1_4b_place_N"$sep"_0.conf
     echo "[reg1]" >> placements/testb1_4b_place_N"$sep"_0.conf
     echo "name = reg1" >> placements/testb1_4b_place_N"$sep"_0.conf
-    echo "comp0 = type4, SLICE_X56Y"$p >> placements/testb1_4b_place_N"$sep"_0.conf
+    echo "comp0 = type2, SLICE_X56Y"$p >> placements/testb1_4b_place_N"$sep"_0.conf
     echo "[reg2]" >> placements/testb1_4b_place_N"$sep"_0.conf
     echo "name = reg2" >> placements/testb1_4b_place_N"$sep"_0.conf
-    echo "comp0 = type4, SLICE_X56Y"$p1 >> placements/testb1_4b_place_N"$sep"_0.conf
+    echo "comp0 = type2, SLICE_X56Y"$p1 >> placements/testb1_4b_place_N"$sep"_0.conf
     echo "[reg3]" >> placements/testb1_4b_place_N"$sep"_0.conf
     echo "name = reg3" >> placements/testb1_4b_place_N"$sep"_0.conf
-    echo "comp0 = type4, SLICE_X56Y"$p2 >> placements/testb1_4b_place_N"$sep"_0.conf
+    echo "comp0 = type2, SLICE_X56Y"$p2 >> placements/testb1_4b_place_N"$sep"_0.conf
 
     echo "[reg0]" > placements/testb1_4b_place_N"$sep"_1.conf
     echo "name = reg0" >> placements/testb1_4b_place_N"$sep"_1.conf
@@ -42,16 +42,16 @@ do
     pep2=$((120-3*$sep))
     echo "[reg0]" > placements/testb1_4b_place_S"$sep"_0.conf
     echo "name = reg0" >> placements/testb1_4b_place_S"$sep"_0.conf
-    echo "comp0 = type4, SLICE_X56Y120" >> placements/testb1_4b_place_S"$sep"_0.conf
+    echo "comp0 = type2, SLICE_X56Y120" >> placements/testb1_4b_place_S"$sep"_0.conf
     echo "[reg1]" >> placements/testb1_4b_place_S"$sep"_0.conf
     echo "name = reg1" >> placements/testb1_4b_place_S"$sep"_0.conf
-    echo "comp0 = type4, SLICE_X56Y"$pep >> placements/testb1_4b_place_S"$sep"_0.conf
+    echo "comp0 = type2, SLICE_X56Y"$pep >> placements/testb1_4b_place_S"$sep"_0.conf
     echo "[reg2]" >> placements/testb1_4b_place_S"$sep"_0.conf
     echo "name = reg2" >> placements/testb1_4b_place_S"$sep"_0.conf
-    echo "comp0 = type4, SLICE_X56Y"$pep1 >> placements/testb1_4b_place_S"$sep"_0.conf
+    echo "comp0 = type2, SLICE_X56Y"$pep1 >> placements/testb1_4b_place_S"$sep"_0.conf
     echo "[reg3]" >> placements/testb1_4b_place_S"$sep"_0.conf
     echo "name = reg3" >> placements/testb1_4b_place_S"$sep"_0.conf
-    echo "comp0 = type4, SLICE_X56Y"$pep2 >> placements/testb1_4b_place_S"$sep"_0.conf
+    echo "comp0 = type2, SLICE_X56Y"$pep2 >> placements/testb1_4b_place_S"$sep"_0.conf
 
     echo "[reg0]" > placements/testb1_4b_place_S"$sep"_1.conf
     echo "name = reg0" >> placements/testb1_4b_place_S"$sep"_1.conf

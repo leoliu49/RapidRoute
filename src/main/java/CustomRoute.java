@@ -126,6 +126,9 @@ public class CustomRoute {
             i += pathSubs.size();
 
         ArrayList<TilePath> pathSub = pathSubs.get(i);
+        if (pathSub.isEmpty())
+            return null;
+
         pathSub.add(pathSub.remove(0));
         return pathSub.get(pathSub.size() - 1);
     }

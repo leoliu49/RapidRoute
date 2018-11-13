@@ -31,7 +31,6 @@ public class StatefulBatchRouter {
     public ArrayList<EnterWireJunction> srcJunctions;
     public ArrayList<ExitWireJunction> snkJunctions;
 
-    private int cumulativeBatchSize;
     private ArrayList<Pair<Queue<JunctionsTracer>, HashMap<String, Integer>>> searchStates;
     private ArrayList<Set<EnterWireJunction>> snkTileEntrances;
 
@@ -46,8 +45,6 @@ public class StatefulBatchRouter {
         bitwidth = connection.getBitWidth();
         srcReg = connection.getSrcReg();
         snkReg = connection.getSnkReg();
-
-        cumulativeBatchSize = 0;
 
         srcJunctions = new ArrayList<>();
         snkJunctions = new ArrayList<>();
@@ -763,6 +760,13 @@ public class StatefulBatchRouter {
 
             TilePath candidatePath = routes.get(bitIndex).getNextPossiblePath(pathIndex);
 
+            // In the case that there are no pathSubs available, break and kill this template
+            if (candidatePath == null) {
+                deflectionCount[bitIndex] = 10000;
+                liveLockCount = 10000;
+                break;
+            }
+
             for (Pair<Integer, Integer> conflict : RoutingCalculator.locateTilePathCollisions(candidatePath, routes)) {
                 // During route contention, always preempt conflicts
                 CustomRoute conflictedRoute = routes.get(conflict.getLeft());
@@ -788,7 +792,7 @@ public class StatefulBatchRouter {
                     highestDeflection = deflectionCount[i];
                 }
             }
-            templateCandidatesCache.remove(routes.get(index).getTemplate());
+            templateCandidatesCache.get(index).remove(routes.get(index).getTemplate());
 
             return false;
         }

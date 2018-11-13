@@ -660,26 +660,24 @@ public class StatefulBatchRouter {
     private boolean extendTemplateBatchesForBus(Design d, int batchSize) {
         long tBegin = System.currentTimeMillis();
 
-        while (true) {
-            ArrayList<ArrayList<RouteTemplate>> thisBatch = new ArrayList<>();
-            for (int i = 0; i < bitwidth; i++) {
-                thisBatch.add(findRouteTemplateBatch(d, batchSize, i));
-                templateCandidatesCache.get(i).addAll(thisBatch.get(i));
-            }
-
-            ArrayList<RouteTemplate> templates = deriveBestTemplateConfiguration(d, templateCandidatesCache);
-            if (templates == null) {
-                RouterLog.log("Failed to determine working template configuration.", RouterLog.Level.NORMAL);
-                continue;
-            }
-
-            for (int i = 0; i < bitwidth; i++)
-                routes.set(i, new CustomRoute(templates.get(i)));
-
-            RouterLog.log("Templates found in " + (System.currentTimeMillis() - tBegin) + " ms.",
-                    RouterLog.Level.NORMAL);
-            return true;
+        ArrayList<ArrayList<RouteTemplate>> thisBatch = new ArrayList<>();
+        for (int i = 0; i < bitwidth; i++) {
+            thisBatch.add(findRouteTemplateBatch(d, batchSize, i));
+            templateCandidatesCache.get(i).addAll(thisBatch.get(i));
         }
+
+        ArrayList<RouteTemplate> templates = deriveBestTemplateConfiguration(d, templateCandidatesCache);
+        if (templates == null) {
+            RouterLog.log("Failed to determine working template configuration.", RouterLog.Level.NORMAL);
+            return false;
+        }
+
+        for (int i = 0; i < bitwidth; i++)
+            routes.set(i, new CustomRoute(templates.get(i)));
+
+        RouterLog.log("Templates found in " + (System.currentTimeMillis() - tBegin) + " ms.",
+                RouterLog.Level.NORMAL);
+        return true;
 
     }
 
@@ -921,7 +919,7 @@ public class StatefulBatchRouter {
                 case 2: {
                     int batchSize;
                     if (lastState == 1)
-                        batchSize = 5;
+                        batchSize = 8;
                     else
                         batchSize = 3;
 

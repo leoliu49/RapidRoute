@@ -3,6 +3,7 @@ import com.xilinx.rapidwright.device.Tile;
 import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.apache.commons.lang3.tuple.Pair;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
@@ -13,28 +14,23 @@ public class RoutesCache {
      * Cache of previous RegisterConnections, and RoutingFootprints
      */
 
-    public static HashMap<RegisterConnection, List<RoutingFootprint>> connectionToFootprintMap = new HashMap<>();
+    public static HashMap<RegisterConnection, RoutingFootprint> connectionToFootprintMap = new HashMap<>();
 
-    public static List<RoutingFootprint> getFootprints(RegisterConnection connection) {
+    public static RoutingFootprint getFootprint(RegisterConnection connection) {
         return connectionToFootprintMap.get(connection);
     }
 
     public static void cache(RegisterConnection connection, RoutingFootprint footprint) {
-        if (connectionToFootprintMap.containsKey(connection))
-            connectionToFootprintMap.get(connection).add(footprint);
-        else {
-            List<RoutingFootprint> footprints = new LinkedList<>();
-            footprints.add(footprint);
-            connectionToFootprintMap.put(connection, footprints);
-        }
+        connectionToFootprintMap.put(connection, footprint);
     }
 
-    public static RegisterConnection searchCacheForCongruentConnection(Design d, RegisterConnection connection) {
+    public static ArrayList<RegisterConnection> searchCacheForCongruentConnection(Design d, RegisterConnection connection) {
+        ArrayList<RegisterConnection> results = new ArrayList<>();
         for (RegisterConnection c : connectionToFootprintMap.keySet()) {
             if (c.isCongruentWith(d, connection))
-                return c;
+                results.add(c);
         }
-        return null;
+        return results;
     }
 
     public static int getXOffsetOfCongruentConnection(Design d, RegisterConnection ref, RegisterConnection offset) {

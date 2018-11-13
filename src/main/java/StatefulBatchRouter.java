@@ -863,14 +863,17 @@ public class StatefulBatchRouter {
         RouterLog.log("Performing state-based, batch-based routing on " + connection.toString(), RouterLog.Level.NORMAL);
         RouterLog.indent();
 
-        RegisterConnection cachedConn = RoutesCache.searchCacheForCongruentConnection(d, connection);
-        if (cachedConn != null) {
+        ArrayList<RegisterConnection> cachedConns = RoutesCache.searchCacheForCongruentConnection(d, connection);
+        if (!cachedConns.isEmpty()) {
             RouterLog.log("Congruency detected for " + connection.toString()
-                    + ". A previous route may be copied with offset.", RouterLog.Level.NORMAL);
-            int dx = RoutesCache.getXOffsetOfCongruentConnection(d, cachedConn, connection);
-            int dy = RoutesCache.getYOffsetOfCongruentConnection(d, cachedConn, connection);
+                    + ". A previous " + cachedConns.size() + " routes may be copied with offset.", RouterLog.Level.NORMAL);
 
-            for (RoutingFootprint cachedFp : RoutesCache.getFootprints(cachedConn)) {
+            for (RegisterConnection cachedConn : cachedConns) {
+                int dx = RoutesCache.getXOffsetOfCongruentConnection(d, cachedConn, connection);
+                int dy = RoutesCache.getYOffsetOfCongruentConnection(d, cachedConn, connection);
+
+                RoutingFootprint cachedFp = RoutesCache.getFootprint(cachedConn);
+
                 RoutingFootprint offsetFootprint = copyRoutesToFootprint(d, connection, cachedFp, dx, dy);
 
                 if (!RoutingCalculator.isRoutingFootprintConflicted(offsetFootprint)) {

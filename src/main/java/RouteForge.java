@@ -73,11 +73,12 @@ public class RouteForge {
                     && (RouteUtil.getPIPNodeName(tileName, pip.getEndWireName())).equals(endNodeName)) {
                 RouterLog.log("Junction <" + startNodeName + "> ---> <" + endNodeName + ">", RouterLog.Level.INFO);
                 n.addPIP(pip);
+
+                globalNodeFootprint.add(startNodeName);
+                globalNodeFootprint.add(endNodeName);
                 return;
             }
         }
-        globalNodeFootprint.add(startNodeName);
-        globalNodeFootprint.add(endNodeName);
         RouterLog.log("Junction <" + startNodeName + "> ---> <" + endNodeName + "> failed.", RouterLog.Level.ERROR);
     }
 }

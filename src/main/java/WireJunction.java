@@ -11,11 +11,16 @@ public class WireJunction {
     protected String wireName;
     protected int wireLength;
 
+    protected int tilePathCost;
+
     public WireJunction(String tileName, String wireName) {
         this.tileName = tileName;
         this.wireName = wireName;
 
         this.nodeName = tileName + "/" + wireName;
+
+        // -1 indicates unknown
+        tilePathCost = -1;
     }
 
     public WireJunction copyWithOffset(Design d, int dx, int dy) {
@@ -46,6 +51,14 @@ public class WireJunction {
 
     public int getWireLength() {
         return wireLength;
+    }
+
+    public int getTilePathCost() {
+        return tilePathCost;
+    }
+
+    public void setTilePathCost(int tilePathCost) {
+        this.tilePathCost = tilePathCost;
     }
 
     public boolean equals(WireJunction o) {

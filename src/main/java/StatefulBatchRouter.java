@@ -171,6 +171,8 @@ public class StatefulBatchRouter {
                     if (leadIn.equals(trav.getHead())) {
 
                         RouteTemplate template = new RouteTemplate(d, src, snk);
+                        template.setBaseAdjustedCost(leadIn.getTilePathCost());
+
                         while (trav.getJunctions().size() > 1)
                             template.pushEnterWireJunction(d, (EnterWireJunction) trav.getJunctions().removeFirst());
 

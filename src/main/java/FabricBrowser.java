@@ -1,14 +1,33 @@
 import com.xilinx.rapidwright.design.Design;
 import com.xilinx.rapidwright.device.PIP;
+import org.apache.commons.lang3.tuple.ImmutablePair;
+import org.apache.commons.lang3.tuple.Pair;
 
 import java.util.*;
 
 public class FabricBrowser {
 
+    public static class FanOutBundle {
+        public String wireName;
+        public int pathCost;
+
+        public FanOutBundle(String wireName, int pathCost) {
+            this.wireName = wireName;
+            this.pathCost = pathCost;
+        }
+
+        public String getWireName() {
+            return wireName;
+        }
+
+        public int getPathCost() {
+            return pathCost;
+        }
+    }
 
     public static HashMap<String, ArrayList<PIP>> pipCache = new HashMap<>();
-    public static HashMap<String, Set<String>> exitFanOutCache = new HashMap<>();
-    public static HashMap<String, Set<String>> entranceFanOutCache = new HashMap<>();
+    public static HashMap<String, Set<FanOutBundle>> exitFanOutCache = new HashMap<>();
+    public static HashMap<String, Set<FanOutBundle>> entranceFanOutCache = new HashMap<>();
 
     public static final int TILE_TRAVERSAL_MAX_DEPTH = 4;
     private static class NodeDepthPair {
@@ -80,8 +99,10 @@ public class FabricBrowser {
 
         Set<EnterWireJunction> entrances = new LinkedHashSet<>();
         String tileName = exit.getTileName();
-        for (String wireName : exitFanOutCache.get(exit.getWireName())) {
-            entrances.add(new EnterWireJunction(d, tileName, wireName));
+        for (FanOutBundle bundle : exitFanOutCache.get(exit.getWireName())) {
+            EnterWireJunction entrance = new EnterWireJunction(d, tileName, bundle.getWireName());
+            entrance.setTilePathCost(bundle.getPathCost());
+            entrances.add(entrance);
         }
         return entrances;
     }
@@ -97,8 +118,10 @@ public class FabricBrowser {
 
         Set<ExitWireJunction> exits = new LinkedHashSet<>();
         String tileName = entrance.getTileName();
-        for (String wireName : entranceFanOutCache.get(entrance.getWireName())) {
-            exits.add(new ExitWireJunction(d, tileName, wireName));
+        for (FanOutBundle bundle : entranceFanOutCache.get(entrance.getWireName())) {
+            ExitWireJunction exit = new ExitWireJunction(d, tileName, bundle.getWireName());
+            exit.setTilePathCost(bundle.getPathCost());
+            exits.add(exit);
         }
 
         return exits;
@@ -110,7 +133,7 @@ public class FabricBrowser {
      */
     private static void updateExitFanOut(Design d, String tileName, String exitWireName) {
 
-        Set<String> results = new LinkedHashSet<>();
+        Set<FanOutBundle> results = new LinkedHashSet<>();
 
         Queue<NodeDepthPair> queue = new LinkedList<>();
         queue.add(new NodeDepthPair(tileName + "/" + exitWireName));
@@ -132,8 +155,9 @@ public class FabricBrowser {
                 if (footprint.contains(nextNodeName))
                     continue;
 
-                if (dir != null && dir!= WireDirection.SELF && wireLength != 0 && !RouteUtil.isClkNode(nextNodeName))
-                    results.add(pip.getStartWireName());
+                if (dir != null && dir!= WireDirection.SELF && wireLength != 0 && !RouteUtil.isClkNode(nextNodeName)) {
+                    results.add(new FanOutBundle(pip.getStartWireName(), trav.getDepth()));
+                }
                 if (RouteUtil.isNodeBuffer(d, tileName, nextNodeName))
                     queue.add(new NodeDepthPair(nextNodeName, trav.getDepth() + 1));
 
@@ -150,7 +174,7 @@ public class FabricBrowser {
      */
     private static void updateEntranceFanOut(Design d, String tileName, String entranceWireName) {
 
-        Set<String> results = new LinkedHashSet<>();
+        Set<FanOutBundle> results = new LinkedHashSet<>();
 
         Queue<NodeDepthPair> queue = new LinkedList<>();
         queue.add(new NodeDepthPair(tileName + "/" + entranceWireName));
@@ -172,8 +196,9 @@ public class FabricBrowser {
                 if (footprint.contains(nextNodeName))
                     continue;
 
-                if (dir != null && dir != WireDirection.SELF && wireLength != 0 && !RouteUtil.isClkNode(nextNodeName))
-                    results.add(pip.getEndWireName());
+                if (dir != null && dir != WireDirection.SELF && wireLength != 0 && !RouteUtil.isClkNode(nextNodeName)) {
+                    results.add(new FanOutBundle(pip.getEndWireName(), trav.getDepth()));
+                }
                 if (RouteUtil.isNodeBuffer(d, tileName, nextNodeName))
                     queue.add(new NodeDepthPair(nextNodeName, trav.getDepth() + 1));
 
@@ -216,8 +241,11 @@ public class FabricBrowser {
                 if (footprint.contains(nextNodeName) || RouteForge.isLocked(nextNodeName))
                     continue;
 
-                if (dir != null && dir != WireDirection.SELF && wireLength != 0 && !RouteUtil.isClkNode(nextNodeName))
-                    results.add(new EnterWireJunction(d, tileName, pip.getStartWireName()));
+                if (dir != null && dir != WireDirection.SELF && wireLength != 0 && !RouteUtil.isClkNode(nextNodeName)) {
+                    EnterWireJunction entrance = new EnterWireJunction(d, tileName, pip.getStartWireName());
+                    entrance.setTilePathCost(trav.getDepth());
+                    results.add(entrance);
+                }
                 if (RouteUtil.isNodeBuffer(d, tileName, nextNodeName))
                     queue.add(new NodeDepthPair(nextNodeName, trav.getDepth() + 1));
 
@@ -260,8 +288,11 @@ public class FabricBrowser {
                 if (footprint.contains(nextNodeName) || RouteForge.isLocked(nextNodeName))
                     continue;
 
-                if (dir != null && dir != WireDirection.SELF && wireLength != 0 && !RouteUtil.isClkNode(nextNodeName))
-                    results.add(new ExitWireJunction(d, tileName, pip.getEndWireName()));
+                if (dir != null && dir != WireDirection.SELF && wireLength != 0 && !RouteUtil.isClkNode(nextNodeName)) {
+                    ExitWireJunction exit = new ExitWireJunction(d, tileName, pip.getEndWireName());
+                    exit.setTilePathCost(trav.getDepth());
+                    results.add(exit);
+                }
                 if (RouteUtil.isNodeBuffer(d, tileName, nextNodeName))
                     queue.add(new NodeDepthPair(nextNodeName, trav.getDepth() + 1));
 

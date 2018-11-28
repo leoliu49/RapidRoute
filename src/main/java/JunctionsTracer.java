@@ -16,7 +16,7 @@ public class JunctionsTracer {
      * Deep copies reference, and appends next as head
      */
     public JunctionsTracer(WireJunction next, JunctionsTracer ref) {
-        depth += 1;
+        depth = ref.getDepth() + 1;
         junctions = new LinkedList<>(ref.getJunctions());
         junctions.addFirst(next);
     }

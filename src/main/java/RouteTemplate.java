@@ -57,6 +57,10 @@ public class RouteTemplate {
         return adjustedCost;
     }
 
+    public void setBaseAdjustedCost(int baseCost) {
+        adjustedCost = baseCost;
+    }
+
     public int getNumOrthogonalTurns() {
         return orthogonalTurns;
     }
@@ -110,6 +114,9 @@ public class RouteTemplate {
     public void pushEnterWireJunction(Design d, EnterWireJunction enJunc) {
         template.add(1, enJunc);
         template.add(1, enJunc.getSrcJunction(d));
+
+        if (enJunc.getTilePathCost() != -1)
+            adjustedCost += enJunc.getTilePathCost();
 
         readjustCost(enJunc);
         lastDirection = enJunc.getDirection();

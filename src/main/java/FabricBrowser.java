@@ -25,9 +25,9 @@ public class FabricBrowser {
         }
     }
 
-    public static HashMap<String, ArrayList<PIP>> pipCache = new HashMap<>();
-    public static HashMap<String, Set<FanOutBundle>> exitFanOutCache = new HashMap<>();
-    public static HashMap<String, Set<FanOutBundle>> entranceFanOutCache = new HashMap<>();
+    public static final HashMap<String, ArrayList<PIP>> pipCache = new HashMap<>();
+    public static final HashMap<String, Set<FanOutBundle>> exitFanOutCache = new HashMap<>();
+    public static final HashMap<String, Set<FanOutBundle>> entranceFanOutCache = new HashMap<>();
 
     public static final int TILE_TRAVERSAL_MAX_DEPTH = 4;
     private static class NodeDepthPair {
@@ -63,17 +63,21 @@ public class FabricBrowser {
     }
 
     public static ArrayList<PIP> getTilePIPs(Design d, String tileName) {
-        if (!pipCache.containsKey(tileName))
-            pipCache.put(tileName, d.getDevice().getTile(tileName).getPIPs());
-        return pipCache.get(tileName);
+        synchronized (pipCache) {
+            if (!pipCache.containsKey(tileName))
+                pipCache.put(tileName, d.getDevice().getTile(tileName).getPIPs());
+            return pipCache.get(tileName);
+        }
     }
 
     public static Set<PIP> getFwdPIPs(Design d, String tileName, String nodeName) {
         Set<PIP> pipSet = new HashSet<>();
 
-        for (PIP pip : getTilePIPs(d, tileName)) {
-            if (RouteUtil.getPIPNodeName(tileName, pip.getStartWireName()).equals(nodeName))
-                pipSet.add(pip);
+        synchronized (pipCache) {
+            for (PIP pip : getTilePIPs(d, tileName)) {
+                if (RouteUtil.getPIPNodeName(tileName, pip.getStartWireName()).equals(nodeName))
+                    pipSet.add(pip);
+            }
         }
         return pipSet;
     }
@@ -81,9 +85,11 @@ public class FabricBrowser {
     public static Set<PIP> getBkwdPIPs(Design d, String tileName, String nodeName) {
         Set<PIP> pipSet = new HashSet<>();
 
-        for (PIP pip : getTilePIPs(d, tileName)) {
-            if (RouteUtil.getPIPNodeName(tileName, pip.getEndWireName()).equals(nodeName))
-                pipSet.add(pip);
+        synchronized (pipCache) {
+            for (PIP pip : getTilePIPs(d, tileName)) {
+                if (RouteUtil.getPIPNodeName(tileName, pip.getEndWireName()).equals(nodeName))
+                    pipSet.add(pip);
+            }
         }
         return pipSet;
     }
@@ -94,37 +100,41 @@ public class FabricBrowser {
      */
     public static Set<EnterWireJunction> getExitFanOut(Design d, ExitWireJunction exit) {
 
-        if (!exitFanOutCache.containsKey(exit.getWireName()))
-            updateExitFanOut(d, exit.getTileName(), exit.getWireName());
+        synchronized (exitFanOutCache) {
+            if (!exitFanOutCache.containsKey(exit.getWireName()))
+                updateExitFanOut(d, exit.getTileName(), exit.getWireName());
 
-        Set<EnterWireJunction> entrances = new LinkedHashSet<>();
-        String tileName = exit.getTileName();
-        for (FanOutBundle bundle : exitFanOutCache.get(exit.getWireName())) {
-            EnterWireJunction entrance = new EnterWireJunction(d, tileName, bundle.getWireName());
-            entrance.setTilePathCost(bundle.getPathCost());
-            entrances.add(entrance);
+            Set<EnterWireJunction> entrances = new LinkedHashSet<>();
+            String tileName = exit.getTileName();
+            for (FanOutBundle bundle : exitFanOutCache.get(exit.getWireName())) {
+                EnterWireJunction entrance = new EnterWireJunction(d, tileName, bundle.getWireName());
+                entrance.setTilePathCost(bundle.getPathCost());
+                entrances.add(entrance);
+            }
+            return entrances;
         }
-        return entrances;
     }
 
     /*
      * Find all exiting wire junctions that can be routed from the entrance junction
      *   Checks cache first before searching
      */
-    public static Set<ExitWireJunction> getEntranceFanOut(Design d, EnterWireJunction entrance) {
+    public static synchronized Set<ExitWireJunction> getEntranceFanOut(Design d, EnterWireJunction entrance) {
 
-        if (!entranceFanOutCache.containsKey(entrance.getWireName()))
-            updateEntranceFanOut(d, entrance.getTileName(), entrance.getWireName());
+        synchronized (entranceFanOutCache) {
+            if (!entranceFanOutCache.containsKey(entrance.getWireName()))
+                updateEntranceFanOut(d, entrance.getTileName(), entrance.getWireName());
 
-        Set<ExitWireJunction> exits = new LinkedHashSet<>();
-        String tileName = entrance.getTileName();
-        for (FanOutBundle bundle : entranceFanOutCache.get(entrance.getWireName())) {
-            ExitWireJunction exit = new ExitWireJunction(d, tileName, bundle.getWireName());
-            exit.setTilePathCost(bundle.getPathCost());
-            exits.add(exit);
+            Set<ExitWireJunction> exits = new LinkedHashSet<>();
+            String tileName = entrance.getTileName();
+            for (FanOutBundle bundle : entranceFanOutCache.get(entrance.getWireName())) {
+                ExitWireJunction exit = new ExitWireJunction(d, tileName, bundle.getWireName());
+                exit.setTilePathCost(bundle.getPathCost());
+                exits.add(exit);
+            }
+
+            return exits;
         }
-
-        return exits;
     }
 
     /*
@@ -165,7 +175,9 @@ public class FabricBrowser {
             }
         }
 
-        exitFanOutCache.put(exitWireName, results);
+        synchronized (exitFanOutCache) {
+            exitFanOutCache.put(exitWireName, results);
+        }
     }
 
     /*
@@ -206,7 +218,9 @@ public class FabricBrowser {
             }
         }
 
-        entranceFanOutCache.put(entranceWireName, results);
+        synchronized (entranceFanOutCache) {
+            entranceFanOutCache.put(entranceWireName, results);
+        }
     }
 
     /*
@@ -364,48 +378,5 @@ public class FabricBrowser {
         }
 
         return results;
-    }
-
-    /*
-     * Verifies that there is a path between entrance and exit
-     */
-    public static boolean isPathPossible(Design d, EnterWireJunction entrance, ExitWireJunction exit) {
-
-        // Not applicable unless entrance and exit are on the same INT tile.
-        if (!entrance.getTileName().equals(exit.getTileName()))
-            return false;
-
-        String tileName = entrance.getTileName();
-
-        Queue<NodeDepthPair> queue = new LinkedList<>();
-        queue.add(new NodeDepthPair(entrance.getNodeName()));
-
-        HashSet<String> footprint = new HashSet<>();
-
-        while (!queue.isEmpty()) {
-            NodeDepthPair trav = queue.remove();
-
-            if (trav.getDepth() >= TILE_TRAVERSAL_MAX_DEPTH)
-                return false;
-
-            for (PIP pip : getFwdPIPs(d, tileName, trav.getNodeName())) {
-                String nextNodeName = RouteUtil.getPIPNodeName(tileName, pip.getEndWireName());
-
-                if (nextNodeName.equals(exit.getNodeName())) {
-                    return true;
-                }
-
-                if (footprint.contains(nextNodeName) || RouteForge.isLocked(nextNodeName))
-                    continue;
-
-                if (RouteUtil.isNodeBuffer(d, tileName, nextNodeName))
-                    queue.add(new NodeDepthPair(nextNodeName, trav.getDepth() + 1));
-
-                footprint.add(nextNodeName);
-            }
-        }
-
-
-        return false;
     }
 }

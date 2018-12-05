@@ -7,10 +7,10 @@ import org.apache.commons.lang3.tuple.Pair;
 
 import java.util.*;
 
-public class StatefulBatchRouter {
+public class ThreadedRoutingJob extends Thread {
 
     /*
-     * Stateful router which has more advanced error correction / congestion relief techniques
+     * Routes a single register connection on a single thread
      */
 
     private static final int SINK_TILE_TRAVERSAL_MAX_DEPTH = 8;
@@ -19,10 +19,13 @@ public class StatefulBatchRouter {
     private static final int V_LONG_LINE_LENGTH = 12;
     private static final int H_LONG_LINE_LENGTH = 6;
 
-    private static final int TEMPLATE_COST_TOLERANCE = 7;
-
     private long tBegin;
     private long tEnd;
+
+    private Design coreDesign;
+    private int jobID;
+
+    private RouterLog.BufferedLog bufferedLog;
 
     private RegisterConnection connection;
     private int bitwidth;
@@ -40,7 +43,14 @@ public class StatefulBatchRouter {
 
     private RoutingFootprint footprint;
 
-    private StatefulBatchRouter(RegisterConnection connection) {
+    public ThreadedRoutingJob(Design d, int jobID, RegisterConnection connection) {
+        super();
+
+        coreDesign = d;
+        this.jobID = jobID;
+
+        bufferedLog = RouterLog.newBufferedLog();
+
         this.connection = connection;
         bitwidth = connection.getBitWidth();
         srcReg = connection.getSrcReg();
@@ -121,9 +131,6 @@ public class StatefulBatchRouter {
 
         EnterWireJunction src = srcJunctions.get(bitIndex);
         ExitWireJunction snk = snkJunctions.get(bitIndex);
-
-        RouterLog.log("Routing template for " + src + " --> " + snk + " (batch size: " + batchSize + ").",
-                RouterLog.Level.INFO);
 
         ArrayList<RouteTemplate> results = new ArrayList<>();
 
@@ -290,21 +297,12 @@ public class StatefulBatchRouter {
 
         }
 
-        if (results.size() == 0)
-            RouterLog.log("Failed to determine routing templates.", RouterLog.Level.ERROR);
-        else if (results.size() < batchSize)
-            RouterLog.log("Failed to determine proper number of routing templates. Optimization will not be effective.",
-                    RouterLog.Level.WARNING);
-        else {
-            RouterLog.log("Found " + results.size() + " templates:", RouterLog.Level.INFO);
-            RouterLog.indent();
-            for (RouteTemplate result : results)
-                RouterLog.log(result.hopSummary(), RouterLog.Level.INFO);
-            RouterLog.indent(-1);
-            RouterLog.log("BFS search took " + (System.currentTimeMillis() - tBegin) + " ms.",
-                    RouterLog.Level.VERBOSE);
-        }
+        if (results.size() == 0) {
 
+        }
+        else if (results.size() < batchSize) {
+
+        }
         return results;
     }
 
@@ -453,13 +451,11 @@ public class StatefulBatchRouter {
                 results = deriveValidTilePathsRecurse(0, results, new HashSet<>(), candidates);
 
                 if (results != null) {
-                    RouterLog.log("Tile paths found at a worst-case cost of " + threshold + ".",
-                            RouterLog.Level.INFO);
                     return new ArrayList<>(results);
                 }
             }
         }
-        RouterLog.log("Deadlock detected. No sink paths configuration is possible.", RouterLog.Level.INFO);
+
         return null;
     }
 
@@ -579,13 +575,11 @@ public class StatefulBatchRouter {
                 results = deriveValidTemplateConfiguration(d, 0, results, new HashSet<>(), candidates);
 
                 if (results != null) {
-                    RouterLog.log("Route templates found at a worst-case adjusted cost of " + threshold + ".",
-                            RouterLog.Level.INFO);
                     return new ArrayList<>(results);
                 }
             }
         }
-        RouterLog.log("Deadlock detected. No template configuration is possible.", RouterLog.Level.INFO);
+
         return null;
     }
 
@@ -646,8 +640,6 @@ public class StatefulBatchRouter {
             }
         }
 
-        for (int i = 0; i < bitwidth; i++)
-            RouterLog.log(srcJunctions.get(i) + " --> " + snkJunctions.get(i), RouterLog.Level.VERBOSE);
     }
 
     /*
@@ -657,7 +649,6 @@ public class StatefulBatchRouter {
      * Certain templates are purged if they conflict with others in the bus
      */
     private boolean extendTemplateBatchesForBus(Design d, int batchSize) {
-        long tBegin = System.currentTimeMillis();
 
         ArrayList<ArrayList<RouteTemplate>> thisBatch = new ArrayList<>();
         for (int i = 0; i < bitwidth; i++) {
@@ -667,15 +658,12 @@ public class StatefulBatchRouter {
 
         ArrayList<RouteTemplate> templates = deriveBestTemplateConfiguration(d, templateCandidatesCache);
         if (templates == null) {
-            RouterLog.log("Failed to determine working template configuration.", RouterLog.Level.NORMAL);
             return false;
         }
 
         for (int i = 0; i < bitwidth; i++)
             routes.set(i, new CustomRoute(templates.get(i)));
 
-        RouterLog.log("Templates found in " + (System.currentTimeMillis() - tBegin) + " ms.",
-                RouterLog.Level.NORMAL);
         return true;
 
     }
@@ -697,12 +685,8 @@ public class StatefulBatchRouter {
 
         ArrayList<TilePath> endPaths = deriveBestTilePathConfiguration(allEndPathChoices);
         if (endPaths == null) {
-            RouterLog.log("Failed to find sink tile paths.", RouterLog.Level.NORMAL);
             return false;
         }
-
-        RouterLog.log("Sink paths found in " + (System.currentTimeMillis() - tBegin) + " ms.",
-                RouterLog.Level.NORMAL);
 
         for (int i = 0; i < bitwidth; i++) {
             routes.get(i).setPath(-1, endPaths.get(i));
@@ -728,8 +712,6 @@ public class StatefulBatchRouter {
                         (ExitWireJunction) template.getTemplate(i * 2 + 1)));
             }
         }
-        RouterLog.log("All tile paths found in " + (System.currentTimeMillis() - tBegin) + " ms.",
-                RouterLog.Level.NORMAL);
     }
 
     /*
@@ -783,7 +765,6 @@ public class StatefulBatchRouter {
         }
 
         if (liveLockCount >= 9999) {
-            RouterLog.log("Route contention aborted (live lock detected).", RouterLog.Level.NORMAL);
 
             // Remove conflicting route: most likely the one with the highest deflection count
             int index = 0;
@@ -798,10 +779,6 @@ public class StatefulBatchRouter {
 
             return false;
         }
-
-        RouterLog.log(preemptCount + " tile paths were rerouted due to contention.", RouterLog.Level.INFO);
-        RouterLog.log("Route contention completed in " + (System.currentTimeMillis() - tBegin) + " ms.",
-                RouterLog.Level.NORMAL);
 
         return true;
     }
@@ -830,71 +807,15 @@ public class StatefulBatchRouter {
         }
     }
 
-    /*
-     * In the case that connections are congruent, simply perform a 2D transform-copy of the routes
-     */
-    private static RoutingFootprint copyRoutesToFootprint(Design d, RegisterConnection connection, RoutingFootprint ref,
-                                                          int dx, int dy) {
-        RoutingFootprint footprint = new RoutingFootprint();
+    @Override
+    public void run() {
+        beginTiming();
 
-        int bitIndex = 0;
-        int routeIndex = 0;
-        ComplexRegister srcReg = connection.getSrcReg();
-        for (RegisterComponent component : srcReg.getComponents()) {
-            for (int i = 0; i < component.getBitWidth(); i++, bitIndex++) {
-                if (bitIndex >= connection.getSrcRegLowestBit() && bitIndex <= connection.getSrcRegHighestBit()) {
-                    Net net = d.getNet(srcReg.getName() + "_" + component.getName() + "/"
-                            + ComplexRegister.OUTPUT_NAME + "[" + i + "]");
-
-                    CustomRoute routeCopy = ref.getRoute(routeIndex).copyWithOffset(d, dx, dy);
-                    routeCopy.setBitIndex(bitIndex);
-
-                    footprint.add(routeCopy, net);
-
-                    routeIndex += 1;
-                }
-            }
-        }
-
-        return footprint;
-    }
-
-    /*
-     * Core function for router
-     */
-    public static RoutingFootprint routeConnection(Design d, RegisterConnection connection) {
-
-        RouterLog.log("Performing state-based, batch-based routing on " + connection.toString(), RouterLog.Level.NORMAL);
-        RouterLog.indent();
-
-        ArrayList<RegisterConnection> cachedConns = RoutesCache.searchCacheForCongruentConnection(d, connection);
-        if (!cachedConns.isEmpty()) {
-            RouterLog.log("Congruency detected for " + connection.toString()
-                    + ". A previous " + cachedConns.size() + " routes may be copied with offset.", RouterLog.Level.NORMAL);
-
-            for (RegisterConnection cachedConn : cachedConns) {
-                int dx = RoutesCache.getXOffsetOfCongruentConnection(d, cachedConn, connection);
-                int dy = RoutesCache.getYOffsetOfCongruentConnection(d, cachedConn, connection);
-
-                RoutingFootprint cachedFp = RoutesCache.getFootprint(cachedConn);
-
-                RoutingFootprint offsetFootprint = copyRoutesToFootprint(d, connection, cachedFp, dx, dy);
-
-                if (!RoutingCalculator.isRoutingFootprintConflicted(offsetFootprint)) {
-                    RouterLog.indent(-1);
-                    RouterLog.log("A previous route has been successfully copied.", RouterLog.Level.NORMAL);
-                    return offsetFootprint;
-                }
-            }
-            RouterLog.log("Conflict detected. The connection will be routed from scratch instead",
-                    RouterLog.Level.NORMAL);
-        }
+        bufferedLog.log("Performing state-based, batch-based routing on " + connection.toString(),
+                RouterLog.Level.NORMAL);
 
         int lastState = -1;
         int state = 0;
-
-        StatefulBatchRouter router = new StatefulBatchRouter(connection);
-        router.beginTiming();
 
         while (state < 7) {
 
@@ -903,22 +824,14 @@ public class StatefulBatchRouter {
             switch (state) {
 
                 case 0: {
-                    RouterLog.log("0: Locking in/out PIPs of registers.", RouterLog.Level.NORMAL);
-
-                    RouterLog.indent();
-                    router.lockJunctionPIPs(d);
-                    RouterLog.indent(-1);
-
+                    bufferedLog.log("0: Locking in/out PIPs of registers.", RouterLog.Level.NORMAL);
+                    lockJunctionPIPs(coreDesign);
                     nextState = state + 1;
                     break;
                 }
                 case 1: {
-                    RouterLog.log("1: Finding corresponding src/snk junctions.", RouterLog.Level.NORMAL);
-
-                    RouterLog.indent();
-                    router.populateJunctionPairs(d);
-                    RouterLog.indent(-1);
-
+                    bufferedLog.log("1: Finding corresponding src/snk junctions.", RouterLog.Level.NORMAL);
+                    populateJunctionPairs(coreDesign);
                     nextState = state + 1;
                     break;
                 }
@@ -929,72 +842,56 @@ public class StatefulBatchRouter {
                     else
                         batchSize = 3;
 
-                    RouterLog.log("2: Calculating route templates (batch size: " + batchSize + ").", RouterLog.Level.NORMAL);
-
-                    RouterLog.indent();
-                    boolean success = router.extendTemplateBatchesForBus(d, batchSize);
-                    RouterLog.indent(-1);
-
-                    if (!success) {
-                        RouterLog.indent();
-                        RouterLog.log("Restarting at step 2.", RouterLog.Level.NORMAL);
-                        RouterLog.indent(-1);
+                    bufferedLog.log("2: Calculating route templates (batch size: " + batchSize + ").",
+                            RouterLog.Level.NORMAL);
+                    boolean success = extendTemplateBatchesForBus(coreDesign, batchSize);
+                    if (success)
+                        nextState = state + 1;
+                    else {
+                        bufferedLog.indent();
+                        bufferedLog.log("Unable to find working templates. Restarting at step 2.",
+                                RouterLog.Level.NORMAL);
+                        bufferedLog.indent(-1);
                     }
-                    nextState = state + 1;
                     break;
                 }
                 case 3: {
-                    RouterLog.log("3: Using \"easing\" method to find best sink tile paths.", RouterLog.Level.NORMAL);
-
-                    RouterLog.indent();
-                    boolean success = router.deriveBestSinkPathConfiguration(d);
-                    RouterLog.indent(-1);
-
+                    bufferedLog.log("3: Using \"easing\" method to find best sink tile paths.", RouterLog.Level.NORMAL);
+                    boolean success = deriveBestSinkPathConfiguration(coreDesign);
                     if (!success) {
-                        RouterLog.indent();
-                        RouterLog.log("Restarting at step 2.", RouterLog.Level.NORMAL);
-                        RouterLog.indent(-1);
+                        bufferedLog.indent();
+                        bufferedLog.log("Failed to find best sink tile paths. Restarting at step 2.",
+                                RouterLog.Level.NORMAL);
+                        bufferedLog.indent(-1);
                         nextState = 2;
-                        break;
                     }
-
-                    nextState = state + 1;
+                    else
+                        nextState = state + 1;
                     break;
                 }
                 case 4: {
-                    RouterLog.log("4: Calculating tile paths for templates.", RouterLog.Level.NORMAL);
-
-                    RouterLog.indent();
-                    router.populatePathSubs(d);
-                    RouterLog.indent(-1);
-
+                    bufferedLog.log("4: Calculating tile paths for templates.", RouterLog.Level.NORMAL);
+                    populatePathSubs(coreDesign);
                     nextState = state + 1;
                     break;
                 }
                 case 5: {
-                    RouterLog.log("5: Performing route contention.", RouterLog.Level.NORMAL);
-
-                    RouterLog.indent();
-                    boolean success = router.routeContention(d);
-                    RouterLog.indent(-1);
+                    bufferedLog.log("5: Performing route contention.", RouterLog.Level.NORMAL);
+                    boolean success = routeContention(coreDesign);
                     if (!success) {
-                        RouterLog.indent();
-                        RouterLog.log("Restarting at step 2.", RouterLog.Level.NORMAL);
-                        RouterLog.indent(-1);
+                        bufferedLog.indent();
+                        bufferedLog.log("Live-lock detected during route contention. Restarting at step 2.",
+                                RouterLog.Level.NORMAL);
+                        bufferedLog.indent(-1);
                         nextState = 2;
-                        break;
                     }
-
-                    nextState = state + 1;
+                    else
+                        nextState = state + 1;
                     break;
                 }
                 case 6:
-                    RouterLog.log("6: Compiling routing footprint.", RouterLog.Level.NORMAL);
-
-                    RouterLog.indent();
-                    router.addRoutesToFootprint(d);
-                    RouterLog.indent(-1);
-
+                    bufferedLog.log("6: Compiling routing footprint.", RouterLog.Level.NORMAL);
+                    addRoutesToFootprint(coreDesign);
                     nextState = state + 1;
                     break;
                 default:
@@ -1006,22 +903,16 @@ public class StatefulBatchRouter {
 
         }
 
-        router.finishTiming();
+        DesignRouter.completeRoutingJob(jobID, connection, footprint);
 
-        RouterLog.indent(-1);
-        RouterLog.log("Routing success. Connection routed in " + router.getElapsedTime() + " ms.", RouterLog.Level.NORMAL);
+        finishTiming();
 
-        RouterLog.log("Hop summary of connection:", RouterLog.Level.NORMAL);
-        RouterLog.indent();
-        for (CustomRoute route : router.getRoutes())
-            RouterLog.log(route.getTemplate().hopSummary(), RouterLog.Level.NORMAL);
-        RouterLog.indent(-1);
+        bufferedLog.log("Routing success. Connection routed in " + getElapsedTime() + " ms.", RouterLog.Level.NORMAL);
+        bufferedLog.log("Hop summary of connection:", RouterLog.Level.NORMAL);
+        bufferedLog.indent();
+        for (CustomRoute route : getRoutes())
+            bufferedLog.log(route.getTemplate().hopSummary(), RouterLog.Level.NORMAL);
+        bufferedLog.indent(-1);
 
-
-        RouteForge.flushNodeLock();
-        RoutesCache.cache(connection, router.getFootprint());
-
-        return router.getFootprint();
     }
-
 }

@@ -1,4 +1,7 @@
+import org.apache.commons.lang3.tuple.ImmutablePair;
+
 import java.util.HashMap;
+import java.util.LinkedList;
 
 public class RouterLog {
 
@@ -59,6 +62,42 @@ public class RouterLog {
         prefixMap.put(Level.NORMAL.ordinal(), "NORMAL\t" + indents);
         prefixMap.put(Level.WARNING.ordinal(), "WARNING\t" + indents);
         prefixMap.put(Level.ERROR.ordinal(), "ERROR\t" + indents);
+    }
+
+
+    public static class BufferedLog {
+        private int indentLevel = 0;
+        private LinkedList<ImmutablePair<Level, String>> buffer = new LinkedList<>();
+
+        public void indent() {
+            indentLevel += 1;
+        }
+
+        public void indent(int delta) {
+            indentLevel += delta;
+        }
+
+        public void log(String msg, Level level) {
+            if (level.ordinal() >= logLevel.ordinal()) {
+                String prefixIndent = "";
+                for (int i = 0; i < indentLevel; i++)
+                    prefixIndent += "\t";
+
+                for (String s : msg.split("\n"))
+                    buffer.addLast(new ImmutablePair<>(level, prefixIndent + s));
+            }
+        }
+
+        public void dumpLog() {
+            RouterLog.log("Log dump:", Level.NORMAL);
+            for (ImmutablePair<Level, String> msg : buffer) {
+                RouterLog.log(msg.getRight(), msg.getLeft());
+            }
+        }
+    }
+
+    public static BufferedLog newBufferedLog() {
+        return new BufferedLog();
     }
 
 }

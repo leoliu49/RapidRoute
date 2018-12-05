@@ -27,10 +27,9 @@ public class CustomDesign {
 
     private static OptionParser createOptionParser() {
         OptionParser p = new OptionParser();
-        p.accepts("name").withOptionalArg().defaultsTo("custom_design")
-                .describedAs("Name of design");
-        p.accepts("out").withOptionalArg().defaultsTo("custom_design")
-                .describedAs("Prefix for output *_unrouted.dcp, *_custom_routed.dcp");
+        p.accepts("name").withOptionalArg().defaultsTo("custom_design").describedAs("Name of design");
+        p.accepts("out").withOptionalArg().defaultsTo("custom_design").describedAs("Prefix for output *_unrouted.dcp, *_custom_routed.dcp");
+        p.accepts("jobs").withOptionalArg().defaultsTo("4").describedAs("Number of concurrent jobs for routing");
         p.accepts("help").forHelp();
         p.accepts("verbose");
         p.accepts("example");
@@ -118,11 +117,12 @@ public class CustomDesign {
 
         d.writeCheckpoint(ResourcesManager.OUTPUT_DIR + options.valueOf("out") + "_unrouted.dcp");
 
+        DesignRouter.initializeRouter(d, Integer.valueOf((String) options.valueOf("jobs")));
         for (RegisterConnection connection : connections) {
-            if (!connection.isInputConnection() && !connection.isOutputConnection()) {
-                StatefulBatchRouter.routeConnection(d, connection).commit(d);
-            }
+            DesignRouter.initNewConnectionForRouting(d, connection);
         }
+
+        DesignRouter.routeDesign();
 
         d.writeCheckpoint(ResourcesManager.OUTPUT_DIR + options.valueOf("out") + "_custom_routed.dcp");
 

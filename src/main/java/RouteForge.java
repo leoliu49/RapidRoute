@@ -12,32 +12,51 @@ public class RouteForge {
      * Collection of static functions which can route registers
      */
 
-    private static Set<String> nodeLock = new HashSet<>();
+    private static final Set<String> nodeLock = new HashSet<>();
 
     public static void flushNodeLock() {
         nodeLock.clear();
     }
 
     public static boolean lock(String nodeName) {
-        if (nodeLock.contains(nodeName))
-            return false;
-        nodeLock.add(nodeName);
+        synchronized (nodeLock) {
+            if (nodeLock.contains(nodeName))
+                return false;
+            nodeLock.add(nodeName);
+        }
         return true;
     }
 
     public static boolean isLocked(String nodeName) {
-        return nodeLock.contains(nodeName) || globalNodeFootprint.contains(nodeName);
+        synchronized (nodeLock) {
+            synchronized (globalNodeFootprint) {
+                return nodeLock.contains(nodeName) || isOccupied(nodeName);
+            }
+        }
     }
 
     public static void unlock(String nodeName) {
-        nodeLock.remove(nodeName);
+        synchronized (nodeLock) {
+            nodeLock.remove(nodeName);
+        }
     }
 
     // ArrayList of all used nodes
-    public static Set<String> globalNodeFootprint = new HashSet<>();
+    private static final Set<String> globalNodeFootprint = new HashSet<>();
 
-    static {
-        FabricBrowser.setGlobalNodeFootprint(globalNodeFootprint);
+    public static boolean occupy(String nodeName) {
+        synchronized (globalNodeFootprint) {
+            if (globalNodeFootprint.contains(nodeName))
+                return false;
+            globalNodeFootprint.add(nodeName);
+        }
+        return true;
+    }
+
+    public static boolean isOccupied(String nodeName) {
+        synchronized (globalNodeFootprint) {
+            return globalNodeFootprint.contains(nodeName);
+        }
     }
 
     public static void sanitizeNets(Design d) {
@@ -74,8 +93,8 @@ public class RouteForge {
                 RouterLog.log("Junction <" + startNodeName + "> ---> <" + endNodeName + ">", RouterLog.Level.INFO);
                 n.addPIP(pip);
 
-                globalNodeFootprint.add(startNodeName);
-                globalNodeFootprint.add(endNodeName);
+                occupy(startNodeName);
+                occupy(endNodeName);
                 return;
             }
         }

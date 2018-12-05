@@ -84,7 +84,7 @@ public class RoutingCalculator {
         for (CustomRoute route : footprint.getRoutes()) {
             for (TilePath path : route.getRoute()) {
                 for (String node : path.getNodePath()) {
-                    if (RouteForge.globalNodeFootprint.contains(node))
+                    if (RouteForge.isOccupied(node))
                         return true;
                 }
             }

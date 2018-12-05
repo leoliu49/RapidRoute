@@ -7,7 +7,10 @@ import java.util.*;
 
 public class FabricBrowser {
 
-    public static class FanOutBundle {
+    private static class FanOutBundle {
+        /*
+         * Internal class to track cost of entrance-to-exit fan out costs
+         */
         public String wireName;
         public int pathCost;
 
@@ -25,11 +28,6 @@ public class FabricBrowser {
         }
     }
 
-    public static final HashMap<String, ArrayList<PIP>> pipCache = new HashMap<>();
-    public static final HashMap<String, Set<FanOutBundle>> exitFanOutCache = new HashMap<>();
-    public static final HashMap<String, Set<FanOutBundle>> entranceFanOutCache = new HashMap<>();
-
-    public static final int TILE_TRAVERSAL_MAX_DEPTH = 4;
     private static class NodeDepthPair {
         /*
          * Internal class used to track depth of BFS searches
@@ -56,11 +54,11 @@ public class FabricBrowser {
         }
     }
 
-    public static Set<String> globalNodeFootprint = new HashSet<>();
+    public static final HashMap<String, ArrayList<PIP>> pipCache = new HashMap<>();
+    public static final HashMap<String, Set<FanOutBundle>> exitFanOutCache = new HashMap<>();
+    public static final HashMap<String, Set<FanOutBundle>> entranceFanOutCache = new HashMap<>();
 
-    public static void setGlobalNodeFootprint(Set<String> footprint) {
-        globalNodeFootprint = footprint;
-    }
+    public static final int TILE_TRAVERSAL_MAX_DEPTH = 4;
 
     public static ArrayList<PIP> getTilePIPs(Design d, String tileName) {
         synchronized (pipCache) {
@@ -366,15 +364,6 @@ public class FabricBrowser {
                         queue.add(travCopy);
                 }
             }
-        }
-
-        RouterLog.log("Found " + results.size() + " INT tile paths for " + entrance + " --> " + exit + ".",
-                RouterLog.Level.INFO);
-
-        if (!results.isEmpty()) {
-            RouterLog.indent();
-            RouterLog.log("Minimum cost of tile paths is " + results.get(0).getCost() + ".", RouterLog.Level.VERBOSE);
-            RouterLog.indent(-1);
         }
 
         return results;

@@ -128,9 +128,13 @@ public class DesignRouter {
         synchronized (routesMap) {
             routesMap.put(connection, footprint);
         }
-        synchronized (freeThreads) {
-            if (!freeThreads.contains(jobID))
-                freeThreads.add(jobID);
+
+        // -1 indicates running on main thread
+        if (jobID != -1) {
+            synchronized (freeThreads) {
+                if (!freeThreads.contains(jobID))
+                    freeThreads.add(jobID);
+            }
         }
     }
 
@@ -203,6 +207,7 @@ public class DesignRouter {
             }
         }
 
+        // Rendezvous point
         for (Thread job : threadPool) {
             if (job != null) {
                 try {
@@ -235,6 +240,57 @@ public class DesignRouter {
         RouterLog.log("All cloneable routes copied in " + (System.currentTimeMillis() - tStep2Begin) + " ms.",
                 RouterLog.Level.NORMAL);
         RouterLog.indent(-1);
+
+        /*
+         * Step 3: Reroute routes with template conflicts (i.e. hop wires conflicts)
+         *  Routes are routed synchronously
+         */
+        long tStep3Begin = System.currentTimeMillis();
+        RouterLog.log("3: Rerouting conflicting routes.", RouterLog.Level.NORMAL);
+        RouterLog.indent();
+        for (RegisterConnection connection : routesMap.keySet()) {
+            RoutingFootprint footprint = routesMap.get(connection);
+
+            boolean isConflicted = false;
+            for (CustomRoute route : footprint.getRoutes()) {
+                for (WireJunction hopJunction : route.getTemplate().getTemplate()) {
+                    if (RouteForge.isOccupied(hopJunction.getNodeName())) {
+                        isConflicted = true;
+                        break;
+                    }
+                }
+
+                if (isConflicted) {
+                    routingQueue.add(connection);
+                    break;
+                }
+            }
+
+            if (!isConflicted) {
+                for (CustomRoute route : footprint.getRoutes()) {
+                    for (WireJunction hopJunction : route.getTemplate().getTemplate())
+                        RouteForge.occupy(hopJunction.getNodeName());
+                }
+            }
+        }
+
+        RouterLog.log(routingQueue.size() + " conflicted routes found.", RouterLog.Level.NORMAL);
+
+        while (!routingQueue.isEmpty()) {
+            RegisterConnection connection = routingQueue.remove();
+            new ThreadedRoutingJob(coreDesign, -1, connection).run();
+            for (CustomRoute route : routesMap.get(connection).getRoutes()) {
+                for (WireJunction hopJunction : route.getTemplate().getTemplate())
+                    RouteForge.occupy(hopJunction.getNodeName());
+            }
+        }
+
+        RouterLog.log("All conflicting routes corrected in " + (System.currentTimeMillis() - tStep3Begin) + " ms.",
+                RouterLog.Level.NORMAL);
+        RouterLog.indent(-1);
+
+
+
 
     }
 }

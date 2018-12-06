@@ -703,6 +703,7 @@ public class ThreadedRoutingJob extends Thread {
     private void populatePathSubs(Design d) {
         long tBegin = System.currentTimeMillis();
 
+        int bitIndex = 0;
         // Calculate tile paths for all except sink tile paths (already done in step 3)
         for (CustomRoute route : routes) {
             RouteTemplate template = route.getTemplate();
@@ -711,6 +712,11 @@ public class ThreadedRoutingJob extends Thread {
                         (EnterWireJunction) template.getTemplate(i * 2),
                         (ExitWireJunction) template.getTemplate(i * 2 + 1)));
             }
+
+            route.setPathSub(-1, findTilePathsToSink(d, (EnterWireJunction) route.getTemplate().getTemplate(-2),
+                    bitIndex));
+
+            bitIndex += 1;
         }
     }
 

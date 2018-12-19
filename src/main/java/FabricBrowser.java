@@ -11,8 +11,8 @@ public class FabricBrowser {
         /*
          * Internal class to track cost of entrance-to-exit fan out costs
          */
-        public String wireName;
-        public int pathCost;
+        private String wireName;
+        private int pathCost;
 
         public FanOutBundle(String wireName, int pathCost) {
             this.wireName = wireName;

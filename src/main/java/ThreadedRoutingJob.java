@@ -74,7 +74,7 @@ public class ThreadedRoutingJob extends Thread {
             routes.add(null);
         }
 
-        footprint = new RoutingFootprint();
+        footprint = new RoutingFootprint(connection);
     }
 
     /* Accessors and modifiers */
@@ -707,11 +707,18 @@ public class ThreadedRoutingJob extends Thread {
         // Calculate tile paths for all except sink tile paths (already done in step 3)
         for (CustomRoute route : routes) {
             RouteTemplate template = route.getTemplate();
+            for (int i = 0; i < route.getPathSubs().size() - 1; i++) {
+                route.setPathSub(i, FabricBrowser.findTilePaths(d, TILE_TRAVERSAL_MAX_DEPTH,
+                        (EnterWireJunction) template.getTemplate(i * 2),
+                        (ExitWireJunction) template.getTemplate(i * 2 + 1)));
+            }
+            /*
             for (int i = 0; i < template.getTemplate().size() / 2 - 1; i++) {
                 route.setPathSub(i, FabricBrowser.findTilePaths(d, TILE_TRAVERSAL_MAX_DEPTH,
                         (EnterWireJunction) template.getTemplate(i * 2),
                         (ExitWireJunction) template.getTemplate(i * 2 + 1)));
             }
+            */
 
             route.setPathSub(-1, findTilePathsToSink(d, (EnterWireJunction) route.getTemplate().getTemplate(-2),
                     bitIndex));
@@ -742,11 +749,11 @@ public class ThreadedRoutingJob extends Thread {
 
         // TODO: Doesn't produce absolutely optimal solutions
         while (!routeQueue.isEmpty() && liveLockCount < 9999) {
-            Pair next = routeQueue.remove();
+            Pair<Integer, Integer> next = routeQueue.remove();
             liveLockCount += 1;
 
-            int bitIndex = (int) next.getLeft();
-            int pathIndex = (int) next.getRight();
+            int bitIndex = next.getLeft();
+            int pathIndex = next.getRight();
 
             TilePath candidatePath = routes.get(bitIndex).getNextPossiblePath(pathIndex);
 

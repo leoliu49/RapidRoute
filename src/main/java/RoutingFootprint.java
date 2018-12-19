@@ -5,12 +5,20 @@ import java.util.*;
 
 public class RoutingFootprint {
 
+    private RegisterConnection registerConnection;
+
     private HashMap<CustomRoute, Net> routeNetMap;
     private HashMap<Integer, CustomRoute> indexRouteMap;
 
-    public RoutingFootprint() {
+    public RoutingFootprint(RegisterConnection connection) {
+        registerConnection = connection;
+
         routeNetMap = new HashMap<>();
         indexRouteMap = new HashMap<>();
+    }
+
+    public RegisterConnection getRegisterConnection() {
+        return registerConnection;
     }
 
     public HashMap<CustomRoute, Net> getRouteMap() {
@@ -41,6 +49,17 @@ public class RoutingFootprint {
             route.commitToNet(d, net);
 
             RouterLog.indent(-1);
+        }
+    }
+
+    public void clear() {
+        for (CustomRoute route : routeNetMap.keySet()) {
+            for (TilePath path : route.getRoute()) {
+                for (String nodeName : path.getNodePath()) {
+                    RouteForge.unlock(nodeName);
+                    RouteForge.unOccupy(nodeName);
+                }
+            }
         }
     }
 }

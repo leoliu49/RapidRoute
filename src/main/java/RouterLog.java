@@ -30,7 +30,7 @@ public class RouterLog {
         if (prefixMap == null)
             init(level);
         if (level.ordinal() >= logLevel.ordinal()) {
-            msg = msg.replace("\n", "\n" + prefixMap.get(level.ordinal()) + "\t");
+            msg = msg.replace("\n", "\n" + prefixMap.get(level.ordinal()));
             System.out.println(prefixMap.get(level.ordinal()) + msg);
         }
     }

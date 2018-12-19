@@ -1,7 +1,9 @@
 import com.xilinx.rapidwright.design.Design;
 import com.xilinx.rapidwright.device.Tile;
 import org.apache.commons.lang3.tuple.ImmutablePair;
+import org.apache.commons.lang3.tuple.ImmutableTriple;
 import org.apache.commons.lang3.tuple.Pair;
+import org.apache.commons.lang3.tuple.Triple;
 
 import java.util.*;
 
@@ -10,6 +12,45 @@ public class RoutingCalculator {
     /*
      * Collection of verbose functions for utility in routing
      */
+
+    public static class TilePathUsageBundle {
+        /*
+         * Internal class for tracking congested tiles
+         */
+
+        private boolean isConfliced;
+
+        private String tileName;
+        private Set<Triple<RegisterConnection, CustomRoute, TilePath>> routeSet;
+        private Set<String> nodeUsage;
+
+        public TilePathUsageBundle(String tileName) {
+            this.tileName = tileName;
+            routeSet = new HashSet<>();
+            nodeUsage = new HashSet<>();
+        }
+
+        public boolean isConfliced() {
+            return isConfliced;
+        }
+
+        public Set<Triple<RegisterConnection, CustomRoute, TilePath>> getRouteSet() {
+            return routeSet;
+        }
+
+        public void addTilePath(RegisterConnection connection, CustomRoute route, TilePath path) {
+            routeSet.add(new ImmutableTriple<>(connection, route, path));
+
+            for (String nodeName : path.getNodePath()) {
+                if (nodeUsage.contains(nodeName)) {
+                    isConfliced = true;
+                    break;
+                }
+            }
+            nodeUsage.addAll(path.getNodePath());
+        }
+
+    }
 
     /*
      * Checks to see if the family of RouteTemplates is valid
@@ -67,6 +108,23 @@ public class RoutingCalculator {
             }
         }
 
+
+        return results;
+    }
+
+    public static Set<TilePath> locateTilePathCollisions(TilePath candidatePath, Set<TilePath> paths) {
+        Set<TilePath> results = new HashSet<>();
+
+        Set<String> nodes = new HashSet<>(candidatePath.getNodePath());
+
+        for (TilePath path : paths) {
+            for (String candidateNodeName : candidatePath.getNodePath()) {
+                if (path.getNodePath().contains(candidateNodeName)) {
+                    results.add(path);
+                    break;
+                }
+            }
+        }
 
         return results;
     }

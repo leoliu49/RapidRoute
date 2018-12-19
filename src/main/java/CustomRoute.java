@@ -3,6 +3,7 @@ import com.xilinx.rapidwright.design.Net;
 import com.xilinx.rapidwright.device.Tile;
 
 import java.util.ArrayList;
+import java.util.Collections;
 
 public class CustomRoute {
 
@@ -133,9 +134,22 @@ public class CustomRoute {
         return pathSub.get(pathSub.size() - 1);
     }
 
+    public void setPath(TilePath path) {
+        for (int i = 0; i < route.size(); i++) {
+            if (route.get(i).getEnterJunction().equals(path.getEnterJunction())
+                    && route.get(i).getExitJunction().equals(path.getExitJunction())) {
+                setPath(i, path);
+                return;
+            }
+        }
+    }
+
     public void setPath(int i, TilePath path) {
         if (i < 0)
             i += pathSubs.size();
+
+        if (route.get(i) != null)
+            cost -= route.get(i).getCost();
         route.set(i, path);
         cost += path.getCost();
     }
@@ -145,10 +159,32 @@ public class CustomRoute {
         route.set(i, null);
     }
 
+    public ArrayList<ArrayList<TilePath>> getPathSubs() {
+        return pathSubs;
+    }
+
     public ArrayList<TilePath> getPathSub(int i) {
         if (i < 0)
             i += pathSubs.size();
+        if (pathSubs.get(i) == null) {
+            RouterLog.indent();
+            RouterLog.log("ERROR: RETRIEVED PATHSUB IS NULL", RouterLog.Level.NORMAL);
+            RouterLog.indent(-1);
+        }
         return pathSubs.get(i);
+    }
+
+    public ArrayList<TilePath> getPathSub(TilePath path) {
+        for (int i = 0; i < route.size(); i++) {
+            if (route.get(i).equals(path)) {
+                return getPathSub(i);
+            }
+        }
+
+        RouterLog.indent();
+        RouterLog.log("ERROR: WAS NOT ABLE TO FIND PATHSUB", RouterLog.Level.NORMAL);
+        RouterLog.indent(-1);
+        return null;
     }
 
     public void setPathSub(int i, ArrayList<TilePath> pathSub) {
@@ -160,5 +196,9 @@ public class CustomRoute {
     public void commitToNet(Design d, Net net) {
         for (TilePath path : route)
             path.commitPIPsToNet(d, net);
+    }
+
+    public String shortHand() {
+        return src.toString() + " --> " + snk.toString();
     }
 }

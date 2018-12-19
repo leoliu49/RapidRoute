@@ -59,6 +59,12 @@ public class RouteForge {
         }
     }
 
+    public static void unOccupy(String nodeName) {
+        synchronized (globalNodeFootprint) {
+            globalNodeFootprint.remove(nodeName);
+        }
+    }
+
     public static void sanitizeNets(Design d) {
         EDIFNetlist n = d.getNetlist();
         Map<String, String> parentNetMap = n.getParentNetMap();

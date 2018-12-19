@@ -121,6 +121,37 @@ public class TilePath {
         }
     }
 
+    public boolean equals(TilePath o) {
+        if (this == o) {
+            RouterLog.indent();
+            RouterLog.log("TRUE BECAUSE THE OBJECTS ARE EQUAL", RouterLog.Level.NORMAL);
+            RouterLog.indent(-1);
+            return true;
+        }
+
+        if (nodePath.size() != o.getNodePath().size()) {
+            RouterLog.indent();
+            RouterLog.log("FALSE BECAUSE THE SIZES ARE NOT EQUAL", RouterLog.Level.NORMAL);
+            RouterLog.indent(-1);
+            return false;
+        }
+
+        for (int i = 0; i < nodePath.size(); i++) {
+            if (!nodePath.get(i).equals(o.getNodePath().get(i))) {
+                RouterLog.indent();
+                RouterLog.log("FALSE BECAUSE " + nodePath.get(i) + " != " + o.getNodePath().get(i), RouterLog.Level.NORMAL);
+                RouterLog.indent(-1);
+                return false;
+            }
+        }
+
+        RouterLog.indent();
+        RouterLog.log("TRUE", RouterLog.Level.NORMAL);
+        RouterLog.indent(-1);
+
+        return true;
+    }
+
     @Override
     public String toString() {
         String repr = "";
@@ -130,5 +161,9 @@ public class TilePath {
         repr += "<" + nodePath.get(nodePath.size() - 1) + ">";
 
         return repr;
+    }
+
+    public String shortHand() {
+        return enterJunction.toString() + " --> " + exitJunction.toString();
     }
 }

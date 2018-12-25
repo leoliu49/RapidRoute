@@ -111,6 +111,9 @@ public class DesignRouter {
 
     public static void initNewConnectionForRouting(Design d, RegisterConnection connection) {
 
+        if (connection.isInputConnection() || connection.isOutputConnection())
+            return;
+
         connectionSet.add(connection);
 
         // Check for congruency

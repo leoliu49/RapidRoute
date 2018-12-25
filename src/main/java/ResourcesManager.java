@@ -137,10 +137,10 @@ public class ResourcesManager {
 
         for(String line; (line = routesConfig.readLine()) != null;) {
             line = line.replaceAll(" ", "");
-            if (line.isEmpty())
+            if (line.isEmpty() || line.startsWith("#"))
                 continue;
 
-            String[] elements = line.split("<=");
+            String[] elements = line.split("#")[0].split("<=");
 
             String dest = elements[0];
             Matcher mDest = extractRegisterInfo(dest);

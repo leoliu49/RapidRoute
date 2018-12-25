@@ -158,7 +158,8 @@ public class DesignRouter {
                 routingQueue.add(failure);
             }
             synchronized (routesMap) {
-                routesMap.remove(failure);
+                if (routesMap.containsKey(failure))
+                    routesMap.remove(failure);
             }
         }
 

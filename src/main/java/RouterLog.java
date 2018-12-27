@@ -6,7 +6,7 @@ import java.util.LinkedList;
 public class RouterLog {
 
     public enum Level {
-        VERBOSE, INFO, NORMAL, WARNING, ERROR
+        VERBOSE, INFO, NORMAL, WARNING
     }
 
     private static HashMap<Integer, String> prefixMap = null;
@@ -23,7 +23,6 @@ public class RouterLog {
         prefixMap.put(Level.INFO.ordinal(), "INFO\t");
         prefixMap.put(Level.NORMAL.ordinal(), "NORMAL\t");
         prefixMap.put(Level.WARNING.ordinal(), "WARNING\t");
-        prefixMap.put(Level.ERROR.ordinal(), "ERROR\t");
     }
 
     public static void log(String msg, Level level) {
@@ -33,6 +32,11 @@ public class RouterLog {
             msg = msg.replace("\n", "\n" + prefixMap.get(level.ordinal()));
             System.out.println(prefixMap.get(level.ordinal()) + msg);
         }
+    }
+
+    public static void error(String msg) {
+        msg = msg.replace("\n", "\nERROR\t");
+        System.out.println("ERROR\t" + msg);
     }
 
     public static void debug(String msg) {
@@ -61,7 +65,6 @@ public class RouterLog {
         prefixMap.put(Level.INFO.ordinal(), "INFO\t" + indents);
         prefixMap.put(Level.NORMAL.ordinal(), "NORMAL\t" + indents);
         prefixMap.put(Level.WARNING.ordinal(), "WARNING\t" + indents);
-        prefixMap.put(Level.ERROR.ordinal(), "ERROR\t" + indents);
     }
 
 

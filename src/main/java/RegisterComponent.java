@@ -1,6 +1,8 @@
 import com.xilinx.rapidwright.design.ModuleInst;
 import com.xilinx.rapidwright.edif.EDIFCellInst;
 
+import java.util.ArrayList;
+
 public class RegisterComponent {
 
     /*
@@ -20,14 +22,14 @@ public class RegisterComponent {
         this.type = type;
         this.siteName = siteName;
 
-        bitWidth = ComplexRegister.typeToRegModuleMap.get(type).getBitWidth();
+        bitWidth = RegisterDefaults.typeToRegModuleMap.get(type).getBitWidth();
     }
 
     public RegisterComponent(int type, String siteName) {
         this.type = type;
         this.siteName = siteName;
 
-        bitWidth = ComplexRegister.typeToRegModuleMap.get(type).getBitWidth();
+        bitWidth = RegisterDefaults.typeToRegModuleMap.get(type).getBitWidth();
     }
 
     public String getName() {
@@ -66,16 +68,24 @@ public class RegisterComponent {
         this.moduleInstance = moduleInstance;
     }
 
+    public ArrayList<String> getInPIPNames() {
+        return RegisterDefaults.getInPIPNames(type);
+    }
+
     public String getInPIPName(int index) {
-        return ComplexRegister.getInPIPName(type, index);
+        return RegisterDefaults.getInPIPName(type, index);
+    }
+
+    public ArrayList<String> getOutPIPNames() {
+        return RegisterDefaults.getOutPIPNames(type);
     }
 
     public String getOutPIPName(int index) {
-        return ComplexRegister.getOutPIPName(type, index);
+        return RegisterDefaults.getOutPIPName(type, index);
     }
 
     @Override
     public String toString() {
-        return name + ComplexRegister.typeToRegModuleMap.get(type).toString();
+        return name + RegisterDefaults.typeToRegModuleMap.get(type).toString();
     }
 }

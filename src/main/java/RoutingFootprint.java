@@ -39,7 +39,7 @@ public class RoutingFootprint {
     }
 
     public void commit(Design d) {
-        RouterLog.log("Committing routes to design <" + d.getName() + ">:", RouterLog.Level.INFO);
+        RouterLog.log("Committing routes for connection " + registerConnection.toString() + ".", RouterLog.Level.INFO);
         for (CustomRoute route : routeNetMap.keySet()) {
             Net net = routeNetMap.get(route);
 

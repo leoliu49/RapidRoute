@@ -808,7 +808,7 @@ public class ThreadedRoutingJob extends Thread {
             for (int i = 0; i < component.getBitWidth(); i++, bitIndex++) {
                 if (bitIndex >= connection.getSrcRegLowestBit() && bitIndex <= connection.getSrcRegHighestBit()) {
                     Net net = d.getNet(srcReg.getName() + "_" + component.getName() + "/"
-                            + ComplexRegister.OUTPUT_NAME + "[" + i + "]");
+                            + RegisterDefaults.OUTPUT_NAME + "[" + i + "]");
 
                     // This is the route's true bit index
                     routes.get(routeIndex).setBitIndex(bitIndex);

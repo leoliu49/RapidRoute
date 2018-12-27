@@ -17,82 +17,6 @@ public class ComplexRegister {
     public static final String EXAMPLE_COMPONENTS_FILE_NAME = ResourcesManager.RESOURCES_DIR
             + "complex_register_example.conf";
 
-    public static final String typeKeyPrefix = "type";
-    public static final String inPIPKeyPrefix = "inPIP";
-    public static final String outPIPKeyPrefix = "outPIP";
-
-    public static final String bwKey = "bw";
-
-    public static final String commonKey = "common";
-    public static final String clkKey = "clkName";
-    public static final String rstKey = "rstName";
-    public static final String ceKey = "ceName";
-
-    public static final String inKey = "inName";
-    public static final String outKey = "outName";
-
-    public static String CLK_NAME;
-    public static String RST_NAME;
-    public static String CE_NAME;
-
-    public static String INPUT_NAME;
-    public static String OUTPUT_NAME;
-
-    public static HashMap<Integer, ComplexRegModule> typeToRegModuleMap = new HashMap<Integer, ComplexRegModule>();
-
-
-    private static Design readDcp(String dcpFileName) {
-        Design regDesign = Design.readCheckpoint(dcpFileName);
-        ResourcesManager.setPartName(regDesign.getPartName());
-        return regDesign;
-    }
-
-    public static void loadRegModulesFromConfig() throws IOException {
-        ResourcesManager.initComponentsConfig();
-        Wini ini = ResourcesManager.componentsConfig;
-
-        CLK_NAME = ini.get(commonKey, clkKey);
-        RST_NAME = ini.get(commonKey, rstKey);
-        CE_NAME = ini.get(commonKey, ceKey);
-
-        INPUT_NAME = ini.get(commonKey, inKey);
-        OUTPUT_NAME = ini.get(commonKey, outKey);
-
-        int typeKey = 0;
-        while (ini.containsKey(typeKeyPrefix + typeKey)) {
-
-            int bitWidth = Integer.valueOf(ini.get(typeKeyPrefix + typeKey, bwKey));
-
-            int inPIPKey = 0;
-            ArrayList<String> inPIPNames = new ArrayList<String>();
-            while (ini.get(typeKeyPrefix + typeKey).containsKey(inPIPKeyPrefix + inPIPKey)) {
-                inPIPNames.add(ini.get(typeKeyPrefix + typeKey, inPIPKeyPrefix + inPIPKey));
-                inPIPKey += 1;
-            }
-
-            int outPIPKey = 0;
-            ArrayList<String> outPIPNames = new ArrayList<String>();
-            while (ini.get(typeKeyPrefix + typeKey).containsKey(outPIPKeyPrefix + outPIPKey)) {
-                outPIPNames.add(ini.get(typeKeyPrefix + typeKey, outPIPKeyPrefix + outPIPKey));
-                outPIPKey += 1;
-            }
-
-            ComplexRegModule regModule = new ComplexRegModule(typeKey, bitWidth, inPIPNames, outPIPNames,
-                    readDcp(ResourcesManager.COMPONENTS_DIR + typeKeyPrefix + typeKey + ".dcp"));
-            typeToRegModuleMap.put(typeKey, regModule);
-
-            typeKey += 1;
-        }
-    }
-
-    public static String getInPIPName(int type, int index) {
-        return typeToRegModuleMap.get(type).getInPIPName(index);
-    }
-
-    public static String getOutPIPName(int type, int index) {
-        return typeToRegModuleMap.get(type).getOutPIPName(index);
-    }
-
     private String name;
 
     private ArrayList<RegisterComponent> components;
@@ -107,16 +31,28 @@ public class ComplexRegister {
         this.components = components;
         componentSize = components.size();
 
-        EDIFCell top = d.getNetlist().getTopCell();
-
         bitWidth = 0;
 
         int i = 0;
         for (RegisterComponent component : components) {
-            ComplexRegModule regModule = ComplexRegister.typeToRegModuleMap.get(component.getType());
+            ComplexRegModule regModule = RegisterDefaults.typeToRegModuleMap.get(component.getType());
 
             if (!component.hasName())
                 component.setName("component" + i++);
+            bitWidth += regModule.getBitWidth();
+        }
+    }
+
+    /*
+     * Permanently associates register with given design
+     */
+    public void populateAndPlace(Design d) {
+
+        EDIFCell top = d.getNetlist().getTopCell();
+
+        for (RegisterComponent component : components) {
+            ComplexRegModule regModule = RegisterDefaults.typeToRegModuleMap.get(component.getType());
+
             EDIFCellInst ci = top.createChildCellInst(name + "_" + component.getName(),
                     regModule.getModule().getNetlist().getTopCell());
             ModuleInst mi = d.createModuleInst(name + "_" + component.getName(), regModule.getModule());
@@ -127,12 +63,10 @@ public class ComplexRegister {
 
             component.setModuleInstance(mi);
 
-            top.getNet(ComplexRegister.CLK_NAME).createPortInst(ComplexRegister.CLK_NAME, ci);
+            top.getNet(RegisterDefaults.CLK_NAME).createPortInst(RegisterDefaults.CLK_NAME, ci);
 
             RouterLog.log("Placed component " + component.toString() + " for <" + name + "> at site <"
-                            + component.getSiteName() + ">.", RouterLog.Level.INFO);
-
-            bitWidth += regModule.getBitWidth();
+                    + component.getSiteName() + ">.", RouterLog.Level.INFO);
         }
     }
 
@@ -166,7 +100,7 @@ public class ComplexRegister {
                 EDIFNet net = top.getNet(netPrefix + "[" + i + "]");
                 if (net == null)
                     net = top.createNet(netPrefix + "[" + i + "]");
-                net.createPortInst(ComplexRegister.INPUT_NAME, j, component.getCellInstance());
+                net.createPortInst(RegisterDefaults.INPUT_NAME, j, component.getCellInstance());
             }
         }
     }
@@ -182,7 +116,7 @@ public class ComplexRegister {
                     EDIFNet net = top.getNet(netPrefix + "[" + (i + indexOffset) + "]");
                     if (net == null)
                         net = top.createNet(netPrefix + "[" + (i + indexOffset) + "]");
-                    net.createPortInst(ComplexRegister.INPUT_NAME, j, component.getCellInstance());
+                    net.createPortInst(RegisterDefaults.INPUT_NAME, j, component.getCellInstance());
                 }
             }
         }
@@ -198,7 +132,7 @@ public class ComplexRegister {
                 EDIFNet net = top.getNet(netPrefix + "[" + i + "]");
                 if (net == null)
                     net = top.createNet(netPrefix + "[" + i + "]");
-                net.createPortInst(ComplexRegister.OUTPUT_NAME, j, component.getCellInstance());
+                net.createPortInst(RegisterDefaults.OUTPUT_NAME, j, component.getCellInstance());
             }
         }
 
@@ -215,7 +149,7 @@ public class ComplexRegister {
                     EDIFNet net = top.getNet(netPrefix + "[" + (i + indexOffset) + "]");
                     if (net == null)
                         net = top.createNet(netPrefix + "[" + (i + indexOffset) + "]");
-                    net.createPortInst(ComplexRegister.OUTPUT_NAME, j, component.getCellInstance());
+                    net.createPortInst(RegisterDefaults.OUTPUT_NAME, j, component.getCellInstance());
                 }
             }
         }
@@ -235,7 +169,8 @@ public class ComplexRegister {
 
     private static OptionParser createOptionParser() {
         OptionParser p = new OptionParser();
-        p.accepts("out").withOptionalArg().defaultsTo("complex_register_example.dcp").describedAs("Output DCP file");
+        p.accepts("out").withOptionalArg().defaultsTo("complex_register_example.dcp")
+                .describedAs("Output DCP file name");
         p.accepts("help").forHelp();
         p.accepts("verbose");
         return p;
@@ -255,20 +190,20 @@ public class ComplexRegister {
         }
 
         ResourcesManager.COMPONENTS_FILE_NAME = EXAMPLE_COMPONENTS_FILE_NAME;
-        ResourcesManager.initComponentsConfig();
+        ResourcesManager.initConfigs();
 
         Design d = ResourcesManager.newDesignFromSources("complex_register_example");
 
-        EDIFCell top = d.getNetlist().getTopCell();
-        EDIFPort clkPort = top.createPort(ComplexRegister.CLK_NAME, EDIFDirection.INPUT, 1);
-        EDIFNet clk = top.createNet(ComplexRegister.CLK_NAME);
-        clk.createPortInst(clkPort);
+        DesignPlacer.initializePlacer(d);
+        DesignPlacer.createTopLevelClk();
 
-        ArrayList<RegisterComponent> components = new ArrayList<RegisterComponent>();
-        components.add(new RegisterComponent(0, "SLICE_X56Y120"));
-        //components.add(new RegisterComponent(1, "SLICE_X57Y120"));
-        components.add(new RegisterComponent(0, "SLICE_X56Y121"));
+        ArrayList<RegisterComponent> components = new ArrayList<>();
+        components.add(new RegisterComponent(6, "SLICE_X56Y120"));
+        components.add(new RegisterComponent(7, "SLICE_X57Y120"));
+        components.add(new RegisterComponent(6, "SLICE_X56Y121"));
+
         ComplexRegister reg = new ComplexRegister(d, "example_register", components);
+        reg.populateAndPlace(d);
 
         d.writeCheckpoint(ResourcesManager.OUTPUT_DIR + options.valueOf("out"));
     }

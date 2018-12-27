@@ -104,6 +104,7 @@ public class RouteForge {
                 return;
             }
         }
-        RouterLog.log("Junction <" + startNodeName + "> ---> <" + endNodeName + "> failed.", RouterLog.Level.ERROR);
+
+        throw new DesignFailureException("Junction <" + startNodeName + "> ---> <" + endNodeName + "> failed.");
     }
 }

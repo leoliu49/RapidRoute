@@ -1,6 +1,7 @@
 import com.xilinx.rapidwright.design.Design;
 import com.xilinx.rapidwright.design.Net;
 import com.xilinx.rapidwright.device.Tile;
+import com.xilinx.rapidwright.edif.*;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.commons.lang3.tuple.Triple;
 
@@ -15,6 +16,8 @@ public class DesignRouter {
     private static int THREAD_POOL_SIZE = 4;
 
     private static Design coreDesign;
+
+    private static final HashSet<RegisterConnection> externalConnectionSet = new HashSet<>();
 
     private static final HashSet<RegisterConnection> connectionSet = new LinkedHashSet<>();
     private static final HashMap<RegisterConnection, ArrayList<RegisterConnection>> uniqueConnectionsSet = new LinkedHashMap<>();
@@ -52,7 +55,7 @@ public class DesignRouter {
             for (int i = 0; i < component.getBitWidth(); i++, bitIndex++) {
                 if (bitIndex >= connection.getSrcRegLowestBit() && bitIndex <= connection.getSrcRegHighestBit()) {
                     Net net = coreDesign.getNet(srcReg.getName() + "_" + component.getName() + "/"
-                            + ComplexRegister.OUTPUT_NAME + "[" + i + "]");
+                            + RegisterDefaults.OUTPUT_NAME + "[" + i + "]");
 
                     CustomRoute routeCopy = ref.getRoute(routeIndex).copyWithOffset(coreDesign, dx, dy);
                     routeCopy.setBitIndex(bitIndex);
@@ -109,10 +112,12 @@ public class DesignRouter {
         THREAD_POOL_SIZE = threadPoolSize;
     }
 
-    public static void initNewConnectionForRouting(Design d, RegisterConnection connection) {
+    public static void prepareNewConnectionForRouting(Design d, RegisterConnection connection) {
 
-        if (connection.isInputConnection() || connection.isOutputConnection())
+        if (connection.isInputConnection() || connection.isOutputConnection()) {
+            externalConnectionSet.add(connection);
             return;
+        }
 
         connectionSet.add(connection);
 
@@ -129,6 +134,58 @@ public class DesignRouter {
         if (!isCongruent)
             uniqueConnectionsSet.put(connection, new ArrayList<>());
 
+    }
+
+    public static void createNetsForConnections() {
+
+        int inBitWidth = 0;
+        int outBitWidth = 0;
+        EDIFCell top = coreDesign.getNetlist().getTopCell();
+
+        for (RegisterConnection connection : externalConnectionSet) {
+            if (connection.isInputConnection()) {
+                inBitWidth += connection.getBitWidth();
+            }
+            else if (connection.isOutputConnection()) {
+                outBitWidth += connection.getBitWidth();
+            }
+        }
+        EDIFPortInst[] srcPortRefs = EDIFTools.createPortInsts(top, "src", EDIFDirection.INPUT, inBitWidth);
+        EDIFPortInst[] resPortRefs = EDIFTools.createPortInsts(top, "res", EDIFDirection.OUTPUT, outBitWidth);
+
+        int srcIndex = 0;
+        int resIndex = 0;
+        for (RegisterConnection connection : externalConnectionSet) {
+            if (connection.isInputConnection()) {
+                connection.getSnkReg().createInputEDIFPortRefs(coreDesign, "src", connection.getSnkRegLowestBit(),
+                        connection.getSnkRegHighestBit(), srcIndex);
+                srcIndex += connection.getBitWidth();
+            }
+            else if (connection.isOutputConnection()) {
+                connection.getSrcReg().createOutputEDIFPortRefs(coreDesign, "res", connection.getSrcRegLowestBit(),
+                        connection.getSrcRegHighestBit(), resIndex);
+                resIndex += connection.getBitWidth();
+            }
+        }
+
+        for (int i = 0; i < inBitWidth; i++) {
+            EDIFNet srcNet = top.getNet("src[" + i + "]");
+            srcNet.addPortInst(srcPortRefs[i]);
+        }
+
+        for (int i = 0; i < outBitWidth; i++) {
+            EDIFNet resNet = top.getNet("res[" + i + "]");
+            resNet.addPortInst(resPortRefs[i]);
+        }
+
+        int interIndex = 0;
+        for (RegisterConnection connection : connectionSet) {
+            connection.getSrcReg().createOutputEDIFPortRefs(coreDesign, "inter" + interIndex,
+                    connection.getSrcRegLowestBit(), connection.getSrcRegHighestBit(), 0);
+            connection.getSnkReg().createInputEDIFPortRefs(coreDesign, "inter" + interIndex,
+                    connection.getSnkRegLowestBit(), connection.getSnkRegHighestBit(), 0);
+            interIndex += 1;
+        }
     }
 
     public static void completeRoutingJob(int jobID, RegisterConnection connection, RoutingFootprint footprint) {
@@ -200,7 +257,7 @@ public class DesignRouter {
         for (ArrayList<RegisterConnection> list : uniqueConnectionsSet.values())
             numCloneableRoutes += list.size();
 
-        RouterLog.log("Initiating route design.", RouterLog.Level.NORMAL);
+        RouterLog.log("Performing route design.", RouterLog.Level.NORMAL);
         RouterLog.indent();
         RouterLog.log("Total routes: " + connectionSet.size(), RouterLog.Level.NORMAL);
         RouterLog.indent();
@@ -412,6 +469,10 @@ public class DesignRouter {
         RouterLog.log("All conflicting routes rerouted in " + (System.currentTimeMillis() - tStep6Begin) + " ms.",
                 RouterLog.Level.NORMAL);
         RouterLog.indent(-1);
+
+
+        RouterLog.log("Route design completed in " + (System.currentTimeMillis() - tBegin) + " ms.",
+                RouterLog.Level.NORMAL);
 
     }
 }

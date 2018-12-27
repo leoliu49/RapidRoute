@@ -1,8 +1,4 @@
 import com.xilinx.rapidwright.design.Design;
-import com.xilinx.rapidwright.device.Site;
-import com.xilinx.rapidwright.device.Tile;
-import com.xilinx.rapidwright.device.Wire;
-import com.xilinx.rapidwright.edif.*;
 import joptsimple.OptionParser;
 import joptsimple.OptionSet;
 
@@ -16,6 +12,8 @@ public class CustomDesign {
      * Top level class which does everything
      */
 
+    public static final String EXAMPLE_PLACEMENTS_FILE_NAME = ResourcesManager.RESOURCES_DIR
+            + "register_pair_example.conf";
     public static final String EXAMPLE_ROUTES_FILE_NAME = ResourcesManager.RESOURCES_DIR
             + "routes_example.conf";
 
@@ -50,77 +48,35 @@ public class CustomDesign {
 
         if (options.has("example")) {
             ResourcesManager.COMPONENTS_FILE_NAME = ComplexRegister.EXAMPLE_COMPONENTS_FILE_NAME;
-            ResourcesManager.PLACEMENTS_FILE_NAME = RegisterPair.EXAMPLE_PLACEMENTS_FILE_NAME;
+            ResourcesManager.PLACEMENTS_FILE_NAME = EXAMPLE_PLACEMENTS_FILE_NAME;
             ResourcesManager.ROUTES_FILE_NAME = EXAMPLE_ROUTES_FILE_NAME;
         }
 
-        ResourcesManager.initPlacementsConfig();
-        ResourcesManager.initRoutesConfig();
-        ResourcesManager.initComponentsConfig();
+        ResourcesManager.initConfigs();
 
         Design d = ResourcesManager.newDesignFromSources((String) options.valueOf("name"));
 
-        EDIFCell top = d.getNetlist().getTopCell();
-        EDIFPort clkPort = top.createPort(ComplexRegister.CLK_NAME, EDIFDirection.INPUT, 1);
-        EDIFNet clk = top.createNet(ComplexRegister.CLK_NAME);
-        clk.createPortInst(clkPort);
-
         HashMap<String, ComplexRegister> registers = ResourcesManager.registersFromPlacements(d);
-
         ArrayList<RegisterConnection> connections = ResourcesManager.connectionsFromRoutes(d, registers);
 
-        int inBitWidth = 0;
-        int outBitWidth = 0;
-        int interIndex = 0;
-        for (RegisterConnection connection : connections) {
-            if (connection.isInputConnection()) {
-                inBitWidth += connection.getBitWidth();
-            }
-            else if (connection.isOutputConnection()) {
-                outBitWidth += connection.getBitWidth();
-            }
-            else {
-                connection.getSrcReg().createOutputEDIFPortRefs(d, "inter" + interIndex, connection.getSrcRegLowestBit(),
-                        connection.getSrcRegHighestBit(), 0);
-                connection.getSnkReg().createInputEDIFPortRefs(d, "inter" + interIndex, connection.getSnkRegLowestBit(),
-                        connection.getSnkRegHighestBit(), 0);
-                interIndex += 1;
-            }
+        // Placement
+        DesignPlacer.initializePlacer(d);
+        DesignPlacer.createTopLevelClk();
+        for (ComplexRegister register : registers.values()) {
+            DesignPlacer.prepareNewRegisterForPlacement(register);
         }
 
-        EDIFPortInst[] srcPortRefs = EDIFTools.createPortInsts(top, "src", EDIFDirection.INPUT, inBitWidth);
-        EDIFPortInst[] resPortRefs = EDIFTools.createPortInsts(top, "res", EDIFDirection.OUTPUT, outBitWidth);
-        int srcIndex = 0;
-        int resIndex = 0;
-        for (RegisterConnection connection : connections) {
-            if (connection.isInputConnection()) {
-                connection.getSnkReg().createInputEDIFPortRefs(d, "src", connection.getSnkRegLowestBit(),
-                        connection.getSnkRegHighestBit(), srcIndex);
-                srcIndex += connection.getBitWidth();
-            }
-            else if (connection.isOutputConnection()) {
-                connection.getSrcReg().createOutputEDIFPortRefs(d, "res", connection.getSrcRegLowestBit(),
-                        connection.getSrcRegHighestBit(), resIndex);
-                resIndex += connection.getBitWidth();
-            }
-        }
+        DesignPlacer.place();
 
-        for (int i = 0; i < inBitWidth; i++) {
-            EDIFNet srcNet = top.getNet("src[" + i + "]");
-            srcNet.addPortInst(srcPortRefs[i]);
-        }
 
-        for (int i = 0; i < outBitWidth; i++) {
-            EDIFNet resNet = top.getNet("res[" + i + "]");
-            resNet.addPortInst(resPortRefs[i]);
-        }
-
-        d.writeCheckpoint(ResourcesManager.OUTPUT_DIR + options.valueOf("out") + "_unrouted.dcp");
-
+        // Routing
         DesignRouter.initializeRouter(d, Integer.valueOf((String) options.valueOf("jobs")));
         for (RegisterConnection connection : connections) {
-            DesignRouter.initNewConnectionForRouting(d, connection);
+            DesignRouter.prepareNewConnectionForRouting(d, connection);
         }
+        DesignRouter.createNetsForConnections();
+
+        d.writeCheckpoint(ResourcesManager.OUTPUT_DIR + options.valueOf("out") + "_unrouted.dcp");
 
         DesignRouter.routeDesign();
 

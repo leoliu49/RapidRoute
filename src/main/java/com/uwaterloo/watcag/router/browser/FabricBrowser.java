@@ -1,7 +1,13 @@
+package com.uwaterloo.watcag.router.browser;
+
+import com.uwaterloo.watcag.router.RouteForge;
+import com.uwaterloo.watcag.router.elements.EnterWireJunction;
+import com.uwaterloo.watcag.router.elements.ExitWireJunction;
+import com.uwaterloo.watcag.router.elements.TilePath;
+import com.uwaterloo.watcag.router.elements.WireDirection;
+import com.uwaterloo.watcag.util.RouteUtil;
 import com.xilinx.rapidwright.design.Design;
 import com.xilinx.rapidwright.device.PIP;
-import org.apache.commons.lang3.tuple.ImmutablePair;
-import org.apache.commons.lang3.tuple.Pair;
 
 import java.util.*;
 

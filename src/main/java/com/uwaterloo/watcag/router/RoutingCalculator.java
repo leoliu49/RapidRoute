@@ -1,5 +1,8 @@
-import com.xilinx.rapidwright.design.Design;
-import com.xilinx.rapidwright.device.Tile;
+package com.uwaterloo.watcag.router;
+
+import com.uwaterloo.watcag.common.RegisterConnection;
+import com.uwaterloo.watcag.router.*;
+import com.uwaterloo.watcag.router.elements.*;
 import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.apache.commons.lang3.tuple.ImmutableTriple;
 import org.apache.commons.lang3.tuple.Pair;
@@ -69,7 +72,7 @@ public class RoutingCalculator {
     }
 
     /*
-     * Finds, out of a family of RouteTemplates, which RouteTemplate is colliding with the candidate
+     * Finds, out of a family of RouteTemplates, which com.uwaterloo.watcag.router.elements.RouteTemplate is colliding with the candidate
      * Returns indexes of collisions
      */
     public static ArrayList<Integer> locateTemplateCollisions(Set<String> candidateSet,

@@ -1,3 +1,6 @@
+package com.uwaterloo.watcag.router.elements;
+
+import com.uwaterloo.watcag.util.RouteUtil;
 import com.xilinx.rapidwright.design.Design;
 import com.xilinx.rapidwright.device.Tile;
 

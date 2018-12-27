@@ -1,3 +1,14 @@
+package com.uwaterloo.watcag.router;
+
+import com.uwaterloo.watcag.common.ComplexRegister;
+import com.uwaterloo.watcag.common.RegisterConnection;
+import com.uwaterloo.watcag.config.RegisterComponent;
+import com.uwaterloo.watcag.config.RegisterDefaults;
+import com.uwaterloo.watcag.router.browser.FabricBrowser;
+import com.uwaterloo.watcag.router.browser.JunctionsTracer;
+import com.uwaterloo.watcag.router.elements.*;
+import com.uwaterloo.watcag.util.RouteUtil;
+import com.uwaterloo.watcag.util.RouterLog;
 import com.xilinx.rapidwright.design.Design;
 import com.xilinx.rapidwright.design.Net;
 import com.xilinx.rapidwright.device.Tile;
@@ -307,7 +318,7 @@ public class ThreadedRoutingJob extends Thread {
     }
 
     /*
-     * Find any TilePath configuration which has no conflicts
+     * Find any com.uwaterloo.watcag.router.elements.TilePath configuration which has no conflicts
      * Results are not optimized for cost
      */
     private ArrayList<TilePath> deriveValidTilePathsRecurse(int depth, ArrayList<TilePath> validPathsState,
@@ -697,7 +708,7 @@ public class ThreadedRoutingJob extends Thread {
 
     /*
      * Function for step 4
-     * For each CustomRoute, find possible TilePaths which can connect the hops together
+     * For each com.uwaterloo.watcag.router.elements.CustomRoute, find possible TilePaths which can connect the hops together
      * These are called pathSubs
      */
     private void populatePathSubs(Design d) {
@@ -714,9 +725,9 @@ public class ThreadedRoutingJob extends Thread {
             }
             /*
             for (int i = 0; i < template.getTemplate().size() / 2 - 1; i++) {
-                route.setPathSub(i, FabricBrowser.findTilePaths(d, TILE_TRAVERSAL_MAX_DEPTH,
-                        (EnterWireJunction) template.getTemplate(i * 2),
-                        (ExitWireJunction) template.getTemplate(i * 2 + 1)));
+                route.setPathSub(i, com.uwaterloo.watcag.router.browser.FabricBrowser.findTilePaths(d, TILE_TRAVERSAL_MAX_DEPTH,
+                        (com.uwaterloo.watcag.router.elements.EnterWireJunction) template.getTemplate(i * 2),
+                        (com.uwaterloo.watcag.router.elements.ExitWireJunction) template.getTemplate(i * 2 + 1)));
             }
             */
 
@@ -729,7 +740,7 @@ public class ThreadedRoutingJob extends Thread {
 
     /*
      * Function for step 5
-     * Systematically determine which TilePath in the pathSubs to connect each hop within the bus
+     * Systematically determine which com.uwaterloo.watcag.router.elements.TilePath in the pathSubs to connect each hop within the bus
      * If there is a live lock, return false
      */
     private boolean routeContention(Design d) {
@@ -799,7 +810,7 @@ public class ThreadedRoutingJob extends Thread {
     /*
      * Function for step 6
      * After routeContention, the CustomRoutes are fully ready to be routed
-     * They are added the the RouteFootprint, which associates each CustomRoute to a physical net
+     * They are added the the RouteFootprint, which associates each com.uwaterloo.watcag.router.elements.CustomRoute to a physical net
      */
     private void addRoutesToFootprint(Design d) {
         int bitIndex = 0;

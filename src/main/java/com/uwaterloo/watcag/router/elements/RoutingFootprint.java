@@ -1,3 +1,10 @@
+package com.uwaterloo.watcag.router.elements;
+
+import com.uwaterloo.watcag.common.RegisterConnection;
+import com.uwaterloo.watcag.router.elements.CustomRoute;
+import com.uwaterloo.watcag.router.RouteForge;
+import com.uwaterloo.watcag.router.elements.TilePath;
+import com.uwaterloo.watcag.util.RouterLog;
 import com.xilinx.rapidwright.design.Design;
 import com.xilinx.rapidwright.design.Net;
 

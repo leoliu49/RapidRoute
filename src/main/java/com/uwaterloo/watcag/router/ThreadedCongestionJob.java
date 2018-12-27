@@ -1,3 +1,10 @@
+package com.uwaterloo.watcag.router;
+
+import com.uwaterloo.watcag.common.RegisterConnection;
+import com.uwaterloo.watcag.router.elements.CustomRoute;
+import com.uwaterloo.watcag.router.elements.TilePath;
+import com.uwaterloo.watcag.router.browser.FabricBrowser;
+import com.uwaterloo.watcag.util.RouterLog;
 import com.xilinx.rapidwright.design.Design;
 import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.apache.commons.lang3.tuple.Pair;
@@ -84,11 +91,11 @@ public class ThreadedCongestionJob extends Thread {
         }
 
         /*
-        for (RegisterConnection connection : tilePathChoicesMap.keySet()) {
-            bufferedLog.log(connection.toString(), RouterLog.Level.NORMAL);
+        for (com.uwaterloo.watcag.common.RegisterConnection connection : tilePathChoicesMap.keySet()) {
+            bufferedLog.log(connection.toString(), com.uwaterloo.watcag.util.RouterLog.Level.NORMAL);
             bufferedLog.indent();
-            for (LinkedList<TilePath> pathChoices : tilePathChoicesMap.get(connection)) {
-                bufferedLog.log(pathChoices.get(0).shortHand() + ": " + pathChoices.size(), RouterLog.Level.NORMAL);
+            for (LinkedList<com.uwaterloo.watcag.router.elements.TilePath> pathChoices : tilePathChoicesMap.get(connection)) {
+                bufferedLog.log(pathChoices.get(0).shortHand() + ": " + pathChoices.size(), com.uwaterloo.watcag.util.RouterLog.Level.NORMAL);
             }
             bufferedLog.indent(-1);
         }

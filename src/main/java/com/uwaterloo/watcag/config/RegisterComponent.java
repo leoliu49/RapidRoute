@@ -1,3 +1,5 @@
+package com.uwaterloo.watcag.config;
+
 import com.xilinx.rapidwright.design.ModuleInst;
 import com.xilinx.rapidwright.edif.EDIFCellInst;
 
@@ -6,7 +8,7 @@ import java.util.ArrayList;
 public class RegisterComponent {
 
     /*
-     * Register confined to a single site, which are building blocks to the ComplexRegister class
+     * Register confined to a single site, which are building blocks to the com.uwaterloo.watcag.common.ComplexRegister class
      */
 
     private String name = null;

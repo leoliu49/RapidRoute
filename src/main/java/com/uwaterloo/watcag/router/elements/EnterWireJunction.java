@@ -1,3 +1,6 @@
+package com.uwaterloo.watcag.router.elements;
+
+import com.uwaterloo.watcag.util.RouteUtil;
 import com.xilinx.rapidwright.design.Design;
 import com.xilinx.rapidwright.device.Tile;
 
@@ -21,7 +24,7 @@ public class EnterWireJunction extends WireJunction {
     }
 
     public EnterWireJunction(String tileName, String wireName, ExitWireJunction src, int wireLength,
-                            WireDirection direction) {
+                             WireDirection direction) {
         super(tileName, wireName);
         srcJunction = src;
         this.wireLength = wireLength;

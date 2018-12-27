@@ -1,8 +1,18 @@
+package com.uwaterloo.watcag.router;
+
+import com.uwaterloo.watcag.common.ComplexRegister;
+import com.uwaterloo.watcag.common.RegisterConnection;
+import com.uwaterloo.watcag.config.RegisterComponent;
+import com.uwaterloo.watcag.config.RegisterDefaults;
+import com.uwaterloo.watcag.router.elements.CustomRoute;
+import com.uwaterloo.watcag.router.elements.RoutingFootprint;
+import com.uwaterloo.watcag.router.elements.TilePath;
+import com.uwaterloo.watcag.router.elements.WireJunction;
+import com.uwaterloo.watcag.util.RouterLog;
 import com.xilinx.rapidwright.design.Design;
 import com.xilinx.rapidwright.design.Net;
 import com.xilinx.rapidwright.device.Tile;
 import com.xilinx.rapidwright.edif.*;
-import org.apache.commons.lang3.tuple.Pair;
 import org.apache.commons.lang3.tuple.Triple;
 
 import java.util.*;

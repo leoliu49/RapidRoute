@@ -1,3 +1,11 @@
+package com.uwaterloo.watcag.common;
+
+import com.uwaterloo.watcag.config.ComplexRegModule;
+import com.uwaterloo.watcag.config.RegisterComponent;
+import com.uwaterloo.watcag.config.RegisterDefaults;
+import com.uwaterloo.watcag.config.ResourcesManager;
+import com.uwaterloo.watcag.placer.DesignPlacer;
+import com.uwaterloo.watcag.util.RouterLog;
 import com.xilinx.rapidwright.design.Design;
 import com.xilinx.rapidwright.design.ModuleInst;
 
@@ -5,12 +13,9 @@ import com.xilinx.rapidwright.device.Site;
 import com.xilinx.rapidwright.edif.*;
 import joptsimple.OptionParser;
 import joptsimple.OptionSet;
-import org.ini4j.Wini;
 
-import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.HashMap;
 
 public class ComplexRegister {
 
@@ -162,7 +167,7 @@ public class ComplexRegister {
     }
 
     private static void printUsage(OptionParser parser) throws IOException {
-        System.out.println("java ComplexRegister [-h] [-v] [--out OUT_FILE_NAME]\n");
+        System.out.println("java com.uwaterloo.watcag.common.ComplexRegister [-h] [-v] [--out OUT_FILE_NAME]\n");
         System.out.println("  Create a complex register of 3 modules at SLICE_X56Y120, SLICE_X57Y120, SLICE_X56Y121.\n");
         parser.printHelpOn(System.out);
     }

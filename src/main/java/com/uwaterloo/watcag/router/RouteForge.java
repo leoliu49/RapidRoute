@@ -1,5 +1,10 @@
+package com.uwaterloo.watcag.router;
+
 import java.util.*;
 
+import com.uwaterloo.watcag.DesignFailureException;
+import com.uwaterloo.watcag.util.RouteUtil;
+import com.uwaterloo.watcag.util.RouterLog;
 import com.xilinx.rapidwright.design.Design;
 import com.xilinx.rapidwright.design.Net;
 import com.xilinx.rapidwright.device.PIP;

@@ -1,3 +1,8 @@
+package com.uwaterloo.watcag.router.elements;
+
+import com.uwaterloo.watcag.router.RouteForge;
+import com.uwaterloo.watcag.util.RouteUtil;
+import com.uwaterloo.watcag.util.RouterLog;
 import com.xilinx.rapidwright.design.Design;
 import com.xilinx.rapidwright.design.Net;
 import com.xilinx.rapidwright.device.Tile;

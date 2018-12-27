@@ -1,9 +1,10 @@
+package com.uwaterloo.watcag.router.elements;
+
+import com.uwaterloo.watcag.util.RouterLog;
 import com.xilinx.rapidwright.design.Design;
 import com.xilinx.rapidwright.design.Net;
-import com.xilinx.rapidwright.device.Tile;
 
 import java.util.ArrayList;
-import java.util.Collections;
 
 public class CustomRoute {
 
@@ -56,7 +57,7 @@ public class CustomRoute {
     }
 
     /*
-    private CustomRoute(Design d, EnterWireJunction src, ExitWireJunction snk) {
+    private com.uwaterloo.watcag.router.elements.CustomRoute(Design d, com.uwaterloo.watcag.router.elements.EnterWireJunction src, com.uwaterloo.watcag.router.elements.ExitWireJunction snk) {
         cost = 0;
 
         this.src = src;

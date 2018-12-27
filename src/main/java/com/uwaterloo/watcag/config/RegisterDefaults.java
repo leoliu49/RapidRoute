@@ -1,3 +1,5 @@
+package com.uwaterloo.watcag.config;
+
 import java.util.ArrayList;
 import java.util.HashMap;
 

@@ -1,3 +1,7 @@
+package com.uwaterloo.watcag.router.browser;
+
+import com.uwaterloo.watcag.router.elements.WireJunction;
+
 import java.util.*;
 
 public class JunctionsTracer {

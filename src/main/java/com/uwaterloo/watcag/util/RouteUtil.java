@@ -1,7 +1,11 @@
+package com.uwaterloo.watcag.util;
+
 import java.util.ArrayList;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import com.uwaterloo.watcag.router.browser.FabricBrowser;
+import com.uwaterloo.watcag.router.elements.WireDirection;
 import com.xilinx.rapidwright.design.Design;
 import com.xilinx.rapidwright.device.*;
 

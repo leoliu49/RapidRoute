@@ -1,3 +1,9 @@
+package com.uwaterloo.watcag.config;
+
+import com.uwaterloo.watcag.DesignFailureException;
+import com.uwaterloo.watcag.common.ComplexRegister;
+import com.uwaterloo.watcag.common.RegisterConnection;
+import com.uwaterloo.watcag.util.RouterLog;
 import com.xilinx.rapidwright.design.Design;
 import com.xilinx.rapidwright.edif.EDIFCell;
 import com.xilinx.rapidwright.edif.EDIFLibrary;
@@ -9,7 +15,6 @@ import java.io.FileReader;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 

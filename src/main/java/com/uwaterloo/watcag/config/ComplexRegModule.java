@@ -1,3 +1,6 @@
+package com.uwaterloo.watcag.config;
+
+import com.uwaterloo.watcag.util.RouterLog;
 import com.xilinx.rapidwright.design.Design;
 import com.xilinx.rapidwright.design.Module;
 
@@ -7,7 +10,7 @@ public class ComplexRegModule {
 
     /*
      * Wrapper around a single register module
-     * How they're used is up to the ComplexRegister
+     * How they're used is up to the com.uwaterloo.watcag.common.ComplexRegister
      */
 
     private int type;
@@ -22,7 +25,7 @@ public class ComplexRegModule {
 
 
     public ComplexRegModule(int type, int bitWidth, ArrayList<String> inPIPNames, ArrayList<String> outPIPNames,
-                            Design srcDesign) {
+                     Design srcDesign) {
         this.type = type;
         this.bitWidth = bitWidth;
         this.inPIPNames = inPIPNames;

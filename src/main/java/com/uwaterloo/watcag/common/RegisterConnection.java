@@ -1,3 +1,6 @@
+package com.uwaterloo.watcag.common;
+
+import com.uwaterloo.watcag.config.RegisterComponent;
 import com.xilinx.rapidwright.design.Design;
 import com.xilinx.rapidwright.device.Tile;
 import org.apache.commons.lang3.tuple.ImmutablePair;

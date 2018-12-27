@@ -1,3 +1,11 @@
+package com.uwaterloo.watcag;
+
+import com.uwaterloo.watcag.common.ComplexRegister;
+import com.uwaterloo.watcag.common.RegisterConnection;
+import com.uwaterloo.watcag.config.ResourcesManager;
+import com.uwaterloo.watcag.placer.DesignPlacer;
+import com.uwaterloo.watcag.router.DesignRouter;
+import com.uwaterloo.watcag.util.RouterLog;
 import com.xilinx.rapidwright.design.Design;
 import joptsimple.OptionParser;
 import joptsimple.OptionSet;
@@ -18,8 +26,8 @@ public class CustomDesign {
             + "routes_example.conf";
 
     private static void printUsage(OptionParser parser) throws IOException {
-        System.out.println("java CustomDesign [-h] [-v] [--example] [--name DESIGN_NAME] [--out OUT_FILE_NAME]\n");
-        System.out.println("  Create and route a design based on placements.conf and routes.conf. Uses routes_example.conf instead if --example is specified.\n");
+        System.out.println("java com.uwaterloo.watcag.CustomDesign [-h] [-v] [--example] [--name DESIGN_NAME] [--out OUT_FILE_NAME] [--jobs NUM_JOBS]\n");
+        System.out.println("  Create and route a design based on placements.conf and routes.conf. Uses register_pair_example.conf and routes_example.conf instead if --example is specified.\n");
         parser.printHelpOn(System.out);
     }
 

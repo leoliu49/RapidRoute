@@ -1,3 +1,10 @@
+package com.uwaterloo.watcag.placer;
+
+import com.uwaterloo.watcag.DesignFailureException;
+import com.uwaterloo.watcag.common.ComplexRegister;
+import com.uwaterloo.watcag.config.RegisterComponent;
+import com.uwaterloo.watcag.config.RegisterDefaults;
+import com.uwaterloo.watcag.util.RouterLog;
 import com.xilinx.rapidwright.design.Design;
 import com.xilinx.rapidwright.edif.EDIFCell;
 import com.xilinx.rapidwright.edif.EDIFDirection;

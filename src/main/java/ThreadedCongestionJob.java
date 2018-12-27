@@ -108,7 +108,7 @@ public class ThreadedCongestionJob extends Thread {
 
 
         boolean congestionSuccess = false;
-        while (congestionSuccess) {
+        while (!congestionSuccess) {
 
             congestionSuccess = true;
 

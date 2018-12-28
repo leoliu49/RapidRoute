@@ -13,7 +13,7 @@ public class ComplexRegModule {
      * How they're used is up to the com.uwaterloo.watcag.common.ComplexRegister
      */
 
-    private int type;
+    private String parentDcp;
     private int bitWidth;
 
     // Little-endian (well it doesn't really matter)
@@ -24,9 +24,9 @@ public class ComplexRegModule {
     private Module module = null;
 
 
-    public ComplexRegModule(int type, int bitWidth, ArrayList<String> inPIPNames, ArrayList<String> outPIPNames,
-                     Design srcDesign) {
-        this.type = type;
+    public ComplexRegModule(String parentDcp, int bitWidth, ArrayList<String> inPIPNames, ArrayList<String> outPIPNames,
+                            Design srcDesign) {
+        this.parentDcp = parentDcp;
         this.bitWidth = bitWidth;
         this.inPIPNames = inPIPNames;
         this.outPIPNames = outPIPNames;
@@ -39,8 +39,8 @@ public class ComplexRegModule {
                 + module.getAnchor().getSiteName() + ">.", RouterLog.Level.VERBOSE);
     }
 
-    public int getType() {
-        return type;
+    public String getParentDcp() {
+        return parentDcp;
     }
 
     public int getBitWidth() {
@@ -77,6 +77,6 @@ public class ComplexRegModule {
 
     @Override
     public String toString() {
-        return "<type" + type + ">[" + bitWidth + "b]";
+        return "<" + parentDcp + ">[" + bitWidth + "b]";
     }
 }

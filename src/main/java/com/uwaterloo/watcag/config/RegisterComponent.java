@@ -13,25 +13,25 @@ public class RegisterComponent {
 
     private String name = null;
 
-    private int type;
+    private String parentDcp;
     private String siteName;
     private int bitWidth;
 
     private ModuleInst moduleInstance;
 
-    public RegisterComponent(String name, int type, String siteName) {
+    public RegisterComponent(String name, String parentDcp, String siteName) {
         this.name = name;
-        this.type = type;
         this.siteName = siteName;
 
-        bitWidth = RegisterDefaults.typeToRegModuleMap.get(type).getBitWidth();
+        bitWidth = RegisterDefaults.dcpFileToRegModuleMap.get(parentDcp).getBitWidth();
     }
 
-    public RegisterComponent(int type, String siteName) {
-        this.type = type;
+    public RegisterComponent(String parentDcp, String siteName) {
+        this.parentDcp = parentDcp.replace("\\.dcp", "_dcp");
+
         this.siteName = siteName;
 
-        bitWidth = RegisterDefaults.typeToRegModuleMap.get(type).getBitWidth();
+        bitWidth = RegisterDefaults.dcpFileToRegModuleMap.get(this.parentDcp).getBitWidth();
     }
 
     public String getName() {
@@ -46,8 +46,8 @@ public class RegisterComponent {
         this.name = name;
     }
 
-    public int getType() {
-        return type;
+    public String getParentDcp() {
+        return parentDcp;
     }
 
     public String getSiteName() {
@@ -71,23 +71,23 @@ public class RegisterComponent {
     }
 
     public ArrayList<String> getInPIPNames() {
-        return RegisterDefaults.getInPIPNames(type);
+        return RegisterDefaults.getInPIPNames(parentDcp);
     }
 
     public String getInPIPName(int index) {
-        return RegisterDefaults.getInPIPName(type, index);
+        return RegisterDefaults.getInPIPName(parentDcp, index);
     }
 
     public ArrayList<String> getOutPIPNames() {
-        return RegisterDefaults.getOutPIPNames(type);
+        return RegisterDefaults.getOutPIPNames(parentDcp);
     }
 
     public String getOutPIPName(int index) {
-        return RegisterDefaults.getOutPIPName(type, index);
+        return RegisterDefaults.getOutPIPName(parentDcp, index);
     }
 
     @Override
     public String toString() {
-        return name + RegisterDefaults.typeToRegModuleMap.get(type).toString();
+        return name + RegisterDefaults.dcpFileToRegModuleMap.get(parentDcp).toString();
     }
 }

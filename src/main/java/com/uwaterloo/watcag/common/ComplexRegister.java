@@ -40,10 +40,11 @@ public class ComplexRegister {
 
         int i = 0;
         for (RegisterComponent component : components) {
-            ComplexRegModule regModule = RegisterDefaults.typeToRegModuleMap.get(component.getType());
+            ComplexRegModule regModule = RegisterDefaults.dcpFileToRegModuleMap.get(component.getParentDcp());
 
             if (!component.hasName())
                 component.setName("component" + i++);
+
             bitWidth += regModule.getBitWidth();
         }
     }
@@ -56,7 +57,7 @@ public class ComplexRegister {
         EDIFCell top = d.getNetlist().getTopCell();
 
         for (RegisterComponent component : components) {
-            ComplexRegModule regModule = RegisterDefaults.typeToRegModuleMap.get(component.getType());
+            ComplexRegModule regModule = RegisterDefaults.dcpFileToRegModuleMap.get(component.getParentDcp());
 
             EDIFCellInst ci = top.createChildCellInst(name + "_" + component.getName(),
                     regModule.getModule().getNetlist().getTopCell());
@@ -186,7 +187,7 @@ public class ComplexRegister {
         OptionParser parser = createOptionParser();
         OptionSet options = parser.parse(args);
 
-        RouterLog.Level logLevel = (options.has("verbose")) ? RouterLog.Level.VERBOSE : RouterLog.Level.NORMAL;
+        RouterLog.Level logLevel = (options.has("verbose")) ? RouterLog.Level.VERBOSE : RouterLog.Level.INFO;
         RouterLog.init(logLevel);
 
         if (options.has("help")) {
@@ -203,9 +204,9 @@ public class ComplexRegister {
         DesignPlacer.createTopLevelClk();
 
         ArrayList<RegisterComponent> components = new ArrayList<>();
-        components.add(new RegisterComponent(6, "SLICE_X56Y120"));
-        components.add(new RegisterComponent(7, "SLICE_X57Y120"));
-        components.add(new RegisterComponent(6, "SLICE_X56Y121"));
+        components.add(new RegisterComponent("type6", "SLICE_X56Y120"));
+        components.add(new RegisterComponent("type7", "SLICE_X57Y120"));
+        components.add(new RegisterComponent("type6", "SLICE_X56Y121"));
 
         ComplexRegister reg = new ComplexRegister(d, "example_register", components);
         reg.populateAndPlace(d);

@@ -15,6 +15,8 @@ import java.io.FileReader;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -46,14 +48,11 @@ public class ResourcesManager {
     public static final String inKey = "inName";
     public static final String outKey = "outName";
     public static final String bwKey = "bw";
-    public static final String typeKeyPrefix = "type";
     public static final String inPIPKeyPrefix = "inPIP";
     public static final String outPIPKeyPrefix = "outPIP";
 
 
     // INI keys for placementsConfig
-    public static final String nameKey = "name";
-    public static final String regKeyPrefix = "reg";
     public static final String componentKeyPrefix = "comp";
 
 
@@ -97,7 +96,7 @@ public class ResourcesManager {
     }
 
     private static void loadRegModulesFromConfig() {
-        Wini ini = ResourcesManager.componentsConfig;
+        Wini ini = componentsConfig;
 
         RegisterDefaults.CLK_NAME = ini.get(commonKey, clkKey);
         RegisterDefaults.RST_NAME = ini.get(commonKey, rstKey);
@@ -106,30 +105,33 @@ public class ResourcesManager {
         RegisterDefaults.INPUT_NAME = ini.get(commonKey, inKey);
         RegisterDefaults.OUTPUT_NAME = ini.get(commonKey, outKey);
 
-        int typeKey = 0;
-        while (ini.containsKey(typeKeyPrefix + typeKey)) {
+        Set<String> dcpNameKeys = new HashSet<>(ini.keySet());
+        dcpNameKeys.remove(commonKey);
 
-            int bitWidth = Integer.valueOf(ini.get(typeKeyPrefix + typeKey, bwKey));
+
+        for (String dcp : dcpNameKeys) {
+            int bitWidth = Integer.valueOf(ini.get(dcp, bwKey));
 
             int inPIPKey = 0;
             ArrayList<String> inPIPNames = new ArrayList<>();
-            while (ini.get(typeKeyPrefix + typeKey).containsKey(inPIPKeyPrefix + inPIPKey)) {
-                inPIPNames.add(ini.get(typeKeyPrefix + typeKey, inPIPKeyPrefix + inPIPKey));
+            while (ini.get(dcp).containsKey(inPIPKeyPrefix + inPIPKey)) {
+                inPIPNames.add(ini.get(dcp, inPIPKeyPrefix + inPIPKey));
                 inPIPKey += 1;
             }
 
             int outPIPKey = 0;
             ArrayList<String> outPIPNames = new ArrayList<>();
-            while (ini.get(typeKeyPrefix + typeKey).containsKey(outPIPKeyPrefix + outPIPKey)) {
-                outPIPNames.add(ini.get(typeKeyPrefix + typeKey, outPIPKeyPrefix + outPIPKey));
+            while (ini.get(dcp).containsKey(outPIPKeyPrefix + outPIPKey)) {
+                outPIPNames.add(ini.get(dcp, outPIPKeyPrefix + outPIPKey));
                 outPIPKey += 1;
             }
 
-            ComplexRegModule regModule = new ComplexRegModule(typeKey, bitWidth, inPIPNames, outPIPNames,
-                    readDcp(ResourcesManager.COMPONENTS_DIR + typeKeyPrefix + typeKey + ".dcp"));
-            RegisterDefaults.typeToRegModuleMap.put(typeKey, regModule);
+            String fileName = dcp.endsWith(".dcp") ? dcp : dcp + ".dcp";
+            dcp = dcp.replace("\\.dcp", "_dcp");
 
-            typeKey += 1;
+            ComplexRegModule regModule = new ComplexRegModule(dcp, bitWidth, inPIPNames, outPIPNames,
+                    readDcp(ResourcesManager.COMPONENTS_DIR + fileName));
+            RegisterDefaults.dcpFileToRegModuleMap.put(dcp, regModule);
         }
     }
 
@@ -141,10 +143,10 @@ public class ResourcesManager {
         RouterLog.log("Initiating new design <" + designName + "> for part <" + d.getPartName() + ">.",
                 RouterLog.Level.NORMAL);
 
-        for (ComplexRegModule module : RegisterDefaults.typeToRegModuleMap.values()) {
+        for (ComplexRegModule module : RegisterDefaults.dcpFileToRegModuleMap.values()) {
             Design regDesign = module.getSrcDesign();
             for (EDIFCell cell : regDesign.getNetlist().getWorkLibrary().getCells()) {
-                cell.rename("type" + module.getType() + "_" + cell.getName());
+                cell.rename("__" + module.getParentDcp() + "_" + cell.getName());
                 d.getNetlist().getWorkLibrary().addCell(cell);
             }
             EDIFLibrary hdi = d.getNetlist().getHDIPrimitivesLibrary();
@@ -161,33 +163,27 @@ public class ResourcesManager {
 
         //int bitWidth = Integer.valueOf(placementsConfig.get(commonKey, bwKey));
 
-        int regKey = 0;
-        while (placementsConfig.containsKey(regKeyPrefix + regKey)) {
+        Set<String> regNameKeys = new HashSet<>(placementsConfig.keySet());
 
+        for (String regName : regNameKeys) {
             ArrayList<RegisterComponent> components = new ArrayList<>();
 
-            String name = placementsConfig.get(regKeyPrefix + regKey).get(nameKey);
-
             int compKey = 0;
-            while (placementsConfig.get(regKeyPrefix + regKey).containsKey(componentKeyPrefix + compKey)) {
-                String compInfo = placementsConfig.get(regKeyPrefix + regKey).get(componentKeyPrefix + compKey);
+            while (placementsConfig.get(regName).containsKey(componentKeyPrefix + compKey)) {
+                String compInfo = placementsConfig.get(regName).get(componentKeyPrefix + compKey);
 
                 compInfo = compInfo.replaceAll(" ", "");
                 String[] compInfoArray = compInfo.split(",");
 
-                String typeStr = compInfoArray[0];
+                String compDcp = compInfoArray[0];
                 String siteName = compInfoArray[1];
 
-                int type = Integer.valueOf(typeStr.substring(4));
-
-                components.add(new RegisterComponent(type, siteName));
+                components.add(new RegisterComponent(compDcp, siteName));
 
                 compKey += 1;
             }
 
-            registersMap.put(name, new ComplexRegister(d, name, components));
-
-            regKey += 1;
+            registersMap.put(regName, new ComplexRegister(d, regName, components));
         }
 
         return registersMap;

@@ -12,21 +12,21 @@ public class RegisterDefaults {
     public static String INPUT_NAME;
     public static String OUTPUT_NAME;
 
-    public static final HashMap<Integer, ComplexRegModule> typeToRegModuleMap = new HashMap<Integer, ComplexRegModule>();
+    public static final HashMap<String, ComplexRegModule> dcpFileToRegModuleMap = new HashMap<>();
 
-    public static ArrayList<String> getInPIPNames(int type) {
-        return RegisterDefaults.typeToRegModuleMap.get(type).getInPIPNames();
+    public static ArrayList<String> getInPIPNames(String dcp) {
+        return RegisterDefaults.dcpFileToRegModuleMap.get(dcp).getInPIPNames();
     }
 
-    public static String getInPIPName(int type, int index) {
-        return RegisterDefaults.typeToRegModuleMap.get(type).getInPIPName(index);
+    public static String getInPIPName(String dcp, int index) {
+        return RegisterDefaults.dcpFileToRegModuleMap.get(dcp).getInPIPName(index);
     }
 
-    public static ArrayList<String> getOutPIPNames(int type) {
-        return RegisterDefaults.typeToRegModuleMap.get(type).getOutPIPNames();
+    public static ArrayList<String> getOutPIPNames(String dcp) {
+        return RegisterDefaults.dcpFileToRegModuleMap.get(dcp).getOutPIPNames();
     }
 
-    public static String getOutPIPName(int type, int index) {
-        return RegisterDefaults.typeToRegModuleMap.get(type).getOutPIPName(index);
+    public static String getOutPIPName(String dcp, int index) {
+        return RegisterDefaults.dcpFileToRegModuleMap.get(dcp).getOutPIPName(index);
     }
 }

@@ -6,6 +6,8 @@ import com.xilinx.rapidwright.device.Tile;
 import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.apache.commons.lang3.tuple.Pair;
 
+import java.util.ArrayList;
+
 public class RegisterConnection {
 
     /*
@@ -56,16 +58,21 @@ public class RegisterConnection {
         if (isOutputConnection || connection.isOutputConnection())
             return false;
 
-        Pair<Tile , String>[] srcPIPNames = new Pair[bitWidth];
-        Pair<Tile , String>[] snkPIPNames = new Pair[bitWidth];
+        ArrayList<Pair<Tile, String>> srcPIPNames = new ArrayList<>();
+        ArrayList<Pair<Tile, String>> snkPIPNames = new ArrayList<>();
+        for (int i = 0; i < bitWidth; i++) {
+            srcPIPNames.add(null);
+            snkPIPNames.add(null);
+        }
+
         {
             int bitIndex = 0;
             for (RegisterComponent component : srcReg.getComponents()) {
                 Tile intTile = d.getDevice().getSite(component.getSiteName()).getIntTile();
                 for (int i = 0; i < component.getBitWidth(); i++, bitIndex++) {
                     if (bitIndex >= srcRegLowestBit && bitIndex <= srcRegHighestBit)
-                        srcPIPNames[bitIndex - srcRegLowestBit] = new ImmutablePair<>(intTile,
-                                component.getOutPIPName(i));
+                        srcPIPNames.set(bitIndex - srcRegLowestBit,
+                                new ImmutablePair<>(intTile, component.getOutPIPName(i)));
                 }
             }
         }
@@ -75,22 +82,28 @@ public class RegisterConnection {
                 Tile intTile = d.getDevice().getSite(component.getSiteName()).getIntTile();
                 for (int i = 0; i < component.getBitWidth(); i++, bitIndex++) {
                     if (bitIndex >= snkRegLowestBit && bitIndex <= snkRegHighestBit)
-                        snkPIPNames[bitIndex - snkRegLowestBit] = new ImmutablePair<>(intTile,
-                                component.getInPIPName(i));
+                        snkPIPNames.set(bitIndex - snkRegLowestBit,
+                                new ImmutablePair<>(intTile, component.getInPIPName(i)));
                 }
             }
         }
 
-        Pair<Tile , String>[] offsetSrcPIPNames = new Pair[bitWidth];
-        Pair<Tile , String>[] offsetSnkPIPNames = new Pair[bitWidth];
+        ArrayList<Pair<Tile, String>> offsetSrcPIPNames = new ArrayList<>();
+        ArrayList<Pair<Tile, String>> offsetSnkPIPNames = new ArrayList<>();
+        for (int i = 0; i < bitWidth; i++) {
+            offsetSrcPIPNames.add(null);
+            offsetSnkPIPNames.add(null);
+        }
+
+
         {
             int bitIndex = 0;
             for (RegisterComponent component : connection.getSrcReg().getComponents()) {
                 Tile intTile = d.getDevice().getSite(component.getSiteName()).getIntTile();
                 for (int i = 0; i < component.getBitWidth(); i++, bitIndex++) {
                     if (bitIndex >= connection.getSrcRegLowestBit() && bitIndex <= connection.getSrcRegHighestBit())
-                        offsetSrcPIPNames[bitIndex - connection.getSrcRegLowestBit()] = new ImmutablePair<>(intTile,
-                                component.getOutPIPName(i));
+                        offsetSrcPIPNames.set(bitIndex - connection.getSrcRegLowestBit(),
+                                new ImmutablePair<>(intTile, component.getOutPIPName(i)));
                 }
             }
         }
@@ -100,29 +113,29 @@ public class RegisterConnection {
                 Tile intTile = d.getDevice().getSite(component.getSiteName()).getIntTile();
                 for (int i = 0; i < component.getBitWidth(); i++, bitIndex++) {
                     if (bitIndex >= connection.getSnkRegLowestBit() && bitIndex <= connection.getSnkRegHighestBit())
-                        offsetSnkPIPNames[bitIndex - connection.getSnkRegLowestBit()] = new ImmutablePair<>(intTile,
-                                component.getInPIPName(i));
+                        offsetSnkPIPNames.set(bitIndex - connection.getSnkRegLowestBit(),
+                                new ImmutablePair<>(intTile, component.getInPIPName(i)));
                 }
             }
         }
 
         // Ensure PIP names are identical and tile offset is constant
-        int dx = srcPIPNames[0].getLeft().getTileXCoordinate() - offsetSrcPIPNames[0].getLeft().getTileXCoordinate();
-        int dy = srcPIPNames[0].getLeft().getTileYCoordinate() - offsetSrcPIPNames[0].getLeft().getTileYCoordinate();
+        int dx = srcPIPNames.get(0).getLeft().getTileXCoordinate() - offsetSrcPIPNames.get(0).getLeft().getTileXCoordinate();
+        int dy = srcPIPNames.get(0).getLeft().getTileYCoordinate() - offsetSrcPIPNames.get(0).getLeft().getTileYCoordinate();
         for (int i = 0; i < bitWidth; i++) {
-            if (!srcPIPNames[i].getRight().equals(offsetSrcPIPNames[i].getRight()))
+            if (!srcPIPNames.get(i).getRight().equals(offsetSrcPIPNames.get(i).getRight()))
                 return false;
-            if (!snkPIPNames[i].getRight().equals(offsetSnkPIPNames[i].getRight()))
-                return false;
-
-            if (srcPIPNames[i].getLeft().getTileXCoordinate() - offsetSrcPIPNames[i].getLeft().getTileXCoordinate() != dx)
-                return false;
-            if (srcPIPNames[i].getLeft().getTileYCoordinate() - offsetSrcPIPNames[i].getLeft().getTileYCoordinate() != dy)
+            if (!snkPIPNames.get(i).getRight().equals(offsetSnkPIPNames.get(i).getRight()))
                 return false;
 
-            if (snkPIPNames[i].getLeft().getTileXCoordinate() - offsetSnkPIPNames[i].getLeft().getTileXCoordinate() != dx)
+            if (srcPIPNames.get(i).getLeft().getTileXCoordinate() - offsetSrcPIPNames.get(i).getLeft().getTileXCoordinate() != dx)
                 return false;
-            if (snkPIPNames[i].getLeft().getTileYCoordinate() - offsetSnkPIPNames[i].getLeft().getTileYCoordinate() != dy)
+            if (srcPIPNames.get(i).getLeft().getTileYCoordinate() - offsetSrcPIPNames.get(i).getLeft().getTileYCoordinate() != dy)
+                return false;
+
+            if (snkPIPNames.get(i).getLeft().getTileXCoordinate() - offsetSnkPIPNames.get(i).getLeft().getTileXCoordinate() != dx)
+                return false;
+            if (snkPIPNames.get(i).getLeft().getTileYCoordinate() - offsetSnkPIPNames.get(i).getLeft().getTileYCoordinate() != dy)
                 return false;
 
         }

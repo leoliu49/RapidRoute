@@ -29,8 +29,9 @@ public class ResourcesManager {
     public static final String RESOURCES_DIR = "src/main/resources/";
     public static final String COMPONENTS_DIR = RESOURCES_DIR + "components/";
     public static final String OUTPUT_DIR = "output/";
+    public static final String TEMPLATES_DIR = RESOURCES_DIR + "templates/";
 
-    public static String COMPONENTS_FILE_NAME = ResourcesManager.RESOURCES_DIR + "register_components.conf";
+    public static String COMPONENTS_FILE_NAME = ResourcesManager.RESOURCES_DIR + "components.conf";
     public static String PLACEMENTS_FILE_NAME = ResourcesManager.RESOURCES_DIR + "placements.conf";
     public static String ROUTES_FILE_NAME = ResourcesManager.RESOURCES_DIR + "routes.conf";
 

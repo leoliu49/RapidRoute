@@ -3,6 +3,7 @@ package com.uwaterloo.watcag.config;
 import com.uwaterloo.watcag.util.RouterLog;
 import com.xilinx.rapidwright.design.Design;
 import com.xilinx.rapidwright.design.Module;
+import com.xilinx.rapidwright.device.Site;
 
 import java.util.ArrayList;
 
@@ -73,6 +74,14 @@ public class ComplexRegModule {
 
     public Module getModule() {
         return module;
+    }
+
+    public ArrayList<String> getAllValidSitePlacements() {
+        ArrayList<String> sites = new ArrayList<>();
+        for (Site site : module.getAllValidPlacements())
+            sites.add(site.getName());
+
+        return sites;
     }
 
     @Override

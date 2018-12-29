@@ -104,6 +104,12 @@ public class CustomDesign {
         DesignRouter.prepareNewConnectionForRouting(connection);
     }
 
+    public static void addNewRegisterConnection(String srcRegName, String snkRegName) {
+        RegisterConnection connection = new RegisterConnection(registers.get(srcRegName), registers.get(snkRegName));
+        connections.add(connection);
+        DesignRouter.prepareNewConnectionForRouting(connection);
+    }
+
     public static void addNewRegisterConnection(String srcRegName, String snkRegName, int srcRegLowestBit,
                                                 int srcRegHighestBit, int snkRegLowestBit, int snkRegHighestBit) {
         RegisterConnection connection = new RegisterConnection(registers.get(srcRegName), registers.get(snkRegName),

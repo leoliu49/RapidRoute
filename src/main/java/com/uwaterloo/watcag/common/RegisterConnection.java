@@ -27,6 +27,10 @@ public class RegisterConnection {
     private int snkRegLowestBit;
     private int snkRegHighestBit;
 
+    public RegisterConnection(ComplexRegister srcReg, ComplexRegister snkReg) {
+        this(srcReg, snkReg, 0, srcReg.getBitWidth() - 1, 0, snkReg.getBitWidth() - 1);
+    }
+
     public RegisterConnection(ComplexRegister srcReg, ComplexRegister snkReg, int srcRegLowestBit, int srcRegHighestBit,
                               int snkRegLowestBit, int snkRegHighestBit) {
         this.srcReg = srcReg;

@@ -5,6 +5,8 @@ __design = None
 __design_name = None
 __part_name = None
 
+def init(design_name, part_name, num_jobs):
+    api.init(design_name, part_name, num_jobs)
 
 def load_template(template_dir="src/main/resources/default-templates/dcps-xcku5p-ffvb676-2-e"):
     api.loadModulesFromTemplate(template_dir)
@@ -24,9 +26,12 @@ def add_input_connection(reg_name, bit_range):
 def add_output_connection(reg_name, bit_range):
     api.addNewOutputConnection(reg_name, src_bit_range[0], src_bit_range[1])
 
-def add_connection(src_reg_name, snk_reg_name, src_bit_range, snk_bit_range):
-    api.addNewRegisterConnection(src_reg_name, snk_reg_name, src_bit_range[0],
-        src_bit_range[1], snk_bit_range[0], snk_bit_range[1])
+def add_connection(src_reg_name, snk_reg_name, src_bit_range=None, snk_bit_range=None):
+    if src_bit_range is None and snk_bit_range is None:
+        api.addNewRegisterConnection(src_reg_name, snk_reg_name)
+    else:
+        api.addNewRegisterConnection(src_reg_name, snk_reg_name, src_bit_range[0],
+            src_bit_range[1], snk_bit_range[0], snk_bit_range[1])
 
 def place_design():
     api.placeDesign()
@@ -43,6 +48,6 @@ if __name__ == "__main__":
     __part_name = sys.argv[2]
     num_jobs = int(sys.argv[3])
 
-    api.init(__design_name, __part_name, num_jobs)
+    init(__design_name, __part_name, num_jobs)
 
 

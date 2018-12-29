@@ -49,10 +49,6 @@ public class CustomDesign {
         return coreDesign;
     }
 
-    public static void initBasedOnTemplate() {
-        // TODO
-    }
-
     public static void addModule(String dcpFilePath, int bitwidth, String[] inPIPNames, String[] outPIPNames) {
         String[] pathTokens = dcpFilePath.split("/");
         String fileName = pathTokens[pathTokens.length - 1].replace("\\.dcp", "");
@@ -74,6 +70,14 @@ public class CustomDesign {
         }
 
         RegisterDefaults.dcpFileToRegModuleMap.put(fileName, module);
+    }
+
+    public static void loadModulesFromTemplate(String dirPath) {
+        dirPath = dirPath.endsWith("/") ? dirPath : dirPath + "/";
+        ResourcesManager.COMPONENTS_FILE_NAME = dirPath + "components.conf";
+        ResourcesManager.resetConfigs();
+
+        ResourcesManager.loadRegModulesFromConfig(coreDesign, dirPath);
     }
 
     public static RegisterComponent createNewComponent(String parentDcp, String siteName) {
@@ -159,7 +163,7 @@ public class CustomDesign {
             return;
         }
 
-        ResourcesManager.initConfigs();
+        ResourcesManager.resetConfigs();
 
         coreDesign = new Design((String) options.valueOf("name"), (String) options.valueOf("part"));
         coreDesign.setAutoIOBuffers(false);
@@ -167,7 +171,7 @@ public class CustomDesign {
         RouterLog.log("Initiating new design <" + coreDesign.getName() + "> for part <" + coreDesign.getPartName() + ">.",
                 RouterLog.Level.NORMAL);
 
-        ResourcesManager.loadRegModulesFromConfig(coreDesign);
+        ResourcesManager.loadRegModulesFromConfig(coreDesign, ResourcesManager.COMPONENTS_DIR);
 
         HashMap<String, ComplexRegister> registers = ResourcesManager.registersFromPlacements(coreDesign);
         ArrayList<RegisterConnection> connections = ResourcesManager.connectionsFromRoutes(coreDesign, registers);

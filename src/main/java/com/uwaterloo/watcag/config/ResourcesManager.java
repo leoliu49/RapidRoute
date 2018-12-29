@@ -26,7 +26,7 @@ public class ResourcesManager {
     public static final String RESOURCES_DIR = "src/main/resources/";
     public static final String COMPONENTS_DIR = RESOURCES_DIR + "components/";
     public static final String OUTPUT_DIR = "output/";
-    public static final String TEMPLATES_DIR = RESOURCES_DIR + "default-templates/";
+    public static final String DEFAULT_TEMPLATES_DIR = RESOURCES_DIR + "default-templates/";
 
     public static String COMPONENTS_FILE_NAME = ResourcesManager.RESOURCES_DIR + "components.conf";
     public static String PLACEMENTS_FILE_NAME = ResourcesManager.RESOURCES_DIR + "placements.conf";
@@ -73,7 +73,7 @@ public class ResourcesManager {
             routesConfig = new BufferedReader(new FileReader(ROUTES_FILE_NAME));
     }
 
-    public static boolean initConfigs() {
+    public static boolean resetConfigs() {
         try {
             initComponentsConfig();
             initPlacementsConfig();
@@ -86,8 +86,10 @@ public class ResourcesManager {
         return true;
     }
 
-    public static void loadRegModulesFromConfig(Design d) {
+    public static void loadRegModulesFromConfig(Design d, String modulesDir) {
         Wini ini = componentsConfig;
+
+        modulesDir = modulesDir.endsWith("/") ? modulesDir : modulesDir + "/";
 
         RegisterDefaults.CLK_NAME = ini.get(commonKey, clkKey);
         RegisterDefaults.RST_NAME = ini.get(commonKey, rstKey);
@@ -121,7 +123,7 @@ public class ResourcesManager {
             dcp = dcp.replace("\\.dcp", "_dcp");
 
             ComplexRegModule regModule = new ComplexRegModule(dcp, bitwidth, inPIPNames, outPIPNames,
-                    readDcp(ResourcesManager.COMPONENTS_DIR + fileName, d.getPartName()));
+                    readDcp(modulesDir + fileName, d.getPartName()));
             RegisterDefaults.dcpFileToRegModuleMap.put(dcp, regModule);
 
             Design regDesign = regModule.getSrcDesign();

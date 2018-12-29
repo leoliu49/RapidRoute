@@ -6,11 +6,10 @@ __design_name = None
 __part_name = None
 
 
-def load_template(template_dir):
-    pass
+def load_template(template_dir="src/main/resources/default-templates/dcps-xcku5p-ffvb676-2-e"):
+    api.loadModulesFromTemplate(template_dir)
 
 def add_module(dcp_filepath, bitWidth, inPIPNames, outPIPNames):
-    global __design
     api.addModule(dcp_filepath, bitWidth, inPIPNames, outPIPNames)
 
 def create_component(parent_dcp, site_name):

@@ -21,7 +21,7 @@ public class ComplexRegister {
 
     private int bitWidth;
 
-    public ComplexRegister(Design d, String name, ArrayList<RegisterComponent> components) {
+    public ComplexRegister(String name, ArrayList<RegisterComponent> components) {
 
         this.name = name;
 

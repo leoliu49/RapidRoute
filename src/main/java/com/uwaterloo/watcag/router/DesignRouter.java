@@ -122,7 +122,7 @@ public class DesignRouter {
         THREAD_POOL_SIZE = threadPoolSize;
     }
 
-    public static void prepareNewConnectionForRouting(Design d, RegisterConnection connection) {
+    public static void prepareNewConnectionForRouting(RegisterConnection connection) {
 
         if (connection.isInputConnection() || connection.isOutputConnection()) {
             externalConnectionSet.add(connection);
@@ -134,7 +134,7 @@ public class DesignRouter {
         // Check for congruency
         boolean isCongruent = false;
         for (RegisterConnection c : uniqueConnectionsSet.keySet()) {
-            if (c.isCongruentWith(d, connection)) {
+            if (c.isCongruentWith(coreDesign, connection)) {
                 uniqueConnectionsSet.get(c).add(connection);
                 isCongruent = true;
                 break;
@@ -467,7 +467,7 @@ public class DesignRouter {
          *  Routing is done in order
          */
         long tStep6Begin = System.currentTimeMillis();
-        RouterLog.log("5: Rerouting conflicting routes.", RouterLog.Level.NORMAL);
+        RouterLog.log("6: Rerouting conflicting routes.", RouterLog.Level.NORMAL);
         RouterLog.indent();
         while (!routingQueue.isEmpty()) {
             RegisterConnection connection = routingQueue.remove();

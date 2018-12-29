@@ -5,12 +5,12 @@ import java.util.HashMap;
 
 public class RegisterDefaults {
 
-    public static String CLK_NAME;
-    public static String RST_NAME;
-    public static String CE_NAME;
+    public static String CLK_NAME = "clk";
+    public static String RST_NAME = "rst";
+    public static String CE_NAME = "ce";
 
-    public static String INPUT_NAME;
-    public static String OUTPUT_NAME;
+    public static String INPUT_NAME = "in";
+    public static String OUTPUT_NAME = "out";
 
     public static final HashMap<String, ComplexRegModule> dcpFileToRegModuleMap = new HashMap<>();
 

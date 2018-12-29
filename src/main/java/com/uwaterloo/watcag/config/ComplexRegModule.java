@@ -6,6 +6,8 @@ import com.xilinx.rapidwright.design.Module;
 import com.xilinx.rapidwright.device.Site;
 
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
 
 public class ComplexRegModule {
 
@@ -25,10 +27,10 @@ public class ComplexRegModule {
     private Module module = null;
 
 
-    public ComplexRegModule(String parentDcp, int bitWidth, ArrayList<String> inPIPNames, ArrayList<String> outPIPNames,
+    public ComplexRegModule(String parentDcp, int bitwidth, ArrayList<String> inPIPNames, ArrayList<String> outPIPNames,
                             Design srcDesign) {
         this.parentDcp = parentDcp;
-        this.bitWidth = bitWidth;
+        this.bitWidth = bitwidth;
         this.inPIPNames = inPIPNames;
         this.outPIPNames = outPIPNames;
 
@@ -38,6 +40,12 @@ public class ComplexRegModule {
 
         RouterLog.log("Initialized register module anchored at <"
                 + module.getAnchor().getSiteName() + ">.", RouterLog.Level.VERBOSE);
+    }
+
+    public ComplexRegModule(String parentDcp, int bitWidth, String[] inPIPNames, String[] outPIPNames,
+                            Design srcDesign) {
+        this(parentDcp, bitWidth, new ArrayList<>(Arrays.asList(inPIPNames)),
+                new ArrayList<>(Arrays.asList(outPIPNames)), srcDesign);
     }
 
     public String getParentDcp() {

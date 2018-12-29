@@ -13,10 +13,7 @@ import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Set;
+import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -29,13 +26,11 @@ public class ResourcesManager {
     public static final String RESOURCES_DIR = "src/main/resources/";
     public static final String COMPONENTS_DIR = RESOURCES_DIR + "components/";
     public static final String OUTPUT_DIR = "output/";
-    public static final String TEMPLATES_DIR = RESOURCES_DIR + "templates/";
+    public static final String TEMPLATES_DIR = RESOURCES_DIR + "default-templates/";
 
     public static String COMPONENTS_FILE_NAME = ResourcesManager.RESOURCES_DIR + "components.conf";
     public static String PLACEMENTS_FILE_NAME = ResourcesManager.RESOURCES_DIR + "placements.conf";
     public static String ROUTES_FILE_NAME = ResourcesManager.RESOURCES_DIR + "routes.conf";
-
-    public static String PART_NAME = null;
 
     public static Wini componentsConfig = null;
     public static Wini placementsConfig = null;
@@ -56,16 +51,11 @@ public class ResourcesManager {
     // INI keys for placementsConfig
     public static final String componentKeyPrefix = "comp";
 
-
-    private static Design readDcp(String dcpFileName) {
-        Design regDesign = Design.readCheckpoint(dcpFileName);
-        if (PART_NAME == null)
-            PART_NAME = regDesign.getPartName();
-        else if (!PART_NAME.equals(regDesign.getPartName())) {
-            throw new DesignFailureException("Component DCPs are using different Xilinx parts.");
-        }
-
-        return regDesign;
+    public static Design readDcp(String dcpFileName, String partName) {
+        Design d = Design.readCheckpoint(dcpFileName);
+        if (!partName.equals(d.getPartName()))
+            throw new DesignFailureException("Module DCPs are for different Xilinx parts.");
+        return d;
     }
 
     private static void initComponentsConfig() throws IOException {
@@ -96,7 +86,7 @@ public class ResourcesManager {
         return true;
     }
 
-    private static void loadRegModulesFromConfig() {
+    public static void loadRegModulesFromConfig(Design d) {
         Wini ini = componentsConfig;
 
         RegisterDefaults.CLK_NAME = ini.get(commonKey, clkKey);
@@ -111,7 +101,7 @@ public class ResourcesManager {
 
 
         for (String dcp : dcpNameKeys) {
-            int bitWidth = Integer.valueOf(ini.get(dcp, bwKey));
+            int bitwidth = Integer.valueOf(ini.get(dcp, bwKey));
 
             int inPIPKey = 0;
             ArrayList<String> inPIPNames = new ArrayList<>();
@@ -130,33 +120,21 @@ public class ResourcesManager {
             String fileName = dcp.endsWith(".dcp") ? dcp : dcp + ".dcp";
             dcp = dcp.replace("\\.dcp", "_dcp");
 
-            ComplexRegModule regModule = new ComplexRegModule(dcp, bitWidth, inPIPNames, outPIPNames,
-                    readDcp(ResourcesManager.COMPONENTS_DIR + fileName));
+            ComplexRegModule regModule = new ComplexRegModule(dcp, bitwidth, inPIPNames, outPIPNames,
+                    readDcp(ResourcesManager.COMPONENTS_DIR + fileName, d.getPartName()));
             RegisterDefaults.dcpFileToRegModuleMap.put(dcp, regModule);
-        }
-    }
 
-    public static Design newDesignFromSources(String designName) {
-        loadRegModulesFromConfig();
-        Design d = new Design(designName, ResourcesManager.PART_NAME);
-        d.setAutoIOBuffers(false);
-
-        RouterLog.log("Initiating new design <" + designName + "> for part <" + d.getPartName() + ">.",
-                RouterLog.Level.NORMAL);
-
-        for (ComplexRegModule module : RegisterDefaults.dcpFileToRegModuleMap.values()) {
-            Design regDesign = module.getSrcDesign();
+            Design regDesign = regModule.getSrcDesign();
             for (EDIFCell cell : regDesign.getNetlist().getWorkLibrary().getCells()) {
-                cell.rename("__" + module.getParentDcp() + "_" + cell.getName());
+                cell.rename("__" + regModule.getParentDcp() + "_" + cell.getName());
                 d.getNetlist().getWorkLibrary().addCell(cell);
             }
             EDIFLibrary hdi = d.getNetlist().getHDIPrimitivesLibrary();
             for (EDIFCell cell : regDesign.getNetlist().getHDIPrimitivesLibrary().getCells()) {
                 if (!hdi.containsCell(cell)) hdi.addCell(cell);
             }
-        }
 
-        return d;
+        }
     }
 
     public static HashMap<String, ComplexRegister> registersFromPlacements(Design d) {
@@ -184,7 +162,7 @@ public class ResourcesManager {
                 compKey += 1;
             }
 
-            registersMap.put(regName, new ComplexRegister(d, regName, components));
+            registersMap.put(regName, new ComplexRegister(regName, components));
         }
 
         return registersMap;

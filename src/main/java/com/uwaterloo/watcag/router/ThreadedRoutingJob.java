@@ -657,7 +657,7 @@ public class ThreadedRoutingJob extends Thread {
      * Function for step 2
      * Route a new batch of RouteTemplates for the entire bus
      * Calling this function again will cumulatively add more batches
-     * Certain templates are purged if they conflict with others in the bus
+     * Certain default-templates are purged if they conflict with others in the bus
      */
     private boolean extendTemplateBatchesForBus(Design d, int batchSize) {
 
@@ -682,7 +682,7 @@ public class ThreadedRoutingJob extends Thread {
     /*
      * Function for step 3
      * Try and find the best configuration of RouteTemplates which have the cheapest sink routing configuration
-     * With the final RouteTemplates found, create CustomRoutes based on the templates
+     * With the final RouteTemplates found, create CustomRoutes based on the default-templates
      * If no configuration is possible, return false
      */
     private boolean deriveBestSinkPathConfiguration(Design d) {
@@ -866,14 +866,14 @@ public class ThreadedRoutingJob extends Thread {
                     else
                         batchSize = 3;
 
-                    bufferedLog.log("2: Calculating route templates (batch size: " + batchSize + ").",
+                    bufferedLog.log("2: Calculating route default-templates (batch size: " + batchSize + ").",
                             RouterLog.Level.NORMAL);
                     boolean success = extendTemplateBatchesForBus(coreDesign, batchSize);
                     if (success)
                         nextState = state + 1;
                     else {
                         bufferedLog.indent();
-                        bufferedLog.log("Unable to find working templates. Restarting at step 2.",
+                        bufferedLog.log("Unable to find working default-templates. Restarting at step 2.",
                                 RouterLog.Level.NORMAL);
                         bufferedLog.indent(-1);
                     }
@@ -894,7 +894,7 @@ public class ThreadedRoutingJob extends Thread {
                     break;
                 }
                 case 4: {
-                    bufferedLog.log("4: Calculating tile paths for templates.", RouterLog.Level.NORMAL);
+                    bufferedLog.log("4: Calculating tile paths for default-templates.", RouterLog.Level.NORMAL);
                     populatePathSubs(coreDesign);
                     nextState = state + 1;
                     break;

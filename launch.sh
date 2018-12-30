@@ -4,7 +4,7 @@ ROOT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null && pwd )"
 
 
 function printHelp() {
-    echo "$0 [-h] [FILE_NAME] [-j NUM_JOBS]"
+    echo "$0 [-h] [FILE_NAME] [--jobs NUM_JOBS] [--interactive]"
     exit 0
 }
 
@@ -28,6 +28,10 @@ case $key in
     shift
     shift
     ;;
+    -i|--interactive)
+    INTERACTIVE="1"
+    shift
+    ;;
     *)
     printHelp
     ;;
@@ -41,4 +45,9 @@ fi
 . env.sh "$ROOT_DIR"/../RapidWright
 gradle jar
 
-./jython -i "$FILE_NAME" "$NUM_JOBS"
+if [ -z ${INTERACTIVE+x} ]; then
+    ./jython "$FILE_NAME" "$NUM_JOBS"
+else
+    ./jython -i "$FILE_NAME" "$NUM_JOBS"
+fi
+

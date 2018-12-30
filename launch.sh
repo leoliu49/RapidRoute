@@ -46,8 +46,8 @@ fi
 gradle jar
 
 if [ -z ${INTERACTIVE+x} ]; then
-    ./jython "$FILE_NAME" "$NUM_JOBS"
+    java org.python.util.jython "$FILE_NAME" "$NUM_JOBS"
 else
-    ./jython -i "$FILE_NAME" "$NUM_JOBS"
+    java org.python.util.jython -i "$FILE_NAME" "$NUM_JOBS"
 fi
 

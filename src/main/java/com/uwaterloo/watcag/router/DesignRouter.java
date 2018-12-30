@@ -132,6 +132,8 @@ public class DesignRouter {
         freeThreads.clear();
         routingQueue.clear();
         tileConflictQueue.clear();
+
+        RouteForge.reset();
     }
 
     public static void prepareNewConnectionForRouting(RegisterConnection connection) {

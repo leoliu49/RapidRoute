@@ -17,11 +17,12 @@ public class RouteForge {
      * Collection of static functions which can route registers
      */
 
-    private static final Set<String> nodeLock = new HashSet<>();
-
-    public static void flushNodeLock() {
+    public static void reset() {
         nodeLock.clear();
+        globalNodeFootprint.clear();
     }
+
+    private static final Set<String> nodeLock = new HashSet<>();
 
     public static boolean lock(String nodeName) {
         synchronized (nodeLock) {

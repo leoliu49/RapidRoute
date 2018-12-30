@@ -71,6 +71,9 @@ public class CustomDesign {
         DesignRouter.reset();
         registers.clear();
         connections.clear();
+
+        srcNetPortIndex = 0;
+        resNetPortIndex = 0;
     }
 
     public static void addModule(String dcpFilePath, int bitwidth, String[] inPIPNames, String[] outPIPNames) {

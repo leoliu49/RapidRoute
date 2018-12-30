@@ -26,15 +26,28 @@ public class CustomDesign {
      * Top level class which does everything
      */
 
+    private static int numJobs;
     private static Design coreDesign;
     private static final HashMap<String, ComplexRegister> registers = new HashMap<>();
     private static final ArrayList<RegisterConnection> connections = new ArrayList<>();
+
+    private static int srcNetPortIndex = 0;
+    private static int resNetPortIndex = 0;
 
 
     /*
      * API functions exposed to jython
      */
-    public static Design init(String designName, String partName, int numJobs) {
+    public static void init(int numJobs) {
+        CustomDesign.numJobs = numJobs;
+        RouterLog.init(RouterLog.Level.INFO);
+    }
+
+    public static Design new_design(String designName, String partName) {
+
+        if (coreDesign != null)
+            reset();
+
         coreDesign = new Design(designName, partName);
         coreDesign.setAutoIOBuffers(false);
 
@@ -47,6 +60,17 @@ public class CustomDesign {
         DesignRouter.initializeRouter(coreDesign, numJobs);
 
         return coreDesign;
+    }
+
+    public static void reset() {
+
+        RouterLog.log("Resetting design <" + coreDesign.getName() + ">.", RouterLog.Level.NORMAL);
+
+        coreDesign = null;
+        DesignPlacer.reset();
+        DesignRouter.reset();
+        registers.clear();
+        connections.clear();
     }
 
     public static void addModule(String dcpFilePath, int bitwidth, String[] inPIPNames, String[] outPIPNames) {
@@ -90,22 +114,49 @@ public class CustomDesign {
         DesignPlacer.prepareNewRegisterForPlacement(register);
     }
 
+    public static void addNewInputConnection(String snkRegName) {
+        RegisterConnection connection = new RegisterConnection(null, registers.get(snkRegName),
+                srcNetPortIndex, srcNetPortIndex + registers.get(snkRegName).getBitWidth() - 1,
+                0, registers.get(snkRegName).getBitWidth() - 1);
+        connections.add(connection);
+
+        srcNetPortIndex += connection.getBitWidth();
+        DesignRouter.prepareNewConnectionForRouting(connection);
+    }
+
     public static void addNewInputConnection(String snkRegName, int snkRegLowestBit, int snkRegHighestBit) {
-        RegisterConnection connection = new RegisterConnection(null, registers.get(snkRegName), 0, 0,
+        RegisterConnection connection = new RegisterConnection(null, registers.get(snkRegName),
+                srcNetPortIndex, srcNetPortIndex + snkRegHighestBit - snkRegLowestBit + 1,
                 snkRegLowestBit, snkRegHighestBit);
         connections.add(connection);
+
+        srcNetPortIndex += connection.getBitWidth();
+        DesignRouter.prepareNewConnectionForRouting(connection);
+    }
+
+    public static void addNewOutputConnection(String srcRegName) {
+        RegisterConnection connection = new RegisterConnection(registers.get(srcRegName), null,
+                0, registers.get(srcRegName).getBitWidth() - 1,
+                resNetPortIndex, resNetPortIndex + registers.get(srcRegName).getBitWidth() - 1);
+        connections.add(connection);
+
+        resNetPortIndex += connection.getBitWidth();
         DesignRouter.prepareNewConnectionForRouting(connection);
     }
 
     public static void addNewOutputConnection(String srcRegName, int srcRegLowestBit, int srcRegHighestBit) {
-        RegisterConnection connection = new RegisterConnection(registers.get(srcRegName), null, srcRegLowestBit,
-                srcRegHighestBit, 0, 0);
+        RegisterConnection connection = new RegisterConnection(registers.get(srcRegName), null,
+                srcRegLowestBit, srcRegHighestBit,
+                resNetPortIndex, resNetPortIndex + srcRegHighestBit - srcRegLowestBit + 1);
         connections.add(connection);
+
+        resNetPortIndex += connection.getBitWidth();
         DesignRouter.prepareNewConnectionForRouting(connection);
     }
 
     public static void addNewRegisterConnection(String srcRegName, String snkRegName) {
-        RegisterConnection connection = new RegisterConnection(registers.get(srcRegName), registers.get(snkRegName));
+        RegisterConnection connection = new RegisterConnection(registers.get(srcRegName), registers.get(snkRegName),
+                0, registers.get(srcRegName).getBitWidth() - 1, 0, registers.get(snkRegName).getBitWidth() - 1);
         connections.add(connection);
         DesignRouter.prepareNewConnectionForRouting(connection);
     }

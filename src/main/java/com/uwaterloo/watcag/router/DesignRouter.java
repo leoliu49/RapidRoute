@@ -112,6 +112,7 @@ public class DesignRouter {
     }
 
     public static void initializeRouter(Design d, int threadPoolSize) {
+        reset();
         coreDesign = d;
 
         for (int i = 0; i < THREAD_POOL_SIZE; i++)
@@ -120,6 +121,17 @@ public class DesignRouter {
             freeThreads.add(i);
 
         THREAD_POOL_SIZE = threadPoolSize;
+    }
+
+    public static void reset() {
+        externalConnectionSet.clear();
+        connectionSet.clear();
+        uniqueConnectionsSet.clear();
+        routesMap.clear();
+        threadPool.clear();
+        freeThreads.clear();
+        routingQueue.clear();
+        tileConflictQueue.clear();
     }
 
     public static void prepareNewConnectionForRouting(RegisterConnection connection) {
@@ -163,18 +175,14 @@ public class DesignRouter {
         EDIFPortInst[] srcPortRefs = EDIFTools.createPortInsts(top, "src", EDIFDirection.INPUT, inBitWidth);
         EDIFPortInst[] resPortRefs = EDIFTools.createPortInsts(top, "res", EDIFDirection.OUTPUT, outBitWidth);
 
-        int srcIndex = 0;
-        int resIndex = 0;
         for (RegisterConnection connection : externalConnectionSet) {
             if (connection.isInputConnection()) {
                 connection.getSnkReg().createInputEDIFPortRefs(coreDesign, "src", connection.getSnkRegLowestBit(),
-                        connection.getSnkRegHighestBit(), srcIndex);
-                srcIndex += connection.getBitWidth();
+                        connection.getSnkRegHighestBit(), connection.getSrcRegLowestBit());
             }
             else if (connection.isOutputConnection()) {
                 connection.getSrcReg().createOutputEDIFPortRefs(coreDesign, "res", connection.getSrcRegLowestBit(),
-                        connection.getSrcRegHighestBit(), resIndex);
-                resIndex += connection.getBitWidth();
+                        connection.getSrcRegHighestBit(), connection.getSnkRegLowestBit());
             }
         }
 

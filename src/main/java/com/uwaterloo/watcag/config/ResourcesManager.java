@@ -196,10 +196,12 @@ public class ResourcesManager {
 
             if (mDest.group(1).equals("out"))
                 connections.add(new RegisterConnection(registersMap.get(mSrc.group(1)), null,
-                        Integer.valueOf(mSrc.group(3)), Integer.valueOf(mSrc.group(2)), 0, 0));
+                        Integer.valueOf(mSrc.group(3)), Integer.valueOf(mSrc.group(2)),
+                        Integer.valueOf(mDest.group(3)), Integer.valueOf(mDest.group(2))));
             else if (mSrc.group(1).equals("in"))
                 connections.add(new RegisterConnection(null, registersMap.get(mDest.group(1)),
-                        0, 0, Integer.valueOf(mDest.group(3)), Integer.valueOf(mDest.group(2))));
+                        Integer.valueOf(mSrc.group(3)), Integer.valueOf(mSrc.group(2)),
+                        Integer.valueOf(mDest.group(3)), Integer.valueOf(mDest.group(2))));
             else
                 connections.add(new RegisterConnection(registersMap.get(mSrc.group(1)), registersMap.get(mDest.group(1)),
                         Integer.valueOf(mSrc.group(3)), Integer.valueOf(mSrc.group(2)),

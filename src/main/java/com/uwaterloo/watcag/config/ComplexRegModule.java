@@ -1,5 +1,6 @@
 package com.uwaterloo.watcag.config;
 
+import com.uwaterloo.watcag.DesignFailureException;
 import com.uwaterloo.watcag.util.RouterLog;
 import com.xilinx.rapidwright.design.Design;
 import com.xilinx.rapidwright.design.Module;
@@ -27,16 +28,19 @@ public class ComplexRegModule {
     private Module module = null;
 
 
-    public ComplexRegModule(String parentDcp, int bitwidth, ArrayList<String> inPIPNames, ArrayList<String> outPIPNames,
+    public ComplexRegModule(String parentDcp, int bitWidth, ArrayList<String> inPIPNames, ArrayList<String> outPIPNames,
                             Design srcDesign) {
         this.parentDcp = parentDcp;
-        this.bitWidth = bitwidth;
+        this.bitWidth = bitWidth;
         this.inPIPNames = inPIPNames;
         this.outPIPNames = outPIPNames;
 
         this.srcDesign = srcDesign;
         module = new Module(srcDesign);
         module.setNetlist(srcDesign.getNetlist());
+
+        if (inPIPNames.size() != bitWidth || outPIPNames.size() != bitWidth)
+            throw new DesignFailureException("PIP names for imported module <" + parentDcp + ".dcp> have incompatible sizes.");
 
         RouterLog.log("Initialized register module anchored at <"
                 + module.getAnchor().getSiteName() + ">.", RouterLog.Level.VERBOSE);

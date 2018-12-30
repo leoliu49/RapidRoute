@@ -5,8 +5,14 @@ __design = None
 __design_name = None
 __part_name = None
 
-def init(design_name, part_name, num_jobs):
-    api.init(design_name, part_name, num_jobs)
+def init(num_jobs):
+    api.init(num_jobs)
+
+def new_design(design_name, part_name):
+    api.new_design(design_name, part_name)
+
+def close_design():
+    api.reset()
 
 def load_template(template_dir="src/main/resources/default-templates/dcps-xcku5p-ffvb676-2-e"):
     api.loadModulesFromTemplate(template_dir)
@@ -20,11 +26,17 @@ def create_component(parent_dcp, site_name):
 def add_register(name, components):
     api.addNewComplexRegister(name, components)
 
-def add_input_connection(reg_name, bit_range):
-    api.addNewInputConnection(reg_name, dest_bit_range[0], dest_bit_range[1])
+def add_input_connection(reg_name, bit_range=None):
+    if bit_range is None:
+        api.addNewInputConnection(reg_name)
+    else:
+        api.addNewInputConnection(reg_name, dest_bit_range[0], dest_bit_range[1])
 
-def add_output_connection(reg_name, bit_range):
-    api.addNewOutputConnection(reg_name, src_bit_range[0], src_bit_range[1])
+def add_output_connection(reg_name, bit_range=None):
+    if bit_range is None:
+        api.addNewOutputConnection(reg_name)
+    else:
+        api.addNewOutputConnection(reg_name, src_bit_range[0], src_bit_range[1])
 
 def add_connection(src_reg_name, snk_reg_name, src_bit_range=None, snk_bit_range=None):
     if src_bit_range is None and snk_bit_range is None:
@@ -44,10 +56,4 @@ def write_checkpoint(name):
 
 
 if __name__ == "__main__":
-    __design_name = sys.argv[1]
-    __part_name = sys.argv[2]
-    num_jobs = int(sys.argv[3])
-
-    init(__design_name, __part_name, num_jobs)
-
-
+    api.init(int(sys.argv[1]))

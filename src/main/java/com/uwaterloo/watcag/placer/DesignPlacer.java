@@ -22,7 +22,13 @@ public class DesignPlacer {
     private static final HashSet<String> pipUsageSet = new HashSet<>();
 
     public static void initializePlacer(Design d) {
+        reset();
         coreDesign = d;
+    }
+
+    public static void reset() {
+        registersMap.clear();
+        pipUsageSet.clear();
     }
 
     public static void prepareNewRegisterForPlacement(ComplexRegister register) {

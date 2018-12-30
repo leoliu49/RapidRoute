@@ -1,5 +1,6 @@
 package com.uwaterloo.watcag.common;
 
+import com.uwaterloo.watcag.DesignFailureException;
 import com.uwaterloo.watcag.config.RegisterComponent;
 import com.xilinx.rapidwright.design.Design;
 import com.xilinx.rapidwright.device.Tile;
@@ -27,27 +28,24 @@ public class RegisterConnection {
     private int snkRegLowestBit;
     private int snkRegHighestBit;
 
-    public RegisterConnection(ComplexRegister srcReg, ComplexRegister snkReg) {
-        this(srcReg, snkReg, 0, srcReg.getBitWidth() - 1, 0, snkReg.getBitWidth() - 1);
-    }
-
     public RegisterConnection(ComplexRegister srcReg, ComplexRegister snkReg, int srcRegLowestBit, int srcRegHighestBit,
                               int snkRegLowestBit, int snkRegHighestBit) {
         this.srcReg = srcReg;
         if (srcReg == null)
             isInputConnection = true;
-        else {
-            this.srcRegLowestBit = srcRegLowestBit;
-            this.srcRegHighestBit = srcRegHighestBit;
-        }
+
+        this.srcRegLowestBit = srcRegLowestBit;
+        this.srcRegHighestBit = srcRegHighestBit;
 
         this.snkReg = snkReg;
         if (snkReg == null)
             isOutputConnection = true;
-        else {
-            this.snkRegLowestBit = snkRegLowestBit;
-            this.snkRegHighestBit = snkRegHighestBit;
-        }
+
+        this.snkRegLowestBit = snkRegLowestBit;
+        this.snkRegHighestBit = snkRegHighestBit;
+
+        if (srcRegHighestBit - srcRegLowestBit != snkRegHighestBit - snkRegLowestBit)
+            throw new DesignFailureException("Register connection has unequal input and output bus widths.");
 
         this.bitWidth = Math.max(srcRegHighestBit - srcRegLowestBit + 1, snkRegHighestBit - snkRegLowestBit + 1);
     }

@@ -330,9 +330,6 @@ public class FabricBrowser {
         return findTilePaths(d, TILE_TRAVERSAL_MAX_DEPTH, entrance, exit);
     }
 
-    /*
-     * Same as above, with custom max traversal depth
-     */
     public static ArrayList<TilePath> findTilePaths(Design d, int maxDepth, EnterWireJunction entrance,
                                                     ExitWireJunction exit) {
         ArrayList<TilePath> results = new ArrayList<>();
@@ -373,5 +370,59 @@ public class FabricBrowser {
         }
 
         return results;
+    }
+
+    public static TilePath findClosestTilePath(Design d, EnterWireJunction entrance,
+                                               ExitWireJunction exit, Set<String> banList) {
+        return findClosestTilePath(d, TILE_TRAVERSAL_MAX_DEPTH, entrance, exit, banList);
+    }
+
+    public static TilePath findClosestTilePath(Design d, int maxDepth, EnterWireJunction entrance,
+                                               ExitWireJunction exit, Set<String> banList) {
+        // Not applicable unless entrance and exit are on the same INT tile.
+        if (!entrance.getTileName().equals(exit.getTileName()))
+            return null;
+
+        String tileName = entrance.getTileName();
+
+        Queue<TilePath> queue = new LinkedList<>();
+        queue.add(new TilePath(entrance, exit));
+
+        HashSet<String> footprint = new HashSet<>();
+
+        while (!queue.isEmpty()) {
+            TilePath trav = queue.remove();
+            if (trav.getCost() >= maxDepth + 1)
+                break;
+
+            for (PIP pip : getFwdPIPs(d, tileName, trav.getNodeName(-2))) {
+                String nextNodeName = RouteUtil.getPIPNodeName(tileName, pip.getEndWireName());
+
+                if (nextNodeName.equals(exit.getNodeName())) {
+                    return new TilePath(trav);
+                }
+                else if (RouteUtil.isNodeBuffer(d, tileName, nextNodeName)) {
+
+                    if (RouteForge.isLocked(nextNodeName))
+                        continue;
+
+                    if (footprint.contains(nextNodeName))
+                        continue;
+
+                    if (banList.contains(nextNodeName))
+                        continue;
+
+                    TilePath travCopy = new TilePath(trav);
+
+                    // To prevent cycles in buffer traversal, don't queue previously traversed buffers
+                    if (travCopy.addNode(nextNodeName)) {
+                        queue.add(travCopy);
+                        footprint.add(nextNodeName);
+                    }
+                }
+            }
+        }
+
+        return null;
     }
 }

@@ -15,6 +15,7 @@ public class RouteTemplate {
     // True for all Ultrascale+; 16 for Ultrascale
     private static final int LONG_LINE_LENGTH = 6;
 
+    private int baseCost;
     private int adjustedCost;
     private int orthogonalTurns;
     private WireDirection lastDirection;
@@ -30,6 +31,7 @@ public class RouteTemplate {
 
     public RouteTemplate(Design d, EnterWireJunction src, ExitWireJunction snk) {
         orthogonalTurns = 0;
+        baseCost = 0;
         adjustedCost = 0;
         lastDirection = null;
 
@@ -45,6 +47,23 @@ public class RouteTemplate {
         template = new ArrayList<>();
         template.add(src);
         template.add(snk);
+    }
+
+    /*
+     * Copy constructor
+     */
+    public RouteTemplate(RouteTemplate ref) {
+        baseCost = ref.baseCost;
+        adjustedCost = ref.getAdjustedCost();
+        orthogonalTurns = ref.getNumOrthogonalTurns();
+
+        src = ref.getSrc();
+        snk = ref.getSnk();
+
+        distanceX = ref.getDistanceX();
+        distanceY = ref.getDistanceY();
+
+        template = new ArrayList<>(ref.getTemplate());
     }
 
     public RouteTemplate copyWithOffset(Design d, int dx, int dy) {
@@ -68,19 +87,35 @@ public class RouteTemplate {
         return orthogonalTurns;
     }
 
-    private void readjustCost(EnterWireJunction enJunc) {
-        adjustedCost += 2;
+    private void readjustCost(Design d, EnterWireJunction enJunc) {
+
+        int delta = 2;
+
+        // Add costs for tile path traversal
+        if (enJunc.getTilePathCost() != -1)
+            delta += enJunc.getTilePathCost();
+        if (enJunc.getSrcJunction(d).getTilePathCost() != -1)
+            delta += enJunc.getSrcJunction(d).getTilePathCost();
 
         // Punish short hops: short hops tend to be more expensive to route
         if (enJunc.getWireLength() < LONG_LINE_LENGTH)
-            adjustedCost += 4;
+            delta += 4;
         // Punish reversals: although sometimes they are necessary
         if (RouteUtil.reverseDirection(enJunc.getDirection()).equals(lastDirection))
-            adjustedCost += 2;
+            delta += 2;
         // Punish orthogonal turns: these routes seem to be very slow
         else if (RouteUtil.isOrthogonal(enJunc.getDirection(), lastDirection)) {
-            adjustedCost += 8;
+            delta += 8;
             orthogonalTurns += 1;
+        }
+
+        adjustedCost += delta;
+    }
+
+    private void readjustCost(Design d) {
+        adjustedCost = baseCost;
+        for (int i = 2; i < template.size(); i += 2) {
+            readjustCost(d, (EnterWireJunction) template.get(i));
         }
     }
 
@@ -118,11 +153,34 @@ public class RouteTemplate {
         template.add(1, enJunc);
         template.add(1, enJunc.getSrcJunction(d));
 
-        if (enJunc.getTilePathCost() != -1)
-            adjustedCost += enJunc.getTilePathCost();
-
-        readjustCost(enJunc);
+        readjustCost(d, enJunc);
         lastDirection = enJunc.getDirection();
+    }
+
+    public void replaceTemplate(Design d, EnterWireJunction enter, ExitWireJunction exit, RouteTemplate replacement) {
+        ArrayList<WireJunction> newTemplate = new ArrayList<>();
+        int startIndex = 0;
+        int endIndex = 0;
+        for (int i = 0; i < template.size(); i++) {
+            if (enter.equals(template.get(i)))
+                startIndex = i;
+            else if (exit.equals(template.get(i)))
+                endIndex = i;
+        }
+
+        for (int i = 0; i < startIndex; i++) {
+            newTemplate.add(template.get(i));
+        }
+        for (WireJunction junction : replacement.getTemplate()) {
+            newTemplate.add(junction);
+        }
+        for (int i = endIndex + 1; i < template.size(); i++) {
+            newTemplate.add(template.get(i));
+        }
+
+        template = newTemplate;
+
+        readjustCost(d);
     }
 
     @Override

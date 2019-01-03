@@ -55,6 +55,14 @@ public class RoutingCalculator {
 
     }
 
+    public static class TemplateCostComparator implements Comparator<RouteTemplate> {
+
+        @Override
+        public int compare(RouteTemplate r1, RouteTemplate r2) {
+            return r1.getAdjustedCost() - r2.getAdjustedCost();
+        }
+    }
+
     /*
      * Checks to see if the family of RouteTemplates is valid
      */

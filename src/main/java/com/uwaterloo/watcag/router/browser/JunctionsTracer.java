@@ -7,43 +7,38 @@ import java.util.*;
 public class JunctionsTracer {
 
     private int depth;
-
-    private LinkedList<WireJunction> junctions;
+    private WireJunction junction;
+    private JunctionsTracer parent;
 
     private JunctionsTracer(WireJunction head) {
+        junction = head;
         depth = 0;
-        junctions = new LinkedList<>();
-        junctions.addFirst(head);
+        parent = null;
     }
 
-    /*
-     * Deep copies reference, and appends next as head
-     */
-    public JunctionsTracer(WireJunction next, JunctionsTracer ref) {
-        depth = ref.getDepth() + 1;
-        junctions = new LinkedList<>(ref.getJunctions());
-        junctions.addFirst(next);
+    public JunctionsTracer(WireJunction head, JunctionsTracer parent) {
+        junction = head;
+        depth = parent.getDepth() + 1;
+        this.parent = parent;
     }
 
     public int getDepth() {
         return depth;
     }
 
-    public LinkedList<WireJunction> getJunctions() {
-        return junctions;
+    public WireJunction getJunction() {
+        return junction;
     }
 
     public void fastForward(WireJunction next) {
+        JunctionsTracer copy = new JunctionsTracer(junction, parent);
+        junction = next;
         depth += 1;
-        junctions.addFirst(next);
+        parent = copy;
     }
 
-    public WireJunction getHead() {
-        return junctions.getFirst();
-    }
-
-    public String toString() {
-        return junctions.getFirst().toString();
+    public JunctionsTracer getParent() {
+        return parent;
     }
 
     public static JunctionsTracer newHeadTracer(WireJunction head) {

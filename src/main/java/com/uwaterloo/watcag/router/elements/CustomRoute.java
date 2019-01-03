@@ -21,7 +21,6 @@ public class CustomRoute {
 
     private RouteTemplate template;
     private ArrayList<TilePath> route;
-    private ArrayList<ArrayList<TilePath>> pathSubs;
 
     public CustomRoute(RouteTemplate template) {
         cost = 0;
@@ -34,12 +33,9 @@ public class CustomRoute {
 
         this.template = template;
 
-        int size = template.getTemplate().size();
         route = new ArrayList<>();
-        pathSubs = new ArrayList<>();
-        for (int i = 0; i < size / 2; i++) {
+        for (int i = 0; i < template.getTemplate().size(); i += 2) {
             route.add(null);
-            pathSubs.add(null);
         }
     }
 
@@ -49,29 +45,13 @@ public class CustomRoute {
         copy.setBitIndex(bitIndex);
         copy.setRouteIndex(routeIndex);
 
-        for (int i = 0; i < route.size(); i++) {
-            copy.setPath(i, route.get(i).copyWithOffset(d, dx, dy));
-        }
+        ArrayList<TilePath> copyRoute = new ArrayList<>();
+        for (int i = 0; i < route.size(); i++)
+            copyRoute.add(route.get(i).copyWithOffset(d, dx, dy));
+        copy.setRoute(copyRoute);
 
         return copy;
     }
-
-    /*
-    private com.uwaterloo.watcag.router.elements.CustomRoute(Design d, com.uwaterloo.watcag.router.elements.EnterWireJunction src, com.uwaterloo.watcag.router.elements.ExitWireJunction snk) {
-        cost = 0;
-
-        this.src = src;
-        this.snk = snk;
-
-        Tile srcIntTile = d.getDevice().getTile(src.getTileName());
-        Tile snkIntTile = d.getDevice().getTile(snk.getTileName());
-
-        distanceX = snkIntTile.getTileXCoordinate() - srcIntTile.getTileXCoordinate();
-        distanceY = snkIntTile.getTileYCoordinate() - srcIntTile.getTileYCoordinate();
-
-        route = new ArrayList<>();
-    }
-    */
 
     public int getCost() {
         return cost;
@@ -117,81 +97,25 @@ public class CustomRoute {
         return route;
     }
 
-    public TilePath getPath(int i) {
+    public void setPath(int i, TilePath path) {
         if (i < 0)
             i += route.size();
-        return route.get(i);
+        route.set(i, path);
     }
 
-    public TilePath getNextPossiblePath(int i) {
-        if (i < 0)
-            i += pathSubs.size();
-
-        ArrayList<TilePath> pathSub = pathSubs.get(i);
-        if (pathSub.isEmpty())
-            return null;
-
-        pathSub.add(pathSub.remove(0));
-        return pathSub.get(pathSub.size() - 1);
-    }
-
-    public void setPath(TilePath path) {
+    public void setPath(TilePath newPath) {
         for (int i = 0; i < route.size(); i++) {
-            if (route.get(i).getEnterJunction().equals(path.getEnterJunction())
-                    && route.get(i).getExitJunction().equals(path.getExitJunction())) {
-                setPath(i, path);
+            TilePath path = route.get(i);
+            if (path.getEnterJunction().equals(newPath.getEnterJunction())
+                    && path.getExitJunction().equals(newPath.getExitJunction())) {
+                route.set(i, path);
                 return;
             }
         }
     }
 
-    public void setPath(int i, TilePath path) {
-        if (i < 0)
-            i += pathSubs.size();
-
-        if (route.get(i) != null)
-            cost -= route.get(i).getCost();
-        route.set(i, path);
-        cost += path.getCost();
-    }
-
-    public void removePath(int i) {
-        cost -= route.get(i).getCost();
-        route.set(i, null);
-    }
-
-    public ArrayList<ArrayList<TilePath>> getPathSubs() {
-        return pathSubs;
-    }
-
-    public ArrayList<TilePath> getPathSub(int i) {
-        if (i < 0)
-            i += pathSubs.size();
-        if (pathSubs.get(i) == null) {
-            RouterLog.indent();
-            RouterLog.log("ERROR: RETRIEVED PATHSUB IS NULL", RouterLog.Level.NORMAL);
-            RouterLog.indent(-1);
-        }
-        return pathSubs.get(i);
-    }
-
-    public ArrayList<TilePath> getPathSub(TilePath path) {
-        for (int i = 0; i < route.size(); i++) {
-            if (route.get(i).equals(path)) {
-                return getPathSub(i);
-            }
-        }
-
-        RouterLog.indent();
-        RouterLog.log("ERROR: WAS NOT ABLE TO FIND PATHSUB", RouterLog.Level.NORMAL);
-        RouterLog.indent(-1);
-        return null;
-    }
-
-    public void setPathSub(int i, ArrayList<TilePath> pathSub) {
-        if (i < 0)
-            i += pathSubs.size();
-        pathSubs.set(i, pathSub);
+    public void setRoute(ArrayList<TilePath> route) {
+        this.route = route;
     }
 
     public void commitToNet(Design d, Net net) {

@@ -8,7 +8,7 @@ function printHelp() {
     exit 0
 }
 
-FILE_NAME="rw_router/device_toolkit.py"
+FILE_NAME="rapidroute/device_toolkit.py"
 NUM_JOBS=""
 
 while [[ $# -gt 0 ]]

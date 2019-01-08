@@ -90,7 +90,7 @@ public class ComplexRegModule {
 
     public ArrayList<String> getAllValidSitePlacements() {
         ArrayList<String> sites = new ArrayList<>();
-        for (Site site : module.getAllValidPlacements())
+        for (Site site : module.calculateAllValidPlacements(module.getDevice()))
             sites.add(site.getName());
 
         return sites;

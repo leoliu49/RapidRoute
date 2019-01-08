@@ -1,9 +1,6 @@
 import sys
 from com.uwaterloo.watcag import CustomDesign as api
 
-__design = None
-__design_name = None
-__part_name = None
 
 def init(num_jobs):
     api.init(num_jobs)

@@ -20,6 +20,9 @@ def add_module(dcp_filepath, bitWidth, inPIPNames, outPIPNames):
 def create_component(parent_dcp, site_name):
     return api.createNewComponent(parent_dcp, site_name)
 
+def get_all_valid_placements(dcp_module):
+    return api.get_all_valid_placements(dcp_module)
+
 def add_register(name, components):
     api.addNewComplexRegister(name, components)
 

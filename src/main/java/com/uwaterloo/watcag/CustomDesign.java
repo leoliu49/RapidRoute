@@ -99,6 +99,13 @@ public class CustomDesign {
         RegisterDefaults.dcpFileToRegModuleMap.put(fileName, module);
     }
 
+    public static ArrayList<String> getAllValidPlacements(String dcpModuleName) {
+        String[] pathTokens = dcpModuleName.split("/");
+        String moduleName = pathTokens[pathTokens.length - 1].replace("\\.dcp", "");
+
+        return RegisterDefaults.dcpFileToRegModuleMap.get(moduleName).getAllValidSitePlacements();
+    }
+
     public static void loadModulesFromTemplate(String dirPath) {
         dirPath = dirPath.endsWith("/") ? dirPath : dirPath + "/";
         ResourcesManager.COMPONENTS_FILE_NAME = dirPath + "components.conf";

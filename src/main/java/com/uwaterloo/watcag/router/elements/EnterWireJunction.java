@@ -54,6 +54,10 @@ public class EnterWireJunction extends WireJunction {
     private void setSrcJunction(Design d) {
         Tile baseTile = d.getDevice().getTile(getTileName());
         Tile srcTile = null;
+
+        if (direction == null)
+            return;
+
         switch (direction) {
             case NORTH:
                 srcTile = baseTile.getTileXYNeighbor(0, -1 * wireLength);

@@ -393,6 +393,9 @@ public class ThreadedRoutingJob extends Thread {
             for (ExitWireJunction exit : fanOut) {
                 EnterWireJunction wireDest = exit.getDestJunction(d);
 
+                if (wireDest == null)
+                    continue;
+
                 if (RouteForge.isLocked(wireDest.getNodeName()) || RouteForge.isLocked(exit.getNodeName()))
                     continue;
 

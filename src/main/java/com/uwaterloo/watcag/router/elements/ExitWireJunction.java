@@ -55,6 +55,9 @@ public class ExitWireJunction extends WireJunction {
         Tile baseTile = d.getDevice().getTile(getTileName());
         Tile destTile = null;
 
+        if (direction == null)
+            return;
+
         switch (direction) {
             case NORTH:
                 destTile = baseTile.getTileXYNeighbor(0, wireLength);

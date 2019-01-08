@@ -5,7 +5,6 @@ import com.xilinx.rapidwright.device.Tile;
 
 public class WireJunction {
 
-
     protected WireDirection direction;
     protected String nodeName;
     protected String tileName;

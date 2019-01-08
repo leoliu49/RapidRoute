@@ -219,6 +219,10 @@ public class CustomDesign {
     }
 
     public static void main(String[] args) throws IOException {
+
+        System.out.println("Main entry point temporarily disabled. Please use the launch script instead.");
+
+        /*
         OptionParser parser = createOptionParser();
         OptionSet options = parser.parse(args);
 
@@ -265,6 +269,7 @@ public class CustomDesign {
         DesignRouter.routeDesign();
 
         coreDesign.writeCheckpoint(ResourcesManager.OUTPUT_DIR + options.valueOf("out") + "_custom_routed.dcp");
+        */
 
     }
 }

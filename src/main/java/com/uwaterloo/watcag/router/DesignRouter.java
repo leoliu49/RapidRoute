@@ -115,12 +115,12 @@ public class DesignRouter {
         reset();
         coreDesign = d;
 
+        THREAD_POOL_SIZE = threadPoolSize;
+
         for (int i = 0; i < THREAD_POOL_SIZE; i++)
             threadPool.add(null);
         for (int i = 0; i < THREAD_POOL_SIZE; i++)
             freeThreads.add(i);
-
-        THREAD_POOL_SIZE = threadPoolSize;
     }
 
     public static void reset() {

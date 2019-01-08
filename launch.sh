@@ -38,12 +38,11 @@ case $key in
 esac
 done
 
-if [ "$NUM_JOBS" == "" ] &&[ "$FILE_NAME" == "rw_router/device_toolkit.py" ]; then
+if [ "$NUM_JOBS" == "" ] &&[ "$FILE_NAME" == "rapidroute/device_toolkit.py" ]; then
     printHelp
 fi
 
-. env.sh "$ROOT_DIR"/../RapidWright
-gradle jar
+. env.sh $(pwd)/../RapidWright
 
 if [ -z ${INTERACTIVE+x} ]; then
     java org.python.util.jython "$FILE_NAME" "$NUM_JOBS"

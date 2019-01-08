@@ -48,6 +48,9 @@ def add_connection(src_reg_name, snk_reg_name, src_bit_range=None, snk_bit_range
 def place_design():
     api.placeDesign()
 
+def net_synthesis():
+    api.netSynthesis()
+
 def route_design():
     api.routeDesign()
 

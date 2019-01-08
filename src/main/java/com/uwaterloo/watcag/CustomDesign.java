@@ -183,8 +183,11 @@ public class CustomDesign {
         DesignPlacer.place();
     }
 
-    public static void routeDesign() {
+    public static void netSynthesis() {
         DesignRouter.createNetsForConnections();
+    }
+
+    public static void routeDesign() {
         DesignRouter.routeDesign();
     }
 

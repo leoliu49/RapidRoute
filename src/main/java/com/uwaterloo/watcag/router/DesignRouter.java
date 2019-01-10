@@ -13,6 +13,7 @@ import com.xilinx.rapidwright.design.Design;
 import com.xilinx.rapidwright.design.Net;
 import com.xilinx.rapidwright.device.Tile;
 import com.xilinx.rapidwright.edif.*;
+import org.apache.commons.lang3.tuple.Pair;
 import org.apache.commons.lang3.tuple.Triple;
 
 import java.util.*;
@@ -23,21 +24,15 @@ public class DesignRouter {
      * Top-level router which router the entire design
      */
 
-    private static int THREAD_POOL_SIZE = 4;
-
     private static Design coreDesign;
 
-    private static final HashSet<RegisterConnection> externalConnectionSet = new HashSet<>();
+    private static final Set<RegisterConnection> externalConnectionSet = new HashSet<>();
 
-    private static final HashSet<RegisterConnection> connectionSet = new LinkedHashSet<>();
+    private static final Set<RegisterConnection> connectionSet = new LinkedHashSet<>();
     private static final HashMap<RegisterConnection, ArrayList<RegisterConnection>> uniqueConnectionsSet = new LinkedHashMap<>();
     private static final HashMap<RegisterConnection, RoutingFootprint> routesMap = new HashMap<>();
 
-    private static final ArrayList<Thread> threadPool = new ArrayList<>();
-    private static final LinkedList<Integer> freeThreads = new LinkedList<>();
-
-    private static final Queue<RegisterConnection> routingQueue = new LinkedList<>();
-    private static final Queue<Set<Triple<RegisterConnection, CustomRoute, TilePath>>> tileConflictQueue = new LinkedList<>();
+    private static final Set<Pair<RegisterConnection, CustomRoute>> failedRoutes = new HashSet<>();
 
     private static int getXOffsetOfCongruentConnection(RegisterConnection ref, RegisterConnection offset) {
         Tile refIntTile = coreDesign.getDevice().getSite(ref.getSrcReg().getComponent(0).getSiteName()).getIntTile();
@@ -80,47 +75,10 @@ public class DesignRouter {
         return footprint;
     }
 
-    private static void scheduleNewJob(int jobID, Thread job) {
-        synchronized (threadPool) {
-            threadPool.set(jobID, job);
-        }
-
-        job.start();
-    }
-
-    private static int waitForFreeThread() throws InterruptedException {
-        int freeThreadID;
-        while (true) {
-            synchronized (freeThreads) {
-                if (!freeThreads.isEmpty()) {
-                    freeThreadID = freeThreads.remove();
-                    break;
-                }
-            }
-            Thread.sleep(500);
-        }
-
-        Thread completedThread;
-        synchronized (threadPool) {
-            completedThread = threadPool.get(freeThreadID);
-            threadPool.set(freeThreadID, null);
-        }
-
-        if (completedThread != null)
-            completedThread.join();
-        return freeThreadID;
-    }
-
     public static void initializeRouter(Design d, int threadPoolSize) {
         reset();
         coreDesign = d;
-
-        THREAD_POOL_SIZE = threadPoolSize;
-
-        for (int i = 0; i < THREAD_POOL_SIZE; i++)
-            threadPool.add(null);
-        for (int i = 0; i < THREAD_POOL_SIZE; i++)
-            freeThreads.add(i);
+        ThreadPool.initThreadPool(threadPoolSize);
     }
 
     public static void reset() {
@@ -128,11 +86,9 @@ public class DesignRouter {
         connectionSet.clear();
         uniqueConnectionsSet.clear();
         routesMap.clear();
-        threadPool.clear();
-        freeThreads.clear();
-        routingQueue.clear();
-        tileConflictQueue.clear();
+        failedRoutes.clear();
 
+        ThreadPool.reset();
         RouteForge.reset();
     }
 
@@ -208,69 +164,22 @@ public class DesignRouter {
         }
     }
 
-    public static void completeRoutingJob(int jobID, RegisterConnection connection, RoutingFootprint footprint) {
+    public static void completeRoutingJob(RegisterConnection connection, RoutingFootprint footprint) {
         synchronized (routesMap) {
             routesMap.put(connection, footprint);
         }
-
-        // -1 indicates running on main thread
-        if (jobID != -1) {
-            synchronized (freeThreads) {
-                if (!freeThreads.contains(jobID))
-                    freeThreads.add(jobID);
-            }
-        }
     }
 
-    // TODO
-    public static void completeTileConflictJob(int jobID, ArrayList<RegisterConnection> failures) {
-        if (jobID != -1) {
-            synchronized (freeThreads) {
-                if (!freeThreads.contains(jobID))
-                    freeThreads.add(jobID);
-
-            }
+    public static void completeTileCongestionJob(Set<Pair<RegisterConnection, CustomRoute>> failures) {
+        synchronized (failedRoutes) {
+            failedRoutes.addAll(failures);
         }
-
-        for (RegisterConnection failure : failures) {
-            routesMap.get(failure).clear();
-            synchronized (routingQueue) {
-                routingQueue.add(failure);
-            }
-            synchronized (routesMap) {
-                if (routesMap.containsKey(failure))
-                    routesMap.remove(failure);
-            }
-        }
-
-    }
-
-    /*
-     * Called from main thread, acting as rendezvous point for all threads
-     */
-    public static void waitForAllThreads() {
-        for (int i = 0; i < threadPool.size(); i++) {
-            Thread job = threadPool.get(i);
-            if (job != null) {
-                try {
-                    job.join();
-                } catch (InterruptedException e) {
-                    e.printStackTrace();
-                }
-
-                threadPool.set(i, null);
-            }
-        }
-
-        freeThreads.clear();
-        for (int i = 0; i < THREAD_POOL_SIZE; i++)
-            freeThreads.add(i);
     }
 
     /*
      * Master function for routing the design
      */
-    public static void routeDesign() {
+    public static void routeDesign() throws InterruptedException {
         long tBegin = System.currentTimeMillis();
 
         int numCloneableRoutes = 0;
@@ -284,7 +193,7 @@ public class DesignRouter {
         RouterLog.log("Unique routes: " + uniqueConnectionsSet.size(), RouterLog.Level.NORMAL);
         RouterLog.log("Cloneable routes: " + numCloneableRoutes, RouterLog.Level.NORMAL);
         RouterLog.indent(-1);
-        RouterLog.log("Max jobs: " + THREAD_POOL_SIZE, RouterLog.Level.NORMAL);
+        RouterLog.log("Max threads: " + ThreadPool.getThreadPoolSize(), RouterLog.Level.NORMAL);
         RouterLog.indent(-1);
 
 
@@ -323,18 +232,11 @@ public class DesignRouter {
         RouterLog.log("1: Routing unique routes.", RouterLog.Level.NORMAL);
         RouterLog.indent();
 
-        routingQueue.addAll(uniqueConnectionsSet.keySet());
-
-        while (!routingQueue.isEmpty()) {
-            try {
-                int freeThreadID = waitForFreeThread();
-                scheduleNewJob(freeThreadID, new ThreadedRoutingJob(coreDesign, freeThreadID, routingQueue.remove()));
-            } catch (InterruptedException e) {
-                e.printStackTrace();
-            }
+        for (RegisterConnection connection : uniqueConnectionsSet.keySet()) {
+            ThreadPool.scheduleNewJob(new ThreadedRoutingJob(coreDesign, connection));
         }
 
-        waitForAllThreads();
+        ThreadPool.runToCompletion();
 
         RouterLog.log("All unique routes routed in " + (System.currentTimeMillis() - tStep1Begin) + " ms.",
                 RouterLog.Level.NORMAL);
@@ -367,6 +269,8 @@ public class DesignRouter {
         long tStep3Begin = System.currentTimeMillis();
         RouterLog.log("3: Rerouting conflicting routes.", RouterLog.Level.NORMAL);
         RouterLog.indent();
+
+        Set<RegisterConnection> conflictedRoutes = new HashSet<>();
         for (RegisterConnection connection : routesMap.keySet()) {
             RoutingFootprint footprint = routesMap.get(connection);
 
@@ -380,7 +284,7 @@ public class DesignRouter {
                 }
 
                 if (isConflicted) {
-                    routingQueue.add(connection);
+                    conflictedRoutes.add(connection);
                     break;
                 }
             }
@@ -393,11 +297,10 @@ public class DesignRouter {
             }
         }
 
-        RouterLog.log(routingQueue.size() + " conflicted routes found.", RouterLog.Level.NORMAL);
+        RouterLog.log(conflictedRoutes.size() + " conflicted routes found.", RouterLog.Level.NORMAL);
 
-        while (!routingQueue.isEmpty()) {
-            RegisterConnection connection = routingQueue.remove();
-            new ThreadedRoutingJob(coreDesign, -1, connection).run();
+        for (RegisterConnection connection : conflictedRoutes) {
+            new ThreadedRoutingJob(coreDesign, connection).run();
             for (CustomRoute route : routesMap.get(connection).getRoutes()) {
                 for (WireJunction hopJunction : route.getTemplate().getTemplate())
                     RouteForge.occupy(hopJunction.getNodeName());
@@ -438,54 +341,67 @@ public class DesignRouter {
 
         RouterLog.log(congestedTileMap.size() + " congested tiles found.", RouterLog.Level.NORMAL);
 
-        tileConflictQueue.addAll(congestedTileMap.values());
-        while (!tileConflictQueue.isEmpty()) {
-            try {
-                int freeThreadID = waitForFreeThread();
-                scheduleNewJob(freeThreadID,
-                        new ThreadedCongestionJob(coreDesign, freeThreadID, tileConflictQueue.remove()));
-            } catch (InterruptedException e) {
-                e.printStackTrace();
-            }
+        for (String tileName : congestedTileMap.keySet()) {
+            ThreadPool.scheduleNewJob(new ThreadedTileCongestionJob(coreDesign, congestedTileMap.get(tileName)));
         }
 
-        waitForAllThreads();
+        ThreadPool.runToCompletion();
 
         RouterLog.log("All tile congestions resolved in " + (System.currentTimeMillis() - tStep4Begin) + " ms.",
                 RouterLog.Level.NORMAL);
-        RouterLog.log("A total of " + routingQueue.size() + " routes will be forcibly rerouted due to congestion.",
+        RouterLog.log("A total of " + failedRoutes.size() + " routes will be forcibly rerouted due to congestion.",
                 RouterLog.Level.NORMAL);
         RouterLog.indent(-1);
 
 
         /*
-         * Step 5: Committing existing routes
+         * Step 5: Committing clean routes
          */
         long tStep5Begin = System.currentTimeMillis();
         RouterLog.log("5: Committing clean routes.", RouterLog.Level.NORMAL);
         RouterLog.indent();
+
+        Set<RegisterConnection> failedConnections = new HashSet<>();
+        Set<CustomRoute> failedSignals = new HashSet<>();
+        HashMap<CustomRoute, Net> signalNetMap = new HashMap<>();
+        for (Pair<RegisterConnection, CustomRoute> failure : failedRoutes) {
+            failedConnections.add(failure.getLeft());
+            failedSignals.add(failure.getRight());
+        }
+
+
         for (RegisterConnection connection : routesMap.keySet()) {
+            if (failedConnections.contains(connection)) {
+                for (CustomRoute failedSignal : failedSignals) {
+                    if (routesMap.get(connection).getRoutes().contains(failedSignal)) {
+                        signalNetMap.put(failedSignal, routesMap.get(connection).getRouteMap().get(failedSignal));
+                        routesMap.get(connection).removeRoute(failedSignal);
+                    }
+                }
+            }
+
             routesMap.get(connection).commit(coreDesign);
         }
 
-        RouterLog.log("All routes committed in " + (System.currentTimeMillis() - tStep5Begin) + " ms.",
+        RouterLog.log("All clean routes committed in " + (System.currentTimeMillis() - tStep5Begin) + " ms.",
                 RouterLog.Level.NORMAL);
         RouterLog.indent(-1);
 
+
         /*
          * Step 6: Reroute routes where congestions could not be resolved
-         *  Routing is done in order
+         *  Routing is done serially
          */
         long tStep6Begin = System.currentTimeMillis();
-        RouterLog.log("6: Rerouting conflicting routes.", RouterLog.Level.NORMAL);
+        RouterLog.log("6: Rerouting conflicted routes.", RouterLog.Level.NORMAL);
         RouterLog.indent();
-        while (!routingQueue.isEmpty()) {
-            RegisterConnection connection = routingQueue.remove();
-            new ThreadedRoutingJob(coreDesign, -1, connection).run();
+        for (Pair<RegisterConnection, CustomRoute> failure : failedRoutes) {
+            SignalRoutingJob job = new SignalRoutingJob(coreDesign, failure.getRight().getSrc(),
+                    failure.getRight().getSnk());
+            job.run();
 
-            routesMap.get(connection).commit(coreDesign);
+            job.getRoute().commitToNet(coreDesign, signalNetMap.get(failure.getRight()));
         }
-
         RouterLog.log("All conflicting routes rerouted in " + (System.currentTimeMillis() - tStep6Begin) + " ms.",
                 RouterLog.Level.NORMAL);
         RouterLog.indent(-1);

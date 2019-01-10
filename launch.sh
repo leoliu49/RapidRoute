@@ -38,7 +38,7 @@ case $key in
 esac
 done
 
-if [ "$NUM_JOBS" == "" ] &&[ "$FILE_NAME" == "rapidroute/device_toolkit.py" ]; then
+if [ "$NUM_JOBS" == "" ] && [ "$FILE_NAME" == "rapidroute/device_toolkit.py" ]; then
     printHelp
 fi
 

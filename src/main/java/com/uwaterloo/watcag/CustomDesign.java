@@ -187,7 +187,7 @@ public class CustomDesign {
         DesignRouter.createNetsForConnections();
     }
 
-    public static void routeDesign() {
+    public static void routeDesign() throws InterruptedException {
         DesignRouter.routeDesign();
     }
 

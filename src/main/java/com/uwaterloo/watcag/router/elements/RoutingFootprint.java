@@ -40,6 +40,17 @@ public class RoutingFootprint {
         return indexRouteMap.get(i);
     }
 
+    public void removeRoute(CustomRoute route) {
+        routeNetMap.remove(route);
+
+        int routeBit = -1;
+        for (int i : indexRouteMap.keySet()) {
+            if (indexRouteMap.get(i) == route)
+                routeBit = i;
+        }
+        indexRouteMap.remove(routeBit);
+    }
+
     public void add(CustomRoute route, Net net) {
         routeNetMap.put(route, net);
         indexRouteMap.put(route.getRouteIndex(), route);
@@ -49,13 +60,7 @@ public class RoutingFootprint {
         RouterLog.log("Committing routes for connection " + registerConnection.toString() + ".", RouterLog.Level.INFO);
         for (CustomRoute route : routeNetMap.keySet()) {
             Net net = routeNetMap.get(route);
-
-            RouterLog.log("Committing PIPs to net <" + net.getName() + ">:", RouterLog.Level.INFO);
-            RouterLog.indent();
-
             route.commitToNet(d, net);
-
-            RouterLog.indent(-1);
         }
     }
 

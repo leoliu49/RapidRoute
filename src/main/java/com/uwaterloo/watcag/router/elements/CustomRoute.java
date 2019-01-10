@@ -119,8 +119,11 @@ public class CustomRoute {
     }
 
     public void commitToNet(Design d, Net net) {
+        RouterLog.log("Committing PIPs to net <" + net.getName() + ">:", RouterLog.Level.INFO);
+        RouterLog.indent();
         for (TilePath path : route)
             path.commitPIPsToNet(d, net);
+        RouterLog.indent(-1);
     }
 
     public String shortHand() {

@@ -1,6 +1,5 @@
 package com.uwaterloo.watcag.router;
 
-import com.uwaterloo.watcag.DesignFailureException;
 import com.uwaterloo.watcag.common.ComplexRegister;
 import com.uwaterloo.watcag.common.RegisterConnection;
 import com.uwaterloo.watcag.config.RegisterComponent;
@@ -8,17 +7,15 @@ import com.uwaterloo.watcag.config.RegisterDefaults;
 import com.uwaterloo.watcag.router.browser.FabricBrowser;
 import com.uwaterloo.watcag.router.browser.JunctionsTracer;
 import com.uwaterloo.watcag.router.elements.*;
-import com.uwaterloo.watcag.util.RouteUtil;
 import com.uwaterloo.watcag.util.RouterLog;
 import com.xilinx.rapidwright.design.Design;
 import com.xilinx.rapidwright.design.Net;
-import com.xilinx.rapidwright.device.Tile;
 import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.apache.commons.lang3.tuple.Pair;
 
 import java.util.*;
 
-public class ThreadedRoutingJob extends Thread {
+public class ThreadedRoutingJob extends ThreadedJob {
 
     /*
      * Routes a single register connection on a single thread
@@ -27,14 +24,10 @@ public class ThreadedRoutingJob extends Thread {
     private static final int SINK_TILE_TRAVERSAL_MAX_DEPTH = 8;
     private static final int TILE_TRAVERSAL_MAX_DEPTH = FabricBrowser.TILE_TRAVERSAL_MAX_DEPTH;
 
-    private static final int V_LONG_LINE_LENGTH = 12;
-    private static final int H_LONG_LINE_LENGTH = 6;
-
     private long tBegin;
     private long tEnd;
 
     private Design coreDesign;
-    private int jobID;
 
     private RouterLog.BufferedLog bufferedLog;
 
@@ -42,10 +35,10 @@ public class ThreadedRoutingJob extends Thread {
     private int bitwidth;
     private ComplexRegister srcReg, snkReg;
 
-    public ArrayList<EnterWireJunction> srcJunctions;
-    public ArrayList<ExitWireJunction> snkJunctions;
+    private ArrayList<EnterWireJunction> srcJunctions;
+    private ArrayList<ExitWireJunction> snkJunctions;
 
-    private ArrayList<Pair<Queue<JunctionsTracer>, HashSet<String>>> activeSearchStates;
+    private ArrayList<Pair<PriorityQueue<JunctionsTracer>, Set<String>>> activeSearchStates;
     private ArrayList<Set<EnterWireJunction>> snkTileEntrances;
 
     private ArrayList<ArrayList<RouteTemplate>> templateCandidatesCache;
@@ -56,11 +49,10 @@ public class ThreadedRoutingJob extends Thread {
 
     private RoutingFootprint footprint;
 
-    public ThreadedRoutingJob(Design d, int jobID, RegisterConnection connection) {
+    public ThreadedRoutingJob(Design d, RegisterConnection connection) {
         super();
 
         coreDesign = d;
-        this.jobID = jobID;
 
         bufferedLog = RouterLog.newBufferedLog();
 
@@ -93,15 +85,16 @@ public class ThreadedRoutingJob extends Thread {
     }
 
     /* Accessors and modifiers */
-    private Queue<JunctionsTracer> getActiveSearchQueue(int bitIndex) {
+    private PriorityQueue<JunctionsTracer> getActiveSearchQueue(int bitIndex) {
         if (activeSearchStates.get(bitIndex) == null)
-            activeSearchStates.set(bitIndex, new ImmutablePair<>(new LinkedList<>(), new HashSet<>()));
+            activeSearchStates.set(bitIndex, new ImmutablePair<>(new PriorityQueue<>(
+                    new RoutingCalculator.JunctionsTracerCostComparator()), new HashSet<>()));
         return activeSearchStates.get(bitIndex).getLeft();
     }
 
-    private HashSet<String> getActiveSearchFootprint(int bitIndex) {
+    private Set<String> getActiveSearchFootprint(int bitIndex) {
         if (activeSearchStates.get(bitIndex) == null)
-            activeSearchStates.set(bitIndex, new ImmutablePair<>(new LinkedList<>(), new HashSet<>()));
+            activeSearchStates.set(bitIndex, new ImmutablePair<>(new PriorityQueue<>(), new HashSet<>()));
         return activeSearchStates.get(bitIndex).getRight();
     }
 
@@ -142,350 +135,6 @@ public class ThreadedRoutingJob extends Thread {
     }
 
     /* Utility functions */
-    /*
-     * Find a batch of RouteTemplates (list of hop wires) which all connect source to sink
-     */
-    private ArrayList<RouteTemplate> findRouteTemplateBatch(Design d, int batchSize, EnterWireJunction src,
-                                                            ExitWireJunction snk, Set<String> banList) {
-
-        ArrayList<RouteTemplate> results = new ArrayList<>();
-
-        Tile srcIntTile = d.getDevice().getTile(src.getTileName());
-        Tile snkIntTile = d.getDevice().getTile(snk.getTileName());
-
-        int snkTileX = snkIntTile.getTileXCoordinate();
-        int snkTileY = snkIntTile.getTileYCoordinate();
-
-        int srcTileX = srcIntTile.getTileXCoordinate();
-        int srcTileY = srcIntTile.getTileYCoordinate();
-
-        Queue<JunctionsTracer> queue = new LinkedList<>();
-        HashSet<String> footprint = new HashSet<>();
-
-        JunctionsTracer srcTracer = JunctionsTracer.newHeadTracer(src);
-        for (ExitWireJunction exit : FabricBrowser.findReachableExits(d, src)) {
-            EnterWireJunction wireDest = exit.getDestJunction(d);
-            if (RouteForge.isLocked(wireDest.getNodeName()) || RouteForge.isLocked(exit.getNodeName()))
-                continue;
-            queue.add(new JunctionsTracer(wireDest, srcTracer));
-        }
-
-        Set<EnterWireJunction> leadIns = FabricBrowser.findReachableEntrances(d, snk);
-
-        int templateCount = 0;
-        while (templateCount < batchSize) {
-            JunctionsTracer trav = queue.remove();
-            EnterWireJunction headJunction = (EnterWireJunction) trav.getJunction();
-            Tile headTile = d.getDevice().getTile(headJunction.getTileName());
-
-            if (trav.getDepth() > 1000)
-                break;
-
-            int distX = snkTileX - headTile.getTileXCoordinate();
-            int distY = snkTileY - headTile.getTileYCoordinate();
-
-            if (distX == distY) {
-                boolean foundTemplate = false;
-                EnterWireJunction validLeadIn = null;
-                for (EnterWireJunction leadIn : leadIns) {
-                    if (headJunction.equals(leadIn)) {
-                        RouteTemplate template = new RouteTemplate(d, src, snk);
-                        template.setBaseAdjustedCost(leadIn.getTilePathCost());
-
-                        while (trav.getDepth() > 0) {
-                            template.pushEnterWireJunction(d, (EnterWireJunction) trav.getJunction());
-                            trav = trav.getParent();
-                        }
-
-                        results.add(template);
-                        foundTemplate = true;
-                        validLeadIn = leadIn;
-
-                        footprint.add(validLeadIn.getNodeName());
-                        break;
-                    }
-                }
-
-                if (foundTemplate) {
-                    templateCount += 1;
-                    leadIns.remove(validLeadIn);
-                }
-
-                continue;
-            }
-
-            ArrayList<WireDirection> primaryDirs = RouteUtil.primaryDirections(distX, distY);
-            Set<ExitWireJunction> fanOut = FabricBrowser.getEntranceFanOut(d, headJunction);
-
-            for (ExitWireJunction exit : fanOut) {
-                EnterWireJunction wireDest = exit.getDestJunction(d);
-
-                if (RouteForge.isLocked(wireDest.getNodeName()) || RouteForge.isLocked(exit.getNodeName()))
-                    continue;
-
-                if (footprint.contains(wireDest.getNodeName()))
-                    continue;
-
-                if (!primaryDirs.contains(exit.getDirection()))
-                    continue;
-
-                if (banList.contains(wireDest.getNodeName()) || banList.contains(exit.getNodeName()))
-                    continue;
-
-                // On long lines, we can typically just fast-forward until the end
-                if (RouteUtil.isHorizontal(wireDest.getDirection()) && wireDest.getWireLength() >= H_LONG_LINE_LENGTH) {
-
-                    JunctionsTracer fastFwd = new JunctionsTracer(wireDest, trav);
-                    int dx = distX
-                            - (exit.getDirection().equals(WireDirection.EAST)
-                            ? exit.getWireLength() : -1 * exit.getWireLength());
-
-                    while (Math.abs(dx) > H_LONG_LINE_LENGTH) {
-                        boolean canFastForward = false;
-                        for (ExitWireJunction nextHop : FabricBrowser.getEntranceFanOut(d,
-                                (EnterWireJunction) fastFwd.getJunction())) {
-                            if (nextHop.getWireName().equals(exit.getWireName())
-                                    && !RouteForge.isLocked(nextHop.getNodeName())
-                                    && !RouteForge.isLocked(nextHop.getDestJunction(d).getNodeName())) {
-
-                                fastFwd.fastForward(nextHop.getDestJunction(d));
-                                canFastForward = true;
-
-                                dx -= nextHop.getDirection().equals(WireDirection.EAST)
-                                        ? nextHop.getWireLength() : -1 * nextHop.getWireLength();
-
-                                footprint.add(nextHop.getDestJunction(d).getNodeName());
-                                break;
-                            }
-                        }
-
-                        if (!canFastForward)
-                            break;
-                    }
-
-                    queue.add(fastFwd);
-                }
-                else if (RouteUtil.isVertical(wireDest.getDirection()) && wireDest.getWireLength() >= V_LONG_LINE_LENGTH) {
-
-                    JunctionsTracer fastFwd = new JunctionsTracer(wireDest, trav);
-                    int dy = distY
-                            - (exit.getDirection().equals(WireDirection.NORTH)
-                            ? exit.getWireLength() : -1 * exit.getWireLength());
-
-                    while (Math.abs(dy) > V_LONG_LINE_LENGTH) {
-                        boolean canFastForward = false;
-                        for (ExitWireJunction nextHop : FabricBrowser.getEntranceFanOut(d,
-                                (EnterWireJunction) fastFwd.getJunction())) {
-                            if (nextHop.getWireName().equals(exit.getWireName())
-                                    && !RouteForge.isLocked(nextHop.getNodeName())
-                                    && !RouteForge.isLocked(nextHop.getDestJunction(d).getNodeName())) {
-
-                                fastFwd.fastForward(nextHop.getDestJunction(d));
-                                canFastForward = true;
-
-                                dy -= nextHop.getDirection().equals(WireDirection.NORTH)
-                                        ? nextHop.getWireLength() : -1 * nextHop.getWireLength();
-
-                                footprint.add(nextHop.getDestJunction(d).getNodeName());
-                                break;
-                            }
-                        }
-
-                        if (!canFastForward)
-                            break;
-                    }
-
-                    queue.add(fastFwd);
-                }
-                else {
-                    queue.add(new JunctionsTracer(wireDest, trav));
-                }
-
-                footprint.add(wireDest.getNodeName());
-            }
-        }
-
-        if (results.size() < batchSize) {
-            throw new DesignFailureException("Routing job failed: no route found for <" + src.getNodeName() + "> --> <"
-                    + snk.getNodeName() + ">.");
-        }
-
-        return results;
-    }
-
-    private ArrayList<RouteTemplate> findRouteTemplateBatch(Design d, int batchSize, int bitIndex) {
-        EnterWireJunction src = srcJunctions.get(bitIndex);
-        ExitWireJunction snk = snkJunctions.get(bitIndex);
-
-        ArrayList<RouteTemplate> results = new ArrayList<>();
-
-        Tile srcIntTile = d.getDevice().getTile(src.getTileName());
-        Tile snkIntTile = d.getDevice().getTile(snk.getTileName());
-
-        int snkTileX = snkIntTile.getTileXCoordinate();
-        int snkTileY = snkIntTile.getTileYCoordinate();
-
-        int srcTileX = srcIntTile.getTileXCoordinate();
-        int srcTileY = srcIntTile.getTileYCoordinate();
-
-        Queue<JunctionsTracer> queue = getActiveSearchQueue(bitIndex);
-        HashSet<String> footprint = getActiveSearchFootprint(bitIndex);
-
-        // For the first time, load in exits from all directions
-        if (queue.isEmpty()) {
-            JunctionsTracer srcTracer = JunctionsTracer.newHeadTracer(srcJunctions.get(bitIndex));
-            for (ExitWireJunction exit : FabricBrowser.findReachableExits(d, srcJunctions.get(bitIndex))) {
-                EnterWireJunction wireDest = exit.getDestJunction(d);
-                if (RouteForge.isLocked(wireDest.getNodeName()) || RouteForge.isLocked(exit.getNodeName()))
-                    continue;
-
-                queue.add(new JunctionsTracer(wireDest, srcTracer));
-            }
-        }
-
-        Set<EnterWireJunction> leadIns = getLeadIns(d, bitIndex);
-
-        int templateCount = 0;
-        while (templateCount < batchSize) {
-            JunctionsTracer trav = queue.remove();
-            EnterWireJunction headJunction = (EnterWireJunction) trav.getJunction();
-            Tile headTile = d.getDevice().getTile(headJunction.getTileName());
-
-            if (trav.getDepth() > 1000)
-                break;
-
-            int distX = snkTileX - headTile.getTileXCoordinate();
-            int distY = snkTileY - headTile.getTileYCoordinate();
-
-            if (distX == distY) {
-                boolean foundTemplate = false;
-                EnterWireJunction validLeadIn = null;
-                for (EnterWireJunction leadIn : leadIns) {
-                    if (headJunction.equals(leadIn)) {
-                        RouteTemplate template = new RouteTemplate(d, src, snk);
-                        template.setBaseAdjustedCost(leadIn.getTilePathCost());
-
-                        while (trav.getDepth() > 0) {
-                            template.pushEnterWireJunction(d, (EnterWireJunction) trav.getJunction());
-                            trav = trav.getParent();
-                        }
-
-                        results.add(template);
-                        foundTemplate = true;
-                        validLeadIn = leadIn;
-
-                        footprint.add(validLeadIn.getNodeName());
-                        break;
-                    }
-                }
-
-                if (foundTemplate) {
-                    templateCount += 1;
-                    leadIns.remove(validLeadIn);
-                }
-
-                continue;
-            }
-
-            ArrayList<WireDirection> primaryDirs = RouteUtil.primaryDirections(distX, distY);
-            Set<ExitWireJunction> fanOut = FabricBrowser.getEntranceFanOut(d, headJunction);
-
-            for (ExitWireJunction exit : fanOut) {
-                EnterWireJunction wireDest = exit.getDestJunction(d);
-
-                if (wireDest == null)
-                    continue;
-
-                if (RouteForge.isLocked(wireDest.getNodeName()) || RouteForge.isLocked(exit.getNodeName()))
-                    continue;
-
-                if (footprint.contains(wireDest.getNodeName()))
-                    continue;
-
-                if (!primaryDirs.contains(exit.getDirection()))
-                    continue;
-
-                // On long lines, we can typically just fast-forward until the end
-                if (RouteUtil.isHorizontal(wireDest.getDirection()) && wireDest.getWireLength() >= H_LONG_LINE_LENGTH) {
-
-                    JunctionsTracer fastFwd = new JunctionsTracer(wireDest, trav);
-                    int dx = distX
-                            - (exit.getDirection().equals(WireDirection.EAST)
-                            ? exit.getWireLength() : -1 * exit.getWireLength());
-
-                    while (Math.abs(dx) > H_LONG_LINE_LENGTH) {
-                        boolean canFastForward = false;
-                        for (ExitWireJunction nextHop : FabricBrowser.getEntranceFanOut(d,
-                                (EnterWireJunction) fastFwd.getJunction())) {
-                            if (nextHop.getWireName().equals(exit.getWireName())
-                                    && !RouteForge.isLocked(nextHop.getNodeName())
-                                    && !RouteForge.isLocked(nextHop.getDestJunction(d).getNodeName())) {
-
-                                fastFwd.fastForward(nextHop.getDestJunction(d));
-                                canFastForward = true;
-
-                                dx -= nextHop.getDirection().equals(WireDirection.EAST)
-                                        ? nextHop.getWireLength() : -1 * nextHop.getWireLength();
-
-                                footprint.add(nextHop.getDestJunction(d).getNodeName());
-                                break;
-                            }
-                        }
-
-                        if (!canFastForward)
-                            break;
-                    }
-
-                    queue.add(fastFwd);
-                }
-                else if (RouteUtil.isVertical(wireDest.getDirection()) && wireDest.getWireLength() >= V_LONG_LINE_LENGTH) {
-
-                    JunctionsTracer fastFwd = new JunctionsTracer(wireDest, trav);
-                    int dy = distY
-                            - (exit.getDirection().equals(WireDirection.NORTH)
-                            ? exit.getWireLength() : -1 * exit.getWireLength());
-
-                    while (Math.abs(dy) > V_LONG_LINE_LENGTH) {
-                        boolean canFastForward = false;
-                        for (ExitWireJunction nextHop : FabricBrowser.getEntranceFanOut(d,
-                                (EnterWireJunction) fastFwd.getJunction())) {
-                            if (nextHop.getWireName().equals(exit.getWireName())
-                                    && !RouteForge.isLocked(nextHop.getNodeName())
-                                    && !RouteForge.isLocked(nextHop.getDestJunction(d).getNodeName())) {
-
-                                fastFwd.fastForward(nextHop.getDestJunction(d));
-                                canFastForward = true;
-
-                                dy -= nextHop.getDirection().equals(WireDirection.NORTH)
-                                        ? nextHop.getWireLength() : -1 * nextHop.getWireLength();
-
-                                footprint.add(nextHop.getDestJunction(d).getNodeName());
-                                break;
-                            }
-                        }
-
-                        if (!canFastForward)
-                            break;
-                    }
-
-                    queue.add(fastFwd);
-                }
-                else {
-                    queue.add(new JunctionsTracer(wireDest, trav));
-                }
-
-                footprint.add(wireDest.getNodeName());
-            }
-        }
-
-        if (results.size() < batchSize) {
-            throw new DesignFailureException("Routing job failed: no route found for <" + src.getNodeName() + "> --> <"
-                    + snk.getNodeName() + ">.");
-        }
-
-        return results;
-    }
-
     /*
      * Find any TilePath configuration which has no conflicts
      * Results are not optimized for cost
@@ -662,57 +311,95 @@ public class ThreadedRoutingJob extends Thread {
         }
 
         while(!bitArray.isEmpty()) {
-            ArrayList<Integer> execOrder = new ArrayList<>(bitArray);
-            Collections.shuffle(execOrder);
 
-            for (int bitIndex : execOrder) {
-                ArrayList<WireJunction> junctions = new ArrayList<>(templates.get(bitIndex).getTemplate());
-                Collections.reverse(junctions);
-
-                int junctionIndex = junctionIndexes.get(bitIndex);
-
-                ExitWireJunction thisHop = (ExitWireJunction) junctions.get(junctionIndex);
-                EnterWireJunction previousHop = (EnterWireJunction) junctions.get(junctionIndex + 1);
-
-                boolean isValid;
-                if (committedNodes.contains(thisHop.getNodeName())
-                        || committedNodes.contains(previousHop.getNodeName())) {
-                    // Conflict found in hops
-                    isValid = false;
+            // Iterative order prioritizes consolidating routes with less progress, then cost
+            int bitIndex = bitArray.get(0);
+            for (int b : bitArray) {
+                if (junctionIndexes.get(b) < junctionIndexes.get(bitIndex)) {
+                    bitIndex = b;
                 }
-                else {
-                    TilePath path = FabricBrowser.findClosestTilePath(d, previousHop, thisHop, committedNodes);
-
-                    if (path == null) {
-                        // Conflict / un-routable found in tile paths
-                        isValid = false;
-                        banList.get(bitIndex).add(previousHop.getNodeName());
-                        banList.get(bitIndex).add(previousHop.getSrcJunction(d).getNodeName());
-                    }
-                    else {
-                        // No conflict
-                        isValid = true;
-                        allRoutes.get(bitIndex).add(0, path);
-
-                        committedNodes.addAll(path.getNodePath());
-                    }
+                else if (junctionIndexes.get(b).equals(junctionIndexes.get(bitIndex))
+                        && templates.get(b).getEstimatedCost() > templates.get(bitIndex).getEstimatedCost()) {
+                    bitIndex = b;
                 }
-
-                if (!isValid) {
-                    // Rip-up and reroute
-                    Set<String> nodesToAvoid = new HashSet<>(committedNodes);
-                    nodesToAvoid.addAll(banList.get(bitIndex));
-
-                    templates.get(bitIndex).replaceTemplate(d, templates.get(bitIndex).getSrc(), thisHop,
-                            findRouteTemplateBatch(d, 1, templates.get(bitIndex).getSrc(), thisHop, nodesToAvoid).get(0));
-                }
-                else {
-                    junctionIndexes.set(bitIndex, junctionIndex + 2);
-                    if (junctionIndexes.get(bitIndex) >= templates.get(bitIndex).getTemplate().size())
-                        bitArray.remove(Integer.valueOf(bitIndex));
-                }
-
             }
+
+            ArrayList<WireJunction> junctions = new ArrayList<>(templates.get(bitIndex).getTemplate());
+            Collections.reverse(junctions);
+
+            int junctionIndex = junctionIndexes.get(bitIndex);
+
+            ExitWireJunction thisHop = (ExitWireJunction) junctions.get(junctionIndex);
+            EnterWireJunction previousHop = (EnterWireJunction) junctions.get(junctionIndex + 1);
+
+            boolean isValid;
+            if (committedNodes.contains(previousHop.getNodeName())
+                    || (!previousHop.isSrc() && committedNodes.contains(previousHop.getSrcJunction(d).getNodeName()))) {
+                // Conflict found in hops
+                isValid = false;
+
+                banList.get(bitIndex).add(previousHop.getNodeName());
+                banList.get(bitIndex).add(previousHop.getSrcJunction(d).getNodeName());
+            }
+            else {
+                TilePath path = FabricBrowser.findClosestTilePath(d, previousHop, thisHop, committedNodes);
+
+                if (path == null) {
+                    // Conflict / un-routable found in tile paths
+                    isValid = false;
+
+                    banList.get(bitIndex).add(previousHop.getNodeName());
+                    if (!previousHop.isSrc())
+                        banList.get(bitIndex).add(previousHop.getSrcJunction(d).getNodeName());
+                }
+                else {
+                    // No conflict
+                    isValid = true;
+                    allRoutes.get(bitIndex).add(0, path);
+
+                    committedNodes.addAll(path.getNodePath());
+
+                    if (!previousHop.isSrc())
+                        committedNodes.add(previousHop.getSrcJunction(d).getNodeName());
+                }
+            }
+
+            if (!isValid) {
+                // Rip-up and reroute
+
+                for (TilePath path : allRoutes.get(bitIndex)) {
+                    committedNodes.removeAll(path.getNodePath());
+                }
+                allRoutes.get(bitIndex).clear();
+                junctionIndexes.set(bitIndex, 2);
+
+                Set<String> nodesToAvoid = new HashSet<>(committedNodes);
+                nodesToAvoid.addAll(banList.get(bitIndex));
+
+                ExitWireJunction detourSnk = (ExitWireJunction) junctions.get(2);
+
+                ThreadedSearchJob newSearchJob = new ThreadedSearchJob(coreDesign, templates.get(bitIndex).getSrc(),
+                        detourSnk);
+                newSearchJob.setBatchSize(1);
+                newSearchJob.setBanList(nodesToAvoid);
+
+                Set<EnterWireJunction> leadIns = new HashSet<>();
+                for (EnterWireJunction junction : FabricBrowser.findReachableEntrances(d, detourSnk)) {
+                    if (!nodesToAvoid.contains(junction.getNodeName()))
+                        leadIns.add(junction);
+                }
+                newSearchJob.setLeadIns(leadIns);
+                newSearchJob.run();
+
+                templates.get(bitIndex).replaceTemplate(d, newSearchJob.getSrc(), newSearchJob.getSnk(),
+                        newSearchJob.getResults().get(0));
+            }
+            else {
+                junctionIndexes.set(bitIndex, junctionIndex + 2);
+                if (junctionIndexes.get(bitIndex) >= templates.get(bitIndex).getTemplate().size())
+                    bitArray.remove(Integer.valueOf(bitIndex));
+            }
+
         }
 
         ArrayList<CustomRoute> results = new ArrayList<>();
@@ -794,15 +481,26 @@ public class ThreadedRoutingJob extends Thread {
      * Calling this function again will cumulatively add more batches
      * Certain templates are purged if they conflict with others in the bus
      */
-    private boolean extendTemplateBatchesForBus(Design d, int batchSize) {
+    private boolean extendTemplateBatchesForBus(Design d, int batchSize) throws InterruptedException {
 
-        ArrayList<ArrayList<RouteTemplate>> thisBatch = new ArrayList<>();
+        ArrayList<ThreadedJob> searchJobs = new ArrayList<>();
         for (int i = 0; i < bitwidth; i++) {
-            thisBatch.add(findRouteTemplateBatch(d, batchSize, i));
-            templateCandidatesCache.get(i).addAll(thisBatch.get(i));
+            ThreadedSearchJob newSearchJob = new ThreadedSearchJob(d, srcJunctions.get(i), snkJunctions.get(i));
+            newSearchJob.setBatchSize(batchSize);
+            newSearchJob.setSearchQueue(getActiveSearchQueue(i));
+            newSearchJob.setSearchFootprint(getActiveSearchFootprint(i));
+            newSearchJob.setLeadIns(getLeadIns(d, i));
 
-            templateCandidatesCache.get(i).sort(new RoutingCalculator.TemplateCostComparator());
+            ThreadPool.scheduleNewJob(newSearchJob);
+
+            searchJobs.add(newSearchJob);
         }
+
+        // Yield until all template routing is complete
+        ThreadPool.yieldUntilChildThreadsFinish(new HashSet<>(searchJobs));
+        for (int i = 0; i < bitwidth; i++)
+            templateCandidatesCache.get(i).addAll(((ThreadedSearchJob) searchJobs.get(i)).getResults());
+
 
         // Determine a set of templates which have working leadIns at the sink tile, prioritizing low costs
         ArrayList<RouteTemplate> validTemplates = new ArrayList<>();
@@ -816,10 +514,10 @@ public class ThreadedRoutingJob extends Thread {
             ArrayList<RouteTemplate> candidates = templateCandidatesCache.get(i);
             int min = 999;
             for (RouteTemplate candidate : candidates) {
-                if (candidate.getAdjustedCost() > threshMax)
-                    threshMax = candidate.getAdjustedCost();
-                if (candidate.getAdjustedCost() < min)
-                    min = candidate.getAdjustedCost();
+                if (candidate.getEstimatedCost() > threshMax)
+                    threshMax = candidate.getEstimatedCost();
+                if (candidate.getEstimatedCost() < min)
+                    min = candidate.getEstimatedCost();
             }
 
             if (min > threshMin)
@@ -830,7 +528,7 @@ public class ThreadedRoutingJob extends Thread {
         for (int i = 0; i < bitwidth; i++) {
             HashSet<TilePath> pathChoices = new HashSet<>();
             for (RouteTemplate template : templateCandidatesCache.get(i)) {
-                if (template.getAdjustedCost() < threshMin) {
+                if (template.getEstimatedCost() < threshMin) {
                     pathChoices.addAll(findTilePathsToSink(d, (EnterWireJunction) template.getTemplate(-2), i));
                 }
             }
@@ -847,7 +545,7 @@ public class ThreadedRoutingJob extends Thread {
             for (int i = 0; i < bitwidth; i++) {
                 ArrayList<RouteTemplate> candidates = templateCandidatesCache.get(i);
                 for (RouteTemplate candidate : candidates) {
-                    if (candidate.getAdjustedCost() == threshold) {
+                    if (candidate.getEstimatedCost() == threshold) {
                         newCandidates.get(i).addAll(findTilePathsToSink(d,
                                 (EnterWireJunction) candidate.getTemplate(-2), i));
 
@@ -902,6 +600,10 @@ public class ThreadedRoutingJob extends Thread {
         return true;
     }
 
+    /*
+     * Function for step 3
+     * Turn templates into actual routes (populate tile paths) by doing iterative conflict resolution
+     */
     private void consolidateRoutes(Design d) {
         long tBegin = System.currentTimeMillis();
 
@@ -1000,7 +702,12 @@ public class ThreadedRoutingJob extends Thread {
 
                     bufferedLog.log("2: Calculating route templates (batch size: " + batchSize + ").",
                             RouterLog.Level.NORMAL);
-                    boolean success = extendTemplateBatchesForBus(coreDesign, batchSize);
+                    boolean success = false;
+                    try {
+                        success = extendTemplateBatchesForBus(coreDesign, batchSize);
+                    } catch (InterruptedException e) {
+                        e.printStackTrace();
+                    }
                     if (success)
                         nextState = state + 1;
                     else {
@@ -1031,11 +738,12 @@ public class ThreadedRoutingJob extends Thread {
                         nextState = state + 1;
                     break;
                 }
-                case 5:
+                case 5: {
                     bufferedLog.log("5: Compiling routing footprint.", RouterLog.Level.NORMAL);
                     addRoutesToFootprint(coreDesign);
                     nextState = state + 1;
                     break;
+                }
                 default:
                     break;
             }
@@ -1045,9 +753,11 @@ public class ThreadedRoutingJob extends Thread {
 
         }
 
-        DesignRouter.completeRoutingJob(jobID, connection, footprint);
-
         finishTiming();
+
+
+        DesignRouter.completeRoutingJob(connection, footprint);
+        ThreadPool.completeJob(threadID, this);
 
         bufferedLog.log("Routing success. Connection routed in " + getElapsedTime() + " ms.", RouterLog.Level.NORMAL);
         bufferedLog.log("Hop summary of connection:", RouterLog.Level.NORMAL);
@@ -1055,6 +765,8 @@ public class ThreadedRoutingJob extends Thread {
         for (CustomRoute route : getRoutes())
             bufferedLog.log(route.getTemplate().hopSummary(), RouterLog.Level.NORMAL);
         bufferedLog.indent(-1);
+
+        bufferedLog.dumpLog();
 
     }
 }

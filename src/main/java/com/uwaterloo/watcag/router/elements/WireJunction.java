@@ -20,8 +20,7 @@ public class WireJunction {
 
         this.nodeName = tileName + "/" + wireName;
 
-        // -1 indicates unknown
-        tilePathCost = -1;
+        tilePathCost = 0;
     }
 
     public WireJunction copyWithOffset(Design d, int dx, int dy) {

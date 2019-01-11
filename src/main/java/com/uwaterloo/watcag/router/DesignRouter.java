@@ -4,10 +4,8 @@ import com.uwaterloo.watcag.common.ComplexRegister;
 import com.uwaterloo.watcag.common.RegisterConnection;
 import com.uwaterloo.watcag.config.RegisterComponent;
 import com.uwaterloo.watcag.config.RegisterDefaults;
-import com.uwaterloo.watcag.router.elements.CustomRoute;
-import com.uwaterloo.watcag.router.elements.RoutingFootprint;
-import com.uwaterloo.watcag.router.elements.TilePath;
-import com.uwaterloo.watcag.router.elements.WireJunction;
+import com.uwaterloo.watcag.router.browser.FabricBrowser;
+import com.uwaterloo.watcag.router.elements.*;
 import com.uwaterloo.watcag.util.RouterLog;
 import com.xilinx.rapidwright.design.Design;
 import com.xilinx.rapidwright.design.Net;
@@ -17,6 +15,10 @@ import org.apache.commons.lang3.tuple.Pair;
 import org.apache.commons.lang3.tuple.Triple;
 
 import java.util.*;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 
 public class DesignRouter {
 
@@ -25,6 +27,8 @@ public class DesignRouter {
      */
 
     private static Design coreDesign;
+
+    public static ExecutorService executor;
 
     private static final Set<RegisterConnection> externalConnectionSet = new HashSet<>();
 
@@ -78,7 +82,7 @@ public class DesignRouter {
     public static void initializeRouter(Design d, int threadPoolSize) {
         reset();
         coreDesign = d;
-        ThreadPool.initThreadPool(threadPoolSize);
+        executor = Executors.newFixedThreadPool(threadPoolSize);
     }
 
     public static void reset() {
@@ -88,7 +92,6 @@ public class DesignRouter {
         routesMap.clear();
         failedRoutes.clear();
 
-        ThreadPool.reset();
         RouteForge.reset();
     }
 
@@ -164,6 +167,7 @@ public class DesignRouter {
         }
     }
 
+    /*
     public static void completeRoutingJob(RegisterConnection connection, RoutingFootprint footprint) {
         synchronized (routesMap) {
             routesMap.put(connection, footprint);
@@ -175,11 +179,12 @@ public class DesignRouter {
             failedRoutes.addAll(failures);
         }
     }
+    */
 
     /*
      * Master function for routing the design
      */
-    public static void routeDesign() throws InterruptedException {
+    public static void routeDesign() throws Exception {
         long tBegin = System.currentTimeMillis();
 
         int numCloneableRoutes = 0;
@@ -193,7 +198,6 @@ public class DesignRouter {
         RouterLog.log("Unique routes: " + uniqueConnectionsSet.size(), RouterLog.Level.NORMAL);
         RouterLog.log("Cloneable routes: " + numCloneableRoutes, RouterLog.Level.NORMAL);
         RouterLog.indent(-1);
-        RouterLog.log("Max threads: " + ThreadPool.getThreadPoolSize(), RouterLog.Level.NORMAL);
         RouterLog.indent(-1);
 
 
@@ -232,11 +236,17 @@ public class DesignRouter {
         RouterLog.log("1: Routing unique routes.", RouterLog.Level.NORMAL);
         RouterLog.indent();
 
+        Set<Future<RoutingFootprint>> routingJobResults = new HashSet<>();
         for (RegisterConnection connection : uniqueConnectionsSet.keySet()) {
-            ThreadPool.scheduleNewJob(new ThreadedRoutingJob(coreDesign, connection));
+            ThreadedRoutingJob job = new ThreadedRoutingJob(coreDesign, connection);
+
+            routingJobResults.add(executor.submit(job));
         }
 
-        ThreadPool.runToCompletion();
+        for (Future<RoutingFootprint> future : routingJobResults) {
+            RoutingFootprint footprint = future.get();
+            routesMap.put(footprint.getRegisterConnection(), footprint);
+        }
 
         RouterLog.log("All unique routes routed in " + (System.currentTimeMillis() - tStep1Begin) + " ms.",
                 RouterLog.Level.NORMAL);
@@ -300,8 +310,10 @@ public class DesignRouter {
         RouterLog.log(conflictedRoutes.size() + " conflicted routes found.", RouterLog.Level.NORMAL);
 
         for (RegisterConnection connection : conflictedRoutes) {
-            new ThreadedRoutingJob(coreDesign, connection).run();
-            for (CustomRoute route : routesMap.get(connection).getRoutes()) {
+            RoutingFootprint footprint = new ThreadedRoutingJob(coreDesign, connection).call();
+            routesMap.put(footprint.getRegisterConnection(), footprint);
+
+            for (CustomRoute route : footprint.getRoutes()) {
                 for (WireJunction hopJunction : route.getTemplate().getTemplate())
                     RouteForge.occupy(hopJunction.getNodeName());
             }
@@ -341,11 +353,16 @@ public class DesignRouter {
 
         RouterLog.log(congestedTileMap.size() + " congested tiles found.", RouterLog.Level.NORMAL);
 
+        Set<Future<Set<Pair<RegisterConnection, CustomRoute>>>> congestionJobResults = new HashSet<>();
         for (String tileName : congestedTileMap.keySet()) {
-            ThreadPool.scheduleNewJob(new ThreadedTileCongestionJob(coreDesign, congestedTileMap.get(tileName)));
+            ThreadedTileCongestionJob job = new ThreadedTileCongestionJob(coreDesign, congestedTileMap.get(tileName));
+
+            congestionJobResults.add(executor.submit(job));
         }
 
-        ThreadPool.runToCompletion();
+        for (Future<Set<Pair<RegisterConnection, CustomRoute>>> future : congestionJobResults) {
+            failedRoutes.addAll(future.get());
+        }
 
         RouterLog.log("All tile congestions resolved in " + (System.currentTimeMillis() - tStep4Begin) + " ms.",
                 RouterLog.Level.NORMAL);
@@ -409,6 +426,8 @@ public class DesignRouter {
 
         RouterLog.log("Route design completed in " + (System.currentTimeMillis() - tBegin) + " ms.",
                 RouterLog.Level.NORMAL);
+
+        executor.shutdown();
 
     }
 }

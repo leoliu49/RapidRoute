@@ -41,7 +41,7 @@ public class SignalRoutingJob {
         return route;
     }
 
-    public void run() {
+    public void run() throws Exception {
 
         RouteForge.lock(srcJunction.getNodeName());
         RouteForge.lock(snkJunction.getNodeName());
@@ -52,9 +52,8 @@ public class SignalRoutingJob {
             job.setBatchSize(1);
             job.setBanList(banList);
             job.setLeadIns(FabricBrowser.findReachableEntrances(coreDesign, snkJunction));
-            job.run();
 
-            RouteTemplate template = job.getResults().get(0);
+            RouteTemplate template = job.call().get(0);
             route = new CustomRoute(template);
 
             boolean pathFailed = false;

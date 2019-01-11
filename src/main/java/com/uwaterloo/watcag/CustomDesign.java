@@ -43,7 +43,7 @@ public class CustomDesign {
         RouterLog.init(RouterLog.Level.INFO);
     }
 
-    public static Design new_design(String designName, String partName) {
+    public static Design newDesign(String designName, String partName) {
 
         if (coreDesign != null)
             reset();
@@ -187,7 +187,7 @@ public class CustomDesign {
         DesignRouter.createNetsForConnections();
     }
 
-    public static void routeDesign() throws InterruptedException {
+    public static void routeDesign() throws Exception {
         DesignRouter.routeDesign();
     }
 

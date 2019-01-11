@@ -14,8 +14,10 @@ import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.apache.commons.lang3.tuple.Pair;
 
 import java.util.*;
+import java.util.concurrent.Callable;
+import java.util.concurrent.Future;
 
-public class ThreadedRoutingJob extends ThreadedJob {
+public class ThreadedRoutingJob implements Callable<RoutingFootprint> {
 
     /*
      * Routes a single register connection on a single thread
@@ -294,7 +296,7 @@ public class ThreadedRoutingJob extends ThreadedJob {
         return null;
     }
 
-    private ArrayList<CustomRoute> deriveRoutesFromTemplate(Design d, ArrayList<RouteTemplate> templates) {
+    private ArrayList<CustomRoute> deriveRoutesFromTemplate(Design d, ArrayList<RouteTemplate> templates) throws Exception {
 
         ArrayList<ArrayList<TilePath>> allRoutes = new ArrayList<>();
         ArrayList<Integer> bitArray = new ArrayList<>();
@@ -389,10 +391,9 @@ public class ThreadedRoutingJob extends ThreadedJob {
                         leadIns.add(junction);
                 }
                 newSearchJob.setLeadIns(leadIns);
-                newSearchJob.run();
 
                 templates.get(bitIndex).replaceTemplate(d, newSearchJob.getSrc(), newSearchJob.getSnk(),
-                        newSearchJob.getResults().get(0));
+                        newSearchJob.call().get(0));
             }
             else {
                 junctionIndexes.set(bitIndex, junctionIndex + 2);
@@ -481,25 +482,21 @@ public class ThreadedRoutingJob extends ThreadedJob {
      * Calling this function again will cumulatively add more batches
      * Certain templates are purged if they conflict with others in the bus
      */
-    private boolean extendTemplateBatchesForBus(Design d, int batchSize) throws InterruptedException {
+    private boolean extendTemplateBatchesForBus(Design d, int batchSize) throws Exception {
 
-        ArrayList<ThreadedJob> searchJobs = new ArrayList<>();
+        ArrayList<Future<ArrayList<RouteTemplate>>> searchJobResults = new ArrayList<>();
         for (int i = 0; i < bitwidth; i++) {
-            ThreadedSearchJob newSearchJob = new ThreadedSearchJob(d, srcJunctions.get(i), snkJunctions.get(i));
-            newSearchJob.setBatchSize(batchSize);
-            newSearchJob.setSearchQueue(getActiveSearchQueue(i));
-            newSearchJob.setSearchFootprint(getActiveSearchFootprint(i));
-            newSearchJob.setLeadIns(getLeadIns(d, i));
+            ThreadedSearchJob job = new ThreadedSearchJob(d, srcJunctions.get(i), snkJunctions.get(i));
+            job.setBatchSize(batchSize);
+            job.setSearchQueue(getActiveSearchQueue(i));
+            job.setSearchFootprint(getActiveSearchFootprint(i));
+            job.setLeadIns(getLeadIns(d, i));
 
-            ThreadPool.scheduleNewJob(newSearchJob);
-
-            searchJobs.add(newSearchJob);
+            searchJobResults.add(DesignRouter.executor.submit(job));
         }
 
-        // Yield until all template routing is complete
-        ThreadPool.yieldUntilChildThreadsFinish(new HashSet<>(searchJobs));
         for (int i = 0; i < bitwidth; i++)
-            templateCandidatesCache.get(i).addAll(((ThreadedSearchJob) searchJobs.get(i)).getResults());
+            templateCandidatesCache.get(i).addAll(searchJobResults.get(i).get());
 
 
         // Determine a set of templates which have working leadIns at the sink tile, prioritizing low costs
@@ -604,7 +601,7 @@ public class ThreadedRoutingJob extends ThreadedJob {
      * Function for step 3
      * Turn templates into actual routes (populate tile paths) by doing iterative conflict resolution
      */
-    private void consolidateRoutes(Design d) {
+    private void consolidateRoutes(Design d) throws Exception {
         long tBegin = System.currentTimeMillis();
 
         ArrayList<CustomRoute> consolidatedRoutes = deriveRoutesFromTemplate(d, routeTemplates);
@@ -666,7 +663,7 @@ public class ThreadedRoutingJob extends ThreadedJob {
     }
 
     @Override
-    public void run() {
+    public RoutingFootprint call() throws Exception {
         beginTiming();
 
         bufferedLog.log("Performing state-based, batch-based routing on " + connection.toString(),
@@ -756,8 +753,7 @@ public class ThreadedRoutingJob extends ThreadedJob {
         finishTiming();
 
 
-        DesignRouter.completeRoutingJob(connection, footprint);
-        ThreadPool.completeJob(threadID, this);
+        //DesignRouter.completeRoutingJob(connection, footprint);
 
         bufferedLog.log("Routing success. Connection routed in " + getElapsedTime() + " ms.", RouterLog.Level.NORMAL);
         bufferedLog.log("Hop summary of connection:", RouterLog.Level.NORMAL);
@@ -768,5 +764,6 @@ public class ThreadedRoutingJob extends ThreadedJob {
 
         bufferedLog.dumpLog();
 
+        return footprint;
     }
 }

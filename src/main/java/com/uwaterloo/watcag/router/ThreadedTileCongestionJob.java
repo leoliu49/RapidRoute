@@ -10,8 +10,9 @@ import org.apache.commons.lang3.tuple.Pair;
 import org.apache.commons.lang3.tuple.Triple;
 
 import java.util.*;
+import java.util.concurrent.Callable;
 
-public class ThreadedTileCongestionJob extends ThreadedJob {
+public class ThreadedTileCongestionJob implements Callable<Set<Pair<RegisterConnection, CustomRoute>>> {
 
     private static final int SINK_TILE_TRAVERSAL_MAX_DEPTH = 8;
     private static final int TILE_TRAVERSAL_MAX_DEPTH = FabricBrowser.TILE_TRAVERSAL_MAX_DEPTH;
@@ -48,7 +49,7 @@ public class ThreadedTileCongestionJob extends ThreadedJob {
     }
 
     @Override
-    public void run() {
+    public Set<Pair<RegisterConnection, CustomRoute>> call() throws Exception {
         beginTiming();
 
         HashMap<CustomRoute, RegisterConnection> routeConnectionHashMap = new HashMap<>();
@@ -128,10 +129,8 @@ public class ThreadedTileCongestionJob extends ThreadedJob {
             }
         }
 
-        DesignRouter.completeTileCongestionJob(failedRoutes);
-        ThreadPool.completeJob(threadID, this);
-
         finishTiming();
-    }
 
+        return failedRoutes;
+    }
 }

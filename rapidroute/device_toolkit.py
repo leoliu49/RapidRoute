@@ -6,7 +6,7 @@ def init(num_jobs):
     api.init(num_jobs)
 
 def new_design(design_name, part_name):
-    api.new_design(design_name, part_name)
+    api.newDesign(design_name, part_name)
 
 def close_design():
     api.reset()

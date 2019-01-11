@@ -12,11 +12,12 @@ import com.xilinx.rapidwright.design.Design;
 import com.xilinx.rapidwright.device.Tile;
 
 import java.util.*;
+import java.util.concurrent.Callable;
 
-public class ThreadedSearchJob extends ThreadedJob {
+public class ThreadedSearchJob implements Callable<ArrayList<RouteTemplate>> {
 
-    private static final int SINK_TILE_TRAVERSAL_MAX_DEPTH = 8;
-    private static final int TILE_TRAVERSAL_MAX_DEPTH = FabricBrowser.TILE_TRAVERSAL_MAX_DEPTH;
+    private static final int V_LONG_LINE_THRESHOLD = 12;
+    private static final int H_LONG_LINE_THRESHOLD = 6;
 
     private long tBegin;
     private long tEnd;
@@ -33,8 +34,6 @@ public class ThreadedSearchJob extends ThreadedJob {
     private Set<String> searchFootprint;
     private Set<EnterWireJunction> leadIns;
 
-    private ArrayList<RouteTemplate> results;
-
     public ThreadedSearchJob(Design d, EnterWireJunction src, ExitWireJunction snk) {
         super();
 
@@ -48,8 +47,6 @@ public class ThreadedSearchJob extends ThreadedJob {
 
         searchQueue = new PriorityQueue<>(new RoutingCalculator.JunctionsTracerCostComparator());
         searchFootprint = new HashSet<>();
-
-        results = new ArrayList<>();
     }
 
     public void beginTiming() {
@@ -112,12 +109,10 @@ public class ThreadedSearchJob extends ThreadedJob {
         this.leadIns = leadIns;
     }
 
-    public ArrayList<RouteTemplate> getResults() {
-        return results;
-    }
-
     @Override
-    public void run() {
+    public ArrayList<RouteTemplate> call() throws Exception {
+        ArrayList<RouteTemplate> results = new ArrayList<>();
+
         Tile srcIntTile = coreDesign.getDevice().getTile(src.getTileName());
         Tile snkIntTile = coreDesign.getDevice().getTile(snk.getTileName());
 
@@ -127,13 +122,26 @@ public class ThreadedSearchJob extends ThreadedJob {
         int srcTileX = srcIntTile.getTileXCoordinate();
         int srcTileY = srcIntTile.getTileYCoordinate();
 
-        JunctionsTracer srcTracer = JunctionsTracer.newHeadTracer(src);
-        for (ExitWireJunction exit : FabricBrowser.findReachableExits(coreDesign, src)) {
-            EnterWireJunction wireDest = exit.getDestJunction(coreDesign);
-            if (RouteForge.isLocked(wireDest.getNodeName()) || RouteForge.isLocked(exit.getNodeName()))
-                continue;
+        if (searchQueue.isEmpty()) {
+            ArrayList<WireDirection> dirs = RouteUtil.primaryDirections(snkTileX - srcTileX, snkTileY - srcTileY);
+            int dirSize = dirs.size();
+            for (int i = 0; i < dirSize; i++)
+                dirs.add(RouteUtil.reverseDirection(dirs.get(i)));
 
-            searchQueue.add(new JunctionsTracer(wireDest, srcTracer, exit.getTilePathCost()));
+            System.out.println(dirs);
+
+            JunctionsTracer srcTracer = JunctionsTracer.newHeadTracer(src);
+            for (ExitWireJunction exit : FabricBrowser.findReachableExits(coreDesign, src)) {
+                EnterWireJunction wireDest = exit.getDestJunction(coreDesign);
+                if (RouteForge.isLocked(wireDest.getNodeName()) || RouteForge.isLocked(exit.getNodeName()))
+                    continue;
+
+                if (!dirs.contains(exit.getDirection()))
+                    continue;
+
+                searchFootprint.add(wireDest.getNodeName());
+                searchQueue.add(new JunctionsTracer(wireDest, srcTracer, exit.getTilePathCost()));
+            }
         }
 
         int templateCount = 0;
@@ -183,29 +191,55 @@ public class ThreadedSearchJob extends ThreadedJob {
             ArrayList<WireDirection> primaryDirs = RouteUtil.primaryDirections(distX, distY);
             Set<ExitWireJunction> fanOut = FabricBrowser.getEntranceFanOut(coreDesign, travJunction);
 
-            for (ExitWireJunction exit : fanOut) {
-                EnterWireJunction wireDest = exit.getDestJunction(coreDesign);
+            boolean isRepeatableLongLine = false;
+            if (travJunction.getWireLength() >= H_LONG_LINE_THRESHOLD
+                    && (Math.abs(distX) > H_LONG_LINE_THRESHOLD || Math.abs(distY) > V_LONG_LINE_THRESHOLD)) {
+                isRepeatableLongLine = true;
+            }
 
-                if (RouteForge.isLocked(wireDest.getNodeName()) || RouteForge.isLocked(exit.getNodeName()))
-                    continue;
+            if (isRepeatableLongLine) {
+                for (ExitWireJunction exit : fanOut) {
 
-                if (searchFootprint.contains(wireDest.getNodeName()))
-                    continue;
+                    if (exit.getDirection().equals(travJunction.getDirection())
+                            && exit.getWireLength() >= H_LONG_LINE_THRESHOLD) {
+                        EnterWireJunction wireDest = exit.getDestJunction(coreDesign);
 
-                if (!primaryDirs.contains(exit.getDirection()))
-                    continue;
+                        if (RouteForge.isLocked(wireDest.getNodeName()) || RouteForge.isLocked(exit.getNodeName()))
+                            continue;
 
-                if (banList.contains(wireDest.getNodeName()) || banList.contains(exit.getNodeName()))
-                    continue;
+                        if (searchFootprint.contains(wireDest.getNodeName()))
+                            continue;
 
-                // Long line fast-forward TODO
-                searchQueue.add(new JunctionsTracer(wireDest, trav, exit.getTilePathCost()));
-                searchFootprint.add(wireDest.getNodeName());
+                        if (banList.contains(wireDest.getNodeName()) || banList.contains(exit.getNodeName()))
+                            continue;
+
+                        searchQueue.add(new JunctionsTracer(wireDest, trav, 0));
+                        searchFootprint.add(wireDest.getNodeName());
+                    }
+                }
+            }
+            else {
+                for (ExitWireJunction exit : fanOut) {
+                    EnterWireJunction wireDest = exit.getDestJunction(coreDesign);
+
+                    if (RouteForge.isLocked(wireDest.getNodeName()) || RouteForge.isLocked(exit.getNodeName()))
+                        continue;
+
+                    if (searchFootprint.contains(wireDest.getNodeName()))
+                        continue;
+
+                    if (!primaryDirs.contains(exit.getDirection()))
+                        continue;
+
+                    if (banList.contains(wireDest.getNodeName()) || banList.contains(exit.getNodeName()))
+                        continue;
+
+                    searchQueue.add(new JunctionsTracer(wireDest, trav, exit.getTilePathCost()));
+                    searchFootprint.add(wireDest.getNodeName());
+                }
             }
         }
 
-        ThreadPool.completeJob(threadID, this);
-
+        return results;
     }
-
 }

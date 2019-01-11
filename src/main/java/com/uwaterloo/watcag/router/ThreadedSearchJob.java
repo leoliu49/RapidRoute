@@ -128,8 +128,6 @@ public class ThreadedSearchJob implements Callable<ArrayList<RouteTemplate>> {
             for (int i = 0; i < dirSize; i++)
                 dirs.add(RouteUtil.reverseDirection(dirs.get(i)));
 
-            System.out.println(dirs);
-
             JunctionsTracer srcTracer = JunctionsTracer.newHeadTracer(src);
             for (ExitWireJunction exit : FabricBrowser.findReachableExits(coreDesign, src)) {
                 EnterWireJunction wireDest = exit.getDestJunction(coreDesign);

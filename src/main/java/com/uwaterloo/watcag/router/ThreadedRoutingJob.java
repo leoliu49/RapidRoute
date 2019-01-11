@@ -46,6 +46,8 @@ public class ThreadedRoutingJob implements Callable<RoutingFootprint> {
     private ArrayList<ArrayList<RouteTemplate>> templateCandidatesCache;
     private ArrayList<HashMap<EnterWireJunction, ArrayList<TilePath>>> snkTilePathsCache;
 
+    private int activeTemplateValidationThresholdMin;
+
     private ArrayList<RouteTemplate> routeTemplates;
     private ArrayList<CustomRoute> routes;
 
@@ -69,6 +71,7 @@ public class ThreadedRoutingJob implements Callable<RoutingFootprint> {
         snkTileEntrances = new ArrayList<>();
         templateCandidatesCache = new ArrayList<>();
         snkTilePathsCache = new ArrayList<>();
+        activeTemplateValidationThresholdMin = 0;
         routeTemplates = new ArrayList<>();
         routes = new ArrayList<>();
 
@@ -505,7 +508,7 @@ public class ThreadedRoutingJob implements Callable<RoutingFootprint> {
         // Highest cost possible
         int threshMax = 0;
         // Lost cost possible (max of min's across each bit)
-        int threshMin = 0;
+        int threshMin = activeTemplateValidationThresholdMin;
 
         for (int i = 0; i < bitwidth; i++) {
             ArrayList<RouteTemplate> candidates = templateCandidatesCache.get(i);
@@ -586,6 +589,9 @@ public class ThreadedRoutingJob implements Callable<RoutingFootprint> {
                 tilePathsPool.get(i).addAll(newCandidates.get(i));
             }
         }
+
+        // Used for next round, should we need extra batches
+        activeTemplateValidationThresholdMin = threshMax + 1;
 
         // Failure condition: no valid templates found
         if (validTemplates.isEmpty())
@@ -712,6 +718,7 @@ public class ThreadedRoutingJob implements Callable<RoutingFootprint> {
                         bufferedLog.log("Unable to find working templates. Restarting at step 2.",
                                 RouterLog.Level.NORMAL);
                         bufferedLog.indent(-1);
+                        nextState = state;
                     }
                     break;
                 }

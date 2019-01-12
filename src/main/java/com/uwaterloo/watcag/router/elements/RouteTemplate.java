@@ -111,7 +111,7 @@ public class RouteTemplate {
         template.add(1, enJunc.getSrcJunction(d));
     }
 
-    public void replaceTemplate(Design d, EnterWireJunction enter, ExitWireJunction exit, RouteTemplate replacement) {
+    public void replaceTemplate(EnterWireJunction enter, ExitWireJunction exit, RouteTemplate replacement) {
         ArrayList<WireJunction> newTemplate = new ArrayList<>();
         int startIndex = 0;
         int endIndex = 0;

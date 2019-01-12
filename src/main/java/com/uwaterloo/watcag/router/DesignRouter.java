@@ -280,9 +280,10 @@ public class DesignRouter {
         RouterLog.log("3: Rerouting conflicting routes.", RouterLog.Level.NORMAL);
         RouterLog.indent();
 
-        Set<RegisterConnection> conflictedRoutes = new HashSet<>();
+        int rerouteCount = 0;
         for (RegisterConnection connection : routesMap.keySet()) {
             RoutingFootprint footprint = routesMap.get(connection);
+            Set<CustomRoute> badRoutes = new HashSet<>();
 
             boolean isConflicted = false;
             for (CustomRoute route : footprint.getRoutes()) {
@@ -294,32 +295,29 @@ public class DesignRouter {
                 }
 
                 if (isConflicted) {
-                    conflictedRoutes.add(connection);
-                    break;
+                    badRoutes.add(route);
                 }
-            }
-
-            if (!isConflicted) {
-                for (CustomRoute route : footprint.getRoutes()) {
-                    for (WireJunction hopJunction : route.getTemplate().getTemplate())
+                else {
+                    for (WireJunction hopJunction : route.getTemplate().getTemplate()) {
                         RouteForge.occupy(hopJunction.getNodeName());
+                    }
                 }
             }
-        }
 
-        RouterLog.log(conflictedRoutes.size() + " conflicted routes found.", RouterLog.Level.NORMAL);
+            rerouteCount += badRoutes.size();
+            for (CustomRoute badRoute : badRoutes) {
+                SignalRoutingJob job = new SignalRoutingJob(coreDesign, badRoute.getSrc(),
+                        (ExitWireJunction) badRoute.getTemplate().getTemplate(-3));
+                job.run();
 
-        for (RegisterConnection connection : conflictedRoutes) {
-            RoutingFootprint footprint = new ThreadedRoutingJob(coreDesign, connection).call();
-            routesMap.put(footprint.getRegisterConnection(), footprint);
+                badRoute.replaceRoute(job.getRoute().getSrc(), job.getRoute().getSnk(), job.getRoute());
 
-            for (CustomRoute route : footprint.getRoutes()) {
-                for (WireJunction hopJunction : route.getTemplate().getTemplate())
+                for (WireJunction hopJunction : badRoute.getTemplate().getTemplate())
                     RouteForge.occupy(hopJunction.getNodeName());
             }
         }
 
-        RouterLog.log("All conflicting routes corrected in " + (System.currentTimeMillis() - tStep3Begin) + " ms.",
+        RouterLog.log(rerouteCount + " conflicted routes rerouted in " + (System.currentTimeMillis() - tStep3Begin) + " ms.",
                 RouterLog.Level.NORMAL);
         RouterLog.indent(-1);
 

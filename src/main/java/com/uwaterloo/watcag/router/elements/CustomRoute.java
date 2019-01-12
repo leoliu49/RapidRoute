@@ -118,6 +118,30 @@ public class CustomRoute {
         this.route = route;
     }
 
+    public void replaceRoute(EnterWireJunction enter, ExitWireJunction exit, CustomRoute segment) {
+        ArrayList<TilePath> newRoute = new ArrayList<>();
+        int startIndex = 0;
+        int endIndex = 0;
+        for (int i = 0; i < route.size(); i++) {
+            if (enter.equals(route.get(i).getEnterJunction()))
+                startIndex = i;
+            else if (exit.equals(route.get(i).getExitJunction()))
+                endIndex = i;
+        }
+
+        for (int i = 0; i < startIndex; i++) {
+            newRoute.add(route.get(i));
+        }
+        for (TilePath path : segment.getRoute()) {
+            newRoute.add(path);
+        }
+        for (int i = endIndex + 1; i < route.size(); i++) {
+            newRoute.add(route.get(i));
+        }
+
+        template.replaceTemplate(enter, exit, segment.getTemplate());
+    }
+
     public void commitToNet(Design d, Net net) {
         RouterLog.log("Committing PIPs to net <" + net.getName() + ">:", RouterLog.Level.INFO);
         RouterLog.indent();

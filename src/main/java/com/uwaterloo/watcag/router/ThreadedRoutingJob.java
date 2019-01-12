@@ -395,7 +395,7 @@ public class ThreadedRoutingJob implements Callable<RoutingFootprint> {
                 }
                 newSearchJob.setLeadIns(leadIns);
 
-                templates.get(bitIndex).replaceTemplate(d, newSearchJob.getSrc(), newSearchJob.getSnk(),
+                templates.get(bitIndex).replaceTemplate(newSearchJob.getSrc(), newSearchJob.getSnk(),
                         newSearchJob.call().get(0));
             }
             else {

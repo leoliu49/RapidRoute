@@ -203,9 +203,6 @@ public class DesignRouter {
         RouterLog.indent(-1);
         RouterLog.indent(-1);
 
-        for (RegisterConnection connection : uniqueConnectionsSet.keySet()) {
-            System.out.println(connection.toString());
-        }
 
         /*
          * Step 0: Lock down associated in/out PIP junctions of registers

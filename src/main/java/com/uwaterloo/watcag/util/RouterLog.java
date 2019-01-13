@@ -1,6 +1,9 @@
 package com.uwaterloo.watcag.util;
 
 import org.apache.commons.lang3.tuple.ImmutablePair;
+import org.apache.commons.lang3.tuple.ImmutableTriple;
+import org.apache.commons.lang3.tuple.Pair;
+import org.apache.commons.lang3.tuple.Triple;
 
 import java.util.HashMap;
 import java.util.LinkedList;
@@ -11,8 +14,7 @@ public class RouterLog {
         VERBOSE, INFO, NORMAL, WARNING
     }
 
-    private static HashMap<Integer, String> prefixMap = null;
-    private static int indentLevel = 0;
+    private static HashMap<Integer, LinkedList<String>> prefixMap = null;
     private static Level logLevel = Level.VERBOSE;
 
     private static String indentString = "    ";
@@ -20,19 +22,24 @@ public class RouterLog {
     public static void init(Level level) {
         logLevel = level;
 
-        prefixMap = new HashMap<Integer, String>();
-        prefixMap.put(Level.VERBOSE.ordinal(), "VERBOSE\t");
-        prefixMap.put(Level.INFO.ordinal(), "INFO\t");
-        prefixMap.put(Level.NORMAL.ordinal(), "NORMAL\t");
-        prefixMap.put(Level.WARNING.ordinal(), "WARNING\t");
+        prefixMap = new HashMap<>();
+
+        for (Level l : Level.values()) {
+            LinkedList<String> prefix = new LinkedList<>();
+            prefix.addLast(l.toString());
+            prefix.addLast("\t");
+            prefixMap.put(l.ordinal(), prefix);
+        }
     }
 
     public static void log(String msg, Level level) {
         if (prefixMap == null)
             init(level);
+
         if (level.ordinal() >= logLevel.ordinal()) {
-            msg = msg.replace("\n", "\n" + prefixMap.get(level.ordinal()));
-            System.out.println(prefixMap.get(level.ordinal()) + msg);
+            for (String s : prefixMap.get(level.ordinal()))
+                System.out.print(s);
+            System.out.println(msg);
         }
     }
 
@@ -51,53 +58,78 @@ public class RouterLog {
     }
 
     public static void indent() {
-        indentLevel += 1;
         for (int key : prefixMap.keySet()) {
-            prefixMap.replace(key, prefixMap.get(key) + indentString);
+            prefixMap.get(key).addLast(indentString);
         }
     }
 
     public static void indent(int delta) {
-        indentLevel += delta;
-        String indents = "";
-        for (int i = 0; i < indentLevel; i++)
-            indents += indentString;
-
-        prefixMap.put(Level.VERBOSE.ordinal(), "VERBOSE\t" + indents);
-        prefixMap.put(Level.INFO.ordinal(), "INFO\t" + indents);
-        prefixMap.put(Level.NORMAL.ordinal(), "NORMAL\t" + indents);
-        prefixMap.put(Level.WARNING.ordinal(), "WARNING\t" + indents);
+        if (delta > 0) {
+            for (int i = 0; i < delta; i++) {
+                for (int key : prefixMap.keySet())
+                    prefixMap.get(key).addLast(indentString);
+            }
+        }
+        else if (delta < 0) {
+            for (int i = 0; i > delta; i--) {
+                for (int key : prefixMap.keySet())
+                    prefixMap.get(key).removeLast();
+            }
+        }
     }
 
 
     public static class BufferedLog {
-        private int indentLevel = 0;
-        private LinkedList<ImmutablePair<Level, String>> buffer = new LinkedList<>();
+        private HashMap<Integer, LinkedList<String>> internalPrefixMap;
+        private LinkedList<String> buffer;
+
+        public BufferedLog() {
+            internalPrefixMap = new HashMap<>();
+            buffer = new LinkedList<>();
+            for (Level l : Level.values()) {
+                LinkedList<String> prefix = new LinkedList<>();
+                prefix.addLast(l.toString());
+                prefix.addLast("\t");
+                internalPrefixMap.put(l.ordinal(), prefix);
+            }
+        }
 
         public void indent() {
-            indentLevel += 1;
+            for (int key : internalPrefixMap.keySet()) {
+                internalPrefixMap.get(key).addLast(indentString);
+            }
         }
 
         public void indent(int delta) {
-            indentLevel += delta;
+            if (delta > 0) {
+                for (int i = 0; i < delta; i++) {
+                    for (int key : internalPrefixMap.keySet())
+                        internalPrefixMap.get(key).addLast(indentString);
+                }
+            }
+            else if (delta < 0) {
+                for (int i = 0; i > delta; i--) {
+                    for (int key : internalPrefixMap.keySet())
+                        internalPrefixMap.get(key).removeLast();
+                }
+            }
         }
 
         public void log(String msg, Level level) {
             if (level.ordinal() >= logLevel.ordinal()) {
-                String prefixIndent = "";
-                for (int i = 0; i < indentLevel; i++)
-                    prefixIndent += "\t";
+                StringBuilder b = new StringBuilder();
+                for (String s : internalPrefixMap.get(level.ordinal()))
+                    b.append(s);
+                b.append(msg);
 
-                for (String s : msg.split("\n"))
-                    buffer.addLast(new ImmutablePair<>(level, prefixIndent + s));
+                buffer.addLast(b.toString());
             }
         }
 
         public void dumpLog() {
-            RouterLog.log("Log dump:", Level.NORMAL);
-            for (ImmutablePair<Level, String> msg : buffer) {
-                RouterLog.log(msg.getRight(), msg.getLeft());
-            }
+            System.out.println("Log dump:");
+            for (String s : buffer)
+                System.out.println(s);
         }
     }
 

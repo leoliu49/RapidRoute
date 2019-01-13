@@ -11,10 +11,17 @@ import com.uwaterloo.watcag.util.RouteUtil;
 import com.xilinx.rapidwright.design.Design;
 import com.xilinx.rapidwright.device.Tile;
 
-import java.util.*;
-import java.util.concurrent.Callable;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.PriorityQueue;
+import java.util.Set;
 
-public class ThreadedSearchJob implements Callable<ArrayList<RouteTemplate>> {
+public class TemplateSearchJob {
+
+    /*
+     * Creates and populates a route template given a source/sink pair
+     * Routing is done via a PriorityQueue, prioritizing lowest estimated cost
+     */
 
     private static final int V_LONG_LINE_THRESHOLD = 12;
     private static final int H_LONG_LINE_THRESHOLD = 6;
@@ -34,7 +41,9 @@ public class ThreadedSearchJob implements Callable<ArrayList<RouteTemplate>> {
     private Set<String> searchFootprint;
     private Set<EnterWireJunction> leadIns;
 
-    public ThreadedSearchJob(Design d, EnterWireJunction src, ExitWireJunction snk) {
+    private ArrayList<RouteTemplate> results;
+
+    public TemplateSearchJob(Design d, EnterWireJunction src, ExitWireJunction snk) {
         super();
 
         coreDesign = d;
@@ -47,6 +56,8 @@ public class ThreadedSearchJob implements Callable<ArrayList<RouteTemplate>> {
 
         searchQueue = new PriorityQueue<>(new RoutingCalculator.JunctionsTracerCostComparator());
         searchFootprint = new HashSet<>();
+
+        results = new ArrayList<>();
     }
 
     public void beginTiming() {
@@ -109,9 +120,13 @@ public class ThreadedSearchJob implements Callable<ArrayList<RouteTemplate>> {
         this.leadIns = leadIns;
     }
 
-    @Override
-    public ArrayList<RouteTemplate> call() throws Exception {
-        ArrayList<RouteTemplate> results = new ArrayList<>();
+    public ArrayList<RouteTemplate> getResults() {
+        return results;
+    }
+
+    public void run() {
+
+        beginTiming();
 
         Tile srcIntTile = coreDesign.getDevice().getTile(src.getTileName());
         Tile snkIntTile = coreDesign.getDevice().getTile(snk.getTileName());
@@ -238,6 +253,7 @@ public class ThreadedSearchJob implements Callable<ArrayList<RouteTemplate>> {
             }
         }
 
-        return results;
+        finishTiming();
     }
+
 }

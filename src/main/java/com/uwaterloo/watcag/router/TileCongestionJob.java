@@ -12,7 +12,7 @@ import org.apache.commons.lang3.tuple.Triple;
 import java.util.*;
 import java.util.concurrent.Callable;
 
-public class ThreadedTileCongestionJob implements Callable<Set<Pair<RegisterConnection, CustomRoute>>> {
+public class TileCongestionJob implements Callable<Set<Pair<RegisterConnection, CustomRoute>>> {
 
     private static final int SINK_TILE_TRAVERSAL_MAX_DEPTH = 8;
     private static final int TILE_TRAVERSAL_MAX_DEPTH = FabricBrowser.TILE_TRAVERSAL_MAX_DEPTH;
@@ -26,7 +26,7 @@ public class ThreadedTileCongestionJob implements Callable<Set<Pair<RegisterConn
     private HashMap<CustomRoute, LinkedList<TilePath>> tilePathChoicesMap;
     private Set<Pair<RegisterConnection, CustomRoute>> failedRoutes;
 
-    public ThreadedTileCongestionJob(Design d, Set<Triple<RegisterConnection, CustomRoute, TilePath>> tilePaths) {
+    public TileCongestionJob(Design d, Set<Triple<RegisterConnection, CustomRoute, TilePath>> tilePaths) {
         super();
 
         coreDesign = d;

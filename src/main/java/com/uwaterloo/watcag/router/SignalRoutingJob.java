@@ -48,12 +48,13 @@ public class SignalRoutingJob {
 
         Set<String> banList = new HashSet<>();
         while (true) {
-            ThreadedSearchJob job = new ThreadedSearchJob(coreDesign, srcJunction, snkJunction);
+            TemplateSearchJob job = new TemplateSearchJob(coreDesign, srcJunction, snkJunction);
             job.setBatchSize(1);
             job.setBanList(banList);
             job.setLeadIns(FabricBrowser.findReachableEntrances(coreDesign, snkJunction));
+            job.run();
 
-            RouteTemplate template = job.call().get(0);
+            RouteTemplate template = job.getResults().get(0);
             route = new CustomRoute(template);
 
             boolean pathFailed = false;

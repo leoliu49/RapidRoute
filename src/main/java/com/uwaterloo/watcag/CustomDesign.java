@@ -7,7 +7,12 @@ import com.uwaterloo.watcag.config.RegisterComponent;
 import com.uwaterloo.watcag.config.RegisterDefaults;
 import com.uwaterloo.watcag.config.ResourcesManager;
 import com.uwaterloo.watcag.placer.DesignPlacer;
-import com.uwaterloo.watcag.router.DesignRouter;
+import com.uwaterloo.watcag.router.*;
+import com.uwaterloo.watcag.router.browser.FabricBrowser;
+import com.uwaterloo.watcag.router.elements.CustomRoute;
+import com.uwaterloo.watcag.router.elements.EnterWireJunction;
+import com.uwaterloo.watcag.router.elements.ExitWireJunction;
+import com.uwaterloo.watcag.router.elements.TilePath;
 import com.uwaterloo.watcag.util.RouterLog;
 import com.xilinx.rapidwright.design.Design;
 import com.xilinx.rapidwright.edif.EDIFCell;
@@ -16,9 +21,7 @@ import joptsimple.OptionParser;
 import joptsimple.OptionSet;
 
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.HashMap;
+import java.util.*;
 
 public class CustomDesign {
 
@@ -221,9 +224,9 @@ public class CustomDesign {
         return p;
     }
 
-    public static void main(String[] args) throws IOException {
+    public static void main(String[] args) throws Exception {
 
-        System.out.println("Main entry point temporarily disabled. Please use the launch script instead.");
+        //System.out.println("Main entry point temporarily disabled. Please use the launch script instead.");
 
         /*
         OptionParser parser = createOptionParser();

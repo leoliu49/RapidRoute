@@ -340,19 +340,20 @@ public class FabricBrowser {
 
         String tileName = entrance.getTileName();
 
-        Queue<TilePath> queue = new LinkedList<>();
-        queue.add(new TilePath(entrance, exit));
+        Queue<TilePathTracer> queue = new LinkedList<>();
+        queue.add(new TilePathTracer(entrance));
 
         while (!queue.isEmpty()) {
-            TilePath trav = queue.remove();
+            TilePathTracer trav = queue.remove();
 
-            if (trav.getCost() >= maxDepth + 1)
+            if (trav.getLength() >= maxDepth + 1)
                 break;
 
-            for (PIP pip : getFwdPIPs(d, tileName, trav.getNodeName(-2))) {
+            for (PIP pip : getFwdPIPs(d, tileName, trav.getSearchHead())) {
                 String nextNodeName = RouteUtil.getPIPNodeName(tileName, pip.getEndWireName());
 
                 if (nextNodeName.equals(exit.getNodeName())) {
+                    trav.setExit(exit);
                     results.add(new TilePath(trav));
                 }
                 else if (RouteUtil.isNodeBuffer(d, tileName, nextNodeName)) {
@@ -360,9 +361,62 @@ public class FabricBrowser {
                     if (RouteForge.isLocked(nextNodeName))
                         continue;
 
-                    TilePath travCopy = new TilePath(trav);
+                    TilePathTracer travCopy = new TilePathTracer(trav);
 
                     // To prevent cycles in buffer traversal, don't queue previously traversed buffers
+                    if (travCopy.addNode(nextNodeName))
+                        queue.add(travCopy);
+                }
+            }
+        }
+
+        return results;
+    }
+
+    public static ArrayList<ArrayList<TilePath>> ditherTilePathsFromExit(Design d, int maxDepth,
+                                                                         ArrayList<EnterWireJunction> entrances,
+                                                              ExitWireJunction exit) {
+        ArrayList<ArrayList<TilePath>> results = new ArrayList<>();
+        for (int i = 0; i < entrances.size(); i++)
+            results.add(new ArrayList<>());
+
+        String tileName = exit.getTileName();
+
+        Queue<TilePathTracer> queue = new LinkedList<>();
+        queue.add(new TilePathTracer(exit));
+
+        while (!queue.isEmpty()) {
+            TilePathTracer trav = queue.remove();
+
+            if (trav.getLength() >= maxDepth + 1)
+                break;
+
+            for (PIP pip : getBkwdPIPs(d, tileName, trav.getSearchHead())) {
+                String nextNodeName = RouteUtil.getPIPNodeName(tileName, pip.getStartWireName());
+
+                boolean isExit = false;
+                for (int i = 0; i < entrances.size(); i++) {
+                    EnterWireJunction entrance = entrances.get(i);
+                    if (entrance.getNodeName().equals(nextNodeName)) {
+                        TilePathTracer solution = new TilePathTracer(trav);
+                        solution.setEntrance(entrance);
+
+                        isExit = true;
+                        results.get(i).add(new TilePath(solution));
+                        break;
+                    }
+                }
+
+                if (isExit)
+                    continue;
+
+                if (RouteUtil.isNodeBuffer(d, tileName, nextNodeName)) {
+
+                    if (RouteForge.isLocked(nextNodeName))
+                        continue;
+
+                    TilePathTracer travCopy = new TilePathTracer(trav);
+
                     if (travCopy.addNode(nextNodeName))
                         queue.add(travCopy);
                 }
@@ -385,20 +439,21 @@ public class FabricBrowser {
 
         String tileName = entrance.getTileName();
 
-        Queue<TilePath> queue = new LinkedList<>();
-        queue.add(new TilePath(entrance, exit));
+        Queue<TilePathTracer> queue = new LinkedList<>();
+        queue.add(new TilePathTracer(entrance));
 
         HashSet<String> footprint = new HashSet<>();
 
         while (!queue.isEmpty()) {
-            TilePath trav = queue.remove();
-            if (trav.getCost() >= maxDepth + 1)
+            TilePathTracer trav = queue.remove();
+            if (trav.getLength() >= maxDepth + 1)
                 break;
 
-            for (PIP pip : getFwdPIPs(d, tileName, trav.getNodeName(-2))) {
+            for (PIP pip : getFwdPIPs(d, tileName, trav.getSearchHead())) {
                 String nextNodeName = RouteUtil.getPIPNodeName(tileName, pip.getEndWireName());
 
                 if (nextNodeName.equals(exit.getNodeName())) {
+                    trav.setExit(exit);
                     return new TilePath(trav);
                 }
                 else if (RouteUtil.isNodeBuffer(d, tileName, nextNodeName)) {
@@ -412,7 +467,7 @@ public class FabricBrowser {
                     if (banList.contains(nextNodeName))
                         continue;
 
-                    TilePath travCopy = new TilePath(trav);
+                    TilePathTracer travCopy = new TilePathTracer(trav);
 
                     // To prevent cycles in buffer traversal, don't queue previously traversed buffers
                     if (travCopy.addNode(nextNodeName)) {

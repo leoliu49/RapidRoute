@@ -10,7 +10,6 @@ public class CustomRoute {
 
     private int cost;
 
-    private int bitIndex;
     private int routeIndex;
 
     private EnterWireJunction src;
@@ -41,8 +40,6 @@ public class CustomRoute {
 
     public CustomRoute copyWithOffset(Design d, int dx, int dy) {
         CustomRoute copy = new CustomRoute(template.copyWithOffset(d, dx, dy));
-
-        copy.setBitIndex(bitIndex);
         copy.setRouteIndex(routeIndex);
 
         ArrayList<TilePath> copyRoute = new ArrayList<>();
@@ -55,14 +52,6 @@ public class CustomRoute {
 
     public int getCost() {
         return cost;
-    }
-
-    public int getBitIndex() {
-        return bitIndex;
-    }
-
-    public void setBitIndex(int bitIndex) {
-        this.bitIndex = bitIndex;
     }
 
     public int getRouteIndex() {

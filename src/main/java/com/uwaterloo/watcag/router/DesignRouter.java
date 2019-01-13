@@ -4,7 +4,6 @@ import com.uwaterloo.watcag.common.ComplexRegister;
 import com.uwaterloo.watcag.common.RegisterConnection;
 import com.uwaterloo.watcag.config.RegisterComponent;
 import com.uwaterloo.watcag.config.RegisterDefaults;
-import com.uwaterloo.watcag.router.browser.FabricBrowser;
 import com.uwaterloo.watcag.router.elements.*;
 import com.uwaterloo.watcag.util.RouterLog;
 import com.xilinx.rapidwright.design.Design;
@@ -15,7 +14,6 @@ import org.apache.commons.lang3.tuple.Pair;
 import org.apache.commons.lang3.tuple.Triple;
 
 import java.util.*;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
@@ -34,7 +32,7 @@ public class DesignRouter {
 
     private static final Set<RegisterConnection> connectionSet = new LinkedHashSet<>();
     private static final HashMap<RegisterConnection, ArrayList<RegisterConnection>> uniqueConnectionsSet = new LinkedHashMap<>();
-    private static final HashMap<RegisterConnection, RoutingFootprint> routesMap = new HashMap<>();
+    private static final HashMap<RegisterConnection, RouteFootprint> routesMap = new HashMap<>();
 
     private static final Set<Pair<RegisterConnection, CustomRoute>> failedRoutes = new HashSet<>();
 
@@ -52,25 +50,44 @@ public class DesignRouter {
         return offsetIntTile.getTileYCoordinate() - refIntTile.getTileYCoordinate();
     }
 
-    private static RoutingFootprint copyFootprintWithOffset(RegisterConnection connection, RoutingFootprint ref, int dx,
-                                                            int dy) {
-        RoutingFootprint footprint = new RoutingFootprint(connection);
+    private static RouteFootprint copyFootprintWithOffset(RegisterConnection connection, RouteFootprint ref, int dx, int dy) {
 
-        int bitIndex = 0;
-        int routeIndex = 0;
+
+        RouteFootprint footprint = new RouteFootprint();
 
         ComplexRegister srcReg = connection.getSrcReg();
+        int bitIndex = 0;
+        int routeIndex = 0;
         for (RegisterComponent component : srcReg.getComponents()) {
             for (int i = 0; i < component.getBitWidth(); i++, bitIndex++) {
                 if (bitIndex >= connection.getSrcRegLowestBit() && bitIndex <= connection.getSrcRegHighestBit()) {
                     Net net = coreDesign.getNet(srcReg.getName() + "_" + component.getName() + "/"
                             + RegisterDefaults.OUTPUT_NAME + "[" + i + "]");
 
-                    CustomRoute routeCopy = ref.getRoute(routeIndex).copyWithOffset(coreDesign, dx, dy);
-                    routeCopy.setBitIndex(bitIndex);
+                    CustomRoute routeCopy = ref.getRouteByIndex(routeIndex).copyWithOffset(coreDesign, dx, dy);
 
-                    footprint.add(routeCopy, net);
+                    footprint.addRoute(routeCopy, net);
+                    routeIndex += 1;
+                }
+            }
+        }
 
+        return footprint;
+    }
+
+    private static RouteFootprint compileFootprint(RegisterConnection connection, ArrayList<CustomRoute> routes) {
+        RouteFootprint footprint = new RouteFootprint();
+
+        int bitIndex = 0;
+        int routeIndex = 0;
+        for (RegisterComponent component : connection.getSrcReg().getComponents()) {
+            for (int i = 0; i < component.getBitWidth(); i++, bitIndex++) {
+                if (bitIndex >= connection.getSrcRegLowestBit() && bitIndex <= connection.getSrcRegHighestBit()) {
+                    Net net = coreDesign.getNet(connection.getSrcReg().getName() + "_" + component.getName() + "/"
+                            + RegisterDefaults.OUTPUT_NAME + "[" + i + "]");
+
+                    routes.get(routeIndex).setRouteIndex(routeIndex);
+                    footprint.addRoute(routes.get(routeIndex), net);
                     routeIndex += 1;
                 }
             }
@@ -168,20 +185,6 @@ public class DesignRouter {
     }
 
     /*
-    public static void completeRoutingJob(RegisterConnection connection, RoutingFootprint footprint) {
-        synchronized (routesMap) {
-            routesMap.put(connection, footprint);
-        }
-    }
-
-    public static void completeTileCongestionJob(Set<Pair<RegisterConnection, CustomRoute>> failures) {
-        synchronized (failedRoutes) {
-            failedRoutes.addAll(failures);
-        }
-    }
-    */
-
-    /*
      * Master function for routing the design
      */
     public static void routeDesign() throws Exception {
@@ -236,16 +239,16 @@ public class DesignRouter {
         RouterLog.log("1: Routing unique routes.", RouterLog.Level.NORMAL);
         RouterLog.indent();
 
-        Set<Future<RoutingFootprint>> routingJobResults = new HashSet<>();
+        HashMap<RegisterConnection, Future<ArrayList<CustomRoute>>> routingJobResults = new HashMap<>();
         for (RegisterConnection connection : uniqueConnectionsSet.keySet()) {
-            ThreadedRoutingJob job = new ThreadedRoutingJob(coreDesign, connection);
-
-            routingJobResults.add(executor.submit(job));
+            BusRoutingJob job = new BusRoutingJob(coreDesign, connection);
+            routingJobResults.put(connection, executor.submit(job));
         }
 
-        for (Future<RoutingFootprint> future : routingJobResults) {
-            RoutingFootprint footprint = future.get();
-            routesMap.put(footprint.getRegisterConnection(), footprint);
+        for (RegisterConnection connection : routingJobResults.keySet()) {
+            ArrayList<CustomRoute> busResults = routingJobResults.get(connection).get();
+            RouteFootprint footprint = compileFootprint(connection, busResults);
+            routesMap.put(connection, footprint);
         }
 
         RouterLog.log("All unique routes routed in " + (System.currentTimeMillis() - tStep1Begin) + " ms.",
@@ -282,7 +285,7 @@ public class DesignRouter {
 
         int rerouteCount = 0;
         for (RegisterConnection connection : routesMap.keySet()) {
-            RoutingFootprint footprint = routesMap.get(connection);
+            RouteFootprint footprint = routesMap.get(connection);
             Set<CustomRoute> badRoutes = new HashSet<>();
 
             boolean isConflicted = false;
@@ -331,7 +334,9 @@ public class DesignRouter {
         HashMap<String, RoutingCalculator.TilePathUsageBundle> tileUsageMap = new HashMap<>();
         HashMap<String, Set<Triple<RegisterConnection, CustomRoute, TilePath>>> congestedTileMap = new HashMap<>();
 
-        for (RoutingFootprint footprint : routesMap.values()) {
+        for (RegisterConnection connection : routesMap.keySet()) {
+            RouteFootprint footprint = routesMap.get(connection);
+
             for (CustomRoute route : footprint.getRoutes()) {
                 for (TilePath path : route.getRoute()) {
                     if (!tileUsageMap.containsKey(path.getTileName())) {
@@ -339,7 +344,7 @@ public class DesignRouter {
                                 new RoutingCalculator.TilePathUsageBundle(path.getTileName()));
                     }
 
-                    tileUsageMap.get(path.getTileName()).addTilePath(footprint.getRegisterConnection(), route, path);
+                    tileUsageMap.get(path.getTileName()).addTilePath(connection, route, path);
                 }
             }
         }
@@ -353,8 +358,7 @@ public class DesignRouter {
 
         Set<Future<Set<Pair<RegisterConnection, CustomRoute>>>> congestionJobResults = new HashSet<>();
         for (String tileName : congestedTileMap.keySet()) {
-            ThreadedTileCongestionJob job = new ThreadedTileCongestionJob(coreDesign, congestedTileMap.get(tileName));
-
+            TileCongestionJob job = new TileCongestionJob(coreDesign, congestedTileMap.get(tileName));
             congestionJobResults.add(executor.submit(job));
         }
 
@@ -389,7 +393,7 @@ public class DesignRouter {
             if (failedConnections.contains(connection)) {
                 for (CustomRoute failedSignal : failedSignals) {
                     if (routesMap.get(connection).getRoutes().contains(failedSignal)) {
-                        signalNetMap.put(failedSignal, routesMap.get(connection).getRouteMap().get(failedSignal));
+                        signalNetMap.put(failedSignal, routesMap.get(connection).getCorrespondingNet(failedSignal));
                         routesMap.get(connection).removeRoute(failedSignal);
                     }
                 }

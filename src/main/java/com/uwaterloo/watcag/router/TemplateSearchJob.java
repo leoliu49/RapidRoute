@@ -138,18 +138,11 @@ public class TemplateSearchJob {
         int srcTileY = srcIntTile.getTileYCoordinate();
 
         if (searchQueue.isEmpty()) {
-            ArrayList<WireDirection> dirs = RouteUtil.primaryDirections(snkTileX - srcTileX, snkTileY - srcTileY);
-            int dirSize = dirs.size();
-            for (int i = 0; i < dirSize; i++)
-                dirs.add(RouteUtil.reverseDirection(dirs.get(i)));
 
             JunctionsTracer srcTracer = JunctionsTracer.newHeadTracer(src);
             for (ExitWireJunction exit : FabricBrowser.findReachableExits(coreDesign, src)) {
                 EnterWireJunction wireDest = exit.getDestJunction(coreDesign);
                 if (RouteForge.isLocked(wireDest.getNodeName()) || RouteForge.isLocked(exit.getNodeName()))
-                    continue;
-
-                if (!dirs.contains(exit.getDirection()))
                     continue;
 
                 searchFootprint.add(wireDest.getNodeName());
@@ -223,6 +216,9 @@ public class TemplateSearchJob {
                         if (searchFootprint.contains(wireDest.getNodeName()))
                             continue;
 
+                        if (!primaryDirs.contains(exit.getDirection()))
+                            continue;
+
                         if (banList.contains(wireDest.getNodeName()) || banList.contains(exit.getNodeName()))
                             continue;
 
@@ -234,6 +230,9 @@ public class TemplateSearchJob {
             else {
                 for (ExitWireJunction exit : fanOut) {
                     EnterWireJunction wireDest = exit.getDestJunction(coreDesign);
+
+                    if (wireDest == null)
+                        continue;
 
                     if (RouteForge.isLocked(wireDest.getNodeName()) || RouteForge.isLocked(exit.getNodeName()))
                         continue;

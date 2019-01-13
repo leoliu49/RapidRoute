@@ -203,6 +203,9 @@ public class DesignRouter {
         RouterLog.indent(-1);
         RouterLog.indent(-1);
 
+        for (RegisterConnection connection : uniqueConnectionsSet.keySet()) {
+            System.out.println(connection.toString());
+        }
 
         /*
          * Step 0: Lock down associated in/out PIP junctions of registers
@@ -246,9 +249,14 @@ public class DesignRouter {
         }
 
         for (RegisterConnection connection : routingJobResults.keySet()) {
-            ArrayList<CustomRoute> busResults = routingJobResults.get(connection).get();
-            RouteFootprint footprint = compileFootprint(connection, busResults);
-            routesMap.put(connection, footprint);
+            try {
+                ArrayList<CustomRoute> busResults = routingJobResults.get(connection).get();
+                RouteFootprint footprint = compileFootprint(connection, busResults);
+                routesMap.put(connection, footprint);
+            } catch (Exception e) {
+                e.printStackTrace();
+                throw e;
+            }
         }
 
         RouterLog.log("All unique routes routed in " + (System.currentTimeMillis() - tStep1Begin) + " ms.",

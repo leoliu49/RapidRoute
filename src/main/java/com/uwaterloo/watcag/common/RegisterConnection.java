@@ -127,6 +127,7 @@ public class RegisterConnection {
         for (int i = 0; i < bitWidth; i++) {
             if (!srcPIPNames.get(i).getRight().equals(offsetSrcPIPNames.get(i).getRight()))
                 return false;
+
             if (!snkPIPNames.get(i).getRight().equals(offsetSnkPIPNames.get(i).getRight()))
                 return false;
 

@@ -80,7 +80,7 @@ public class BusRoutingJob implements Callable<ArrayList<CustomRoute>> {
             int regBitIndex = 0;
             for (RegisterComponent component : connection.getSrcReg().getComponents()) {
                 String intTileName = coreDesign.getDevice().getSite(component.getSiteName()).getIntTile().getName();
-                for (int i = 0; i < component.getBitWidth(); i++) {
+                for (int i = 0; i < component.getBitWidth(); i++, regBitIndex++) {
                     if (regBitIndex >= connection.getSrcRegLowestBit()
                             && regBitIndex <= connection.getSrcRegHighestBit()) {
                         srcs.add(EnterWireJunction.newSrcJunction(intTileName, component.getOutPIPName(i)));
@@ -92,7 +92,7 @@ public class BusRoutingJob implements Callable<ArrayList<CustomRoute>> {
             int regBitIndex = 0;
             for (RegisterComponent component : connection.getSnkReg().getComponents()) {
                 String intTileName = coreDesign.getDevice().getSite(component.getSiteName()).getIntTile().getName();
-                for (int i = 0; i < component.getBitWidth(); i++) {
+                for (int i = 0; i < component.getBitWidth(); i++, regBitIndex++) {
                     if (regBitIndex >= connection.getSnkRegLowestBit()
                             && regBitIndex <= connection.getSnkRegHighestBit()) {
                         snks.add(ExitWireJunction.newSnkJunction(intTileName, component.getInPIPName(i)));

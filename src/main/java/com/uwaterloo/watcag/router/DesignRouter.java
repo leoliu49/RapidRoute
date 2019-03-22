@@ -150,8 +150,17 @@ public class DesignRouter {
                 outBitWidth += connection.getBitWidth();
             }
         }
-        EDIFPortInst[] srcPortRefs = EDIFTools.createPortInsts(top, "src", EDIFDirection.INPUT, inBitWidth);
-        EDIFPortInst[] resPortRefs = EDIFTools.createPortInsts(top, "res", EDIFDirection.OUTPUT, outBitWidth);
+
+        EDIFPortInst[] srcPortRefs = null;
+        if (inBitWidth > 1) {
+            srcPortRefs = EDIFTools.createPortInsts(top, "src", EDIFDirection.INPUT, inBitWidth);
+        }
+
+
+        EDIFPortInst[] resPortRefs = null;
+        if (outBitWidth > 1) {
+            resPortRefs = EDIFTools.createPortInsts(top, "res", EDIFDirection.OUTPUT, outBitWidth);
+        }
 
         for (RegisterConnection connection : externalConnectionSet) {
             if (connection.isInputConnection()) {
@@ -164,14 +173,29 @@ public class DesignRouter {
             }
         }
 
-        for (int i = 0; i < inBitWidth; i++) {
-            EDIFNet srcNet = top.getNet("src[" + i + "]");
-            srcNet.addPortInst(srcPortRefs[i]);
+
+        if (inBitWidth == 1) {
+            EDIFNet srcNet = top.getNet("src");
+            EDIFPort srcPort = top.createPort("src", EDIFDirection.INPUT, 1);
+            srcNet.createPortInst(srcPort);
+        }
+        else {
+            for (int i = 0; i < inBitWidth; i++) {
+                EDIFNet srcNet = top.getNet("src[" + i + "]");
+                srcNet.addPortInst(srcPortRefs[i]);
+            }
         }
 
-        for (int i = 0; i < outBitWidth; i++) {
-            EDIFNet resNet = top.getNet("res[" + i + "]");
-            resNet.addPortInst(resPortRefs[i]);
+        if (outBitWidth == 1) {
+            EDIFNet resNet = top.getNet("res");
+            EDIFPort resPort = top.createPort("res", EDIFDirection.OUTPUT, 1);
+            resNet.createPortInst(resPort);
+        }
+        else {
+            for (int i = 0; i < outBitWidth; i++) {
+                EDIFNet resNet = top.getNet("res[" + i + "]");
+                resNet.addPortInst(resPortRefs[i]);
+            }
         }
 
         int interIndex = 0;

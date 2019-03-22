@@ -17,6 +17,7 @@ import com.uwaterloo.watcag.util.RouterLog;
 import com.xilinx.rapidwright.design.Design;
 import com.xilinx.rapidwright.edif.EDIFCell;
 import com.xilinx.rapidwright.edif.EDIFLibrary;
+import com.xilinx.rapidwright.edif.EDIFPort;
 import joptsimple.OptionParser;
 import joptsimple.OptionSet;
 

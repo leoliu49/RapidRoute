@@ -92,6 +92,14 @@ public class ComplexRegister {
 
         EDIFCell top = d.getNetlist().getTopCell();
 
+        if (bitWidth == 1) {
+            EDIFNet net = top.getNet(netPrefix);
+            if (net == null)
+                net = top.createNet(netPrefix);
+            net.createPortInst(RegisterDefaults.INPUT_NAME + "[0]", components.get(0).getCellInstance());
+            return;
+        }
+
         int i = 0;
         for (RegisterComponent component : components) {
             for (int j = 0; j < component.getBitWidth(); j++, i++) {
@@ -106,6 +114,14 @@ public class ComplexRegister {
     public void createInputEDIFPortRefs(Design d, String netPrefix, int startBit, int endBit, int indexOffset) {
 
         EDIFCell top = d.getNetlist().getTopCell();
+
+        if (bitWidth == 1) {
+            EDIFNet net = top.getNet(netPrefix);
+            if (net == null)
+                net = top.createNet(netPrefix);
+            net.createPortInst(RegisterDefaults.INPUT_NAME + "[0]", components.get(0).getCellInstance());
+            return;
+        }
 
         int i = 0;
         for (RegisterComponent component : components) {
@@ -124,6 +140,14 @@ public class ComplexRegister {
 
         EDIFCell top = d.getNetlist().getTopCell();
 
+        if (bitWidth == 1) {
+            EDIFNet net = top.getNet(netPrefix);
+            if (net == null)
+                net = top.createNet(netPrefix);
+            net.createPortInst(RegisterDefaults.OUTPUT_NAME + "[0]", components.get(0).getCellInstance());
+            return;
+        }
+
         int i = 0;
         for (RegisterComponent component : components) {
             for (int j = 0; j < component.getBitWidth(); j++, i++) {
@@ -139,6 +163,14 @@ public class ComplexRegister {
     public void createOutputEDIFPortRefs(Design d, String netPrefix, int startBit, int endBit, int indexOffset) {
 
         EDIFCell top = d.getNetlist().getTopCell();
+
+        if (bitWidth == 1) {
+            EDIFNet net = top.getNet(netPrefix);
+            if (net == null)
+                net = top.createNet(netPrefix);
+            net.createPortInst(RegisterDefaults.OUTPUT_NAME + "[0]", components.get(0).getCellInstance());
+            return;
+        }
 
         int i = 0;
         for (RegisterComponent component : components) {

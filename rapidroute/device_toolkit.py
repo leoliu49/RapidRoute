@@ -30,13 +30,13 @@ def add_input_connection(reg_name, bit_range=None):
     if bit_range is None:
         api.addNewInputConnection(reg_name)
     else:
-        api.addNewInputConnection(reg_name, dest_bit_range[0], dest_bit_range[1])
+        api.addNewInputConnection(reg_name, bit_range[0], bit_range[1])
 
 def add_output_connection(reg_name, bit_range=None):
     if bit_range is None:
         api.addNewOutputConnection(reg_name)
     else:
-        api.addNewOutputConnection(reg_name, src_bit_range[0], src_bit_range[1])
+        api.addNewOutputConnection(reg_name, bit_range[0], bit_range[1])
 
 def add_connection(src_reg_name, snk_reg_name, src_bit_range=None, snk_bit_range=None):
     if src_bit_range is None and snk_bit_range is None:
@@ -57,6 +57,3 @@ def route_design():
 def write_checkpoint(name):
     api.writeCheckpoint(name)
 
-
-if __name__ == "__main__":
-    api.init(int(sys.argv[1]))

@@ -139,7 +139,7 @@ public class CustomDesign {
 
     public static void addNewInputConnection(String snkRegName, int snkRegLowestBit, int snkRegHighestBit) {
         RegisterConnection connection = new RegisterConnection(null, registers.get(snkRegName),
-                srcNetPortIndex, srcNetPortIndex + snkRegHighestBit - snkRegLowestBit + 1,
+                srcNetPortIndex, srcNetPortIndex + snkRegHighestBit - snkRegLowestBit,
                 snkRegLowestBit, snkRegHighestBit);
         connections.add(connection);
 
@@ -160,7 +160,7 @@ public class CustomDesign {
     public static void addNewOutputConnection(String srcRegName, int srcRegLowestBit, int srcRegHighestBit) {
         RegisterConnection connection = new RegisterConnection(registers.get(srcRegName), null,
                 srcRegLowestBit, srcRegHighestBit,
-                resNetPortIndex, resNetPortIndex + srcRegHighestBit - srcRegLowestBit + 1);
+                resNetPortIndex, resNetPortIndex + srcRegHighestBit - srcRegLowestBit);
         connections.add(connection);
 
         resNetPortIndex += connection.getBitWidth();

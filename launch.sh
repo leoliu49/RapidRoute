@@ -4,12 +4,11 @@ ROOT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null && pwd )"
 
 
 function printHelp() {
-    echo "$0 [-h] [FILE_NAME] [--jobs NUM_JOBS] [--interactive]"
+    echo "$0 [-h] [FILE_NAME] [--interactive]"
     exit 0
 }
 
 FILE_NAME="rapidroute/device_toolkit.py"
-NUM_JOBS=""
 
 while [[ $# -gt 0 ]]
 do
@@ -23,11 +22,6 @@ case $key in
     FILE_NAME="$1"
     shift
     ;;
-    -j|--jobs)
-    NUM_JOBS="$2"
-    shift
-    shift
-    ;;
     -i|--interactive)
     INTERACTIVE="1"
     shift
@@ -38,15 +32,15 @@ case $key in
 esac
 done
 
-if [ "$NUM_JOBS" == "" ] && [ "$FILE_NAME" == "rapidroute/device_toolkit.py" ]; then
+if [ "$FILE_NAME" == "rapidroute/device_toolkit.py" ]; then
     printHelp
 fi
 
 . env.sh $(pwd)/../RapidWright
 
 if [ -z ${INTERACTIVE+x} ]; then
-    java org.python.util.jython "$FILE_NAME" "$NUM_JOBS"
+    java org.python.util.jython "$FILE_NAME"
 else
-    java org.python.util.jython -i "$FILE_NAME" "$NUM_JOBS"
+    java org.python.util.jython -i "$FILE_NAME"
 fi
 

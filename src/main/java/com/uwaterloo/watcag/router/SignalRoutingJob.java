@@ -54,7 +54,6 @@ public class SignalRoutingJob {
 
         Set<String> banList = new HashSet<>();
         while (true) {
-            System.out.println("REEE");
             TemplateSearchJob job = new TemplateSearchJob(coreDesign, srcJunction, snkJunction);
             job.setBatchSize(1);
             job.setBanList(banList);

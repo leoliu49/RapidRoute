@@ -137,6 +137,9 @@ public class TemplateSearchJob {
         int srcTileX = srcIntTile.getTileXCoordinate();
         int srcTileY = srcIntTile.getTileYCoordinate();
 
+        for (EnterWireJunction leadIn : leadIns)
+            System.out.println(leadIn.toString());
+
         if (searchQueue.isEmpty()) {
 
             JunctionsTracer srcTracer = JunctionsTracer.newHeadTracer(src);
@@ -163,6 +166,8 @@ public class TemplateSearchJob {
             int distY = snkTileY - travTile.getTileYCoordinate();
 
             if (distX == 0 && distY == 0) {
+                System.out.println("Checking: " + travJunction);
+
                 boolean foundTemplate = false;
                 EnterWireJunction validLeadIn = null;
                 for (EnterWireJunction leadIn : leadIns) {

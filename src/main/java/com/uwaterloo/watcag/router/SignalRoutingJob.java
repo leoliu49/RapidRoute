@@ -44,10 +44,17 @@ public class SignalRoutingJob {
     public void run() throws Exception {
 
         RouteForge.lock(srcJunction.getNodeName());
-        RouteForge.lock(snkJunction.getNodeName());
+
+        if (srcJunction.getTileName().equals(snkJunction.getTileName())) {
+            RouteTemplate template = new RouteTemplate(coreDesign, srcJunction, snkJunction);
+            CustomRoute route = new CustomRoute(template);
+            route.setPath(FabricBrowser.findClosestTilePath(coreDesign, SINK_TILE_TRAVERSAL_MAX_DEPTH, srcJunction,
+                    snkJunction, new HashSet<>()));
+        }
 
         Set<String> banList = new HashSet<>();
         while (true) {
+            System.out.println("REEE");
             TemplateSearchJob job = new TemplateSearchJob(coreDesign, srcJunction, snkJunction);
             job.setBatchSize(1);
             job.setBanList(banList);

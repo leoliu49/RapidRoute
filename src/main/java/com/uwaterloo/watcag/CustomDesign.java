@@ -8,18 +8,11 @@ import com.uwaterloo.watcag.config.RegisterDefaults;
 import com.uwaterloo.watcag.config.ResourcesManager;
 import com.uwaterloo.watcag.placer.DesignPlacer;
 import com.uwaterloo.watcag.router.*;
-import com.uwaterloo.watcag.router.browser.FabricBrowser;
-import com.uwaterloo.watcag.router.elements.CustomRoute;
-import com.uwaterloo.watcag.router.elements.EnterWireJunction;
-import com.uwaterloo.watcag.router.elements.ExitWireJunction;
-import com.uwaterloo.watcag.router.elements.TilePath;
 import com.uwaterloo.watcag.util.RouterLog;
 import com.xilinx.rapidwright.design.Design;
 import com.xilinx.rapidwright.edif.EDIFCell;
 import com.xilinx.rapidwright.edif.EDIFLibrary;
-import com.xilinx.rapidwright.edif.EDIFPort;
 import joptsimple.OptionParser;
-import joptsimple.OptionSet;
 
 import java.io.IOException;
 import java.util.*;
@@ -29,6 +22,8 @@ public class CustomDesign {
     /*
      * Top level class which does everything
      */
+
+    private static boolean analysisMode = false;
 
     private static int numJobs;
     private static Design coreDesign;
@@ -40,11 +35,17 @@ public class CustomDesign {
 
 
     /*
-     * API functions exposed to jython
+     * API functions exposed to Jython
      */
     public static void init(int numJobs) {
         CustomDesign.numJobs = numJobs;
         RouterLog.init(RouterLog.Level.INFO);
+    }
+
+    public static void initAnalysisMode() {
+        CustomDesign.numJobs = 1;
+        RouterLog.init(RouterLog.Level.INFO);
+        analysisMode = true;
     }
 
     public static Design newDesign(String designName, String partName) {
@@ -120,6 +121,10 @@ public class CustomDesign {
 
     public static RegisterComponent createNewComponent(String parentDcp, String siteName) {
         return new RegisterComponent(parentDcp.replace("\\.dcp", ""), siteName);
+    }
+
+    public static ComplexRegister getRegister(String name) {
+        return registers.get(name);
     }
 
     public static void addNewComplexRegister(String name, RegisterComponent[] components) {
@@ -199,6 +204,28 @@ public class CustomDesign {
         if (!name.endsWith(".dcp"))
             name += ".dcp";
         coreDesign.writeCheckpoint(ResourcesManager.OUTPUT_DIR + name);
+    }
+
+
+    /*
+     * Runs the interactive router, completely separate from RapidRoute's internal router
+     */
+    public static void runInteractiveRouter(String srcRegName, int bit) {
+
+        RegisterConnection conn = null;
+        int conn_bit = -1;
+        for (RegisterConnection connection : connections) {
+            if (connection.isInputConnection() || connection.isOutputConnection())
+                continue;
+            if (connection.getSrcReg().getName().equals(srcRegName)) {
+                if (connection.getSrcRegLowestBit() > bit || connection.getSrcRegHighestBit() < bit)
+                    continue;
+                conn = connection;
+                conn_bit = bit - connection.getSrcRegLowestBit();
+            }
+        }
+
+        InteractiveRouter.initializeRouter(coreDesign, conn, conn_bit);
     }
 
 

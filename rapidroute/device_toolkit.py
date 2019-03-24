@@ -1,9 +1,14 @@
+from importlib import import_module
 import sys
 from com.uwaterloo.watcag import CustomDesign as api
 
+from interactive_router import router_toolkit as interactive_router
 
-def init(num_jobs):
-    api.init(num_jobs)
+def init(num_jobs, analysis_mode=False):
+    if analysis_mode is False:
+        api.init(num_jobs)
+    else:
+        api.initAnalysisMode()
 
 def new_design(design_name, part_name):
     api.newDesign(design_name, part_name)
@@ -56,4 +61,8 @@ def route_design():
 
 def write_checkpoint(name):
     api.writeCheckpoint(name)
+
+def run_interactive_router(src_reg_name, bit):
+    api.runInteractiveRouter(src_reg_name, bit)
+    print("Router functions can be referenced with <interactive_router>.")
 

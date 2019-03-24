@@ -239,6 +239,13 @@ public class FabricBrowser {
         Set<EnterWireJunction> results = new LinkedHashSet<>();
         String tileName = exit.getTileName();
 
+        WireDirection startDir = RouteUtil.extractEnterWireDirection(d, tileName, exit.getWireName());
+        int startWireLength = RouteUtil.extractEnterWireLength(d, tileName, exit.getWireName());
+
+        if (startDir != null && startDir != WireDirection.SELF
+                && startWireLength != 0 && !RouteUtil.isClkNode(exit.getNodeName()))
+            results.add(new EnterWireJunction(d, tileName, exit.getWireName()));
+
         Queue<NodeDepthPair> queue = new LinkedList<>();
         queue.add(new NodeDepthPair(exit.getNodeName()));
 
@@ -285,6 +292,13 @@ public class FabricBrowser {
     public static Set<ExitWireJunction> findReachableExits(Design d, int maxDepth, EnterWireJunction entrance) {
         Set<ExitWireJunction> results = new LinkedHashSet<>();
         String tileName = entrance.getTileName();
+
+        WireDirection startDir = RouteUtil.extractExitWireDirection(d, tileName, entrance.getWireName());
+        int startWireLength = RouteUtil.extractExitWireLength(d, tileName, entrance.getWireName());
+
+        if (startDir != null && startDir != WireDirection.SELF
+                && startWireLength != 0 && !RouteUtil.isClkNode(entrance.getNodeName()))
+            results.add(new ExitWireJunction(d, tileName, entrance.getWireName()));
 
         Queue<NodeDepthPair> queue = new LinkedList<>();
         queue.add(new NodeDepthPair(entrance.getNodeName()));
@@ -374,7 +388,7 @@ public class FabricBrowser {
     }
 
     public static ArrayList<ArrayList<TilePath>> ditherTilePathsFromExit(Design d, int maxDepth,
-                                                                         ArrayList<EnterWireJunction> entrances,
+                                                                          ArrayList<EnterWireJunction> entrances,
                                                               ExitWireJunction exit) {
         ArrayList<ArrayList<TilePath>> results = new ArrayList<>();
         for (int i = 0; i < entrances.size(); i++)

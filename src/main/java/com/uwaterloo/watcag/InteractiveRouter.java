@@ -258,8 +258,16 @@ public class InteractiveRouter {
         RouterLog.log(route.getSrc().toString(), RouterLog.Level.NORMAL);
     }
 
+    public static String getSrcName() {
+        return route.getSrc().toString();
+    }
+
     public static void printSnk() {
         RouterLog.log(route.getSnk().toString(), RouterLog.Level.NORMAL);
+    }
+
+    public static String getSnkName() {
+        return route.getSnk().toString();
     }
 
     public static void printCurrentNet() {
@@ -270,8 +278,19 @@ public class InteractiveRouter {
         RouterLog.log(route.getLatestNode(), RouterLog.Level.NORMAL);
     }
 
+    public static String getLatestNodeName() {
+        return route.getLatestNode();
+    }
+
     public static void printLatestInterconnectPath() {
         RouterLog.log(route.getLatestInterconnectPath().toString(), RouterLog.Level.NORMAL);
+    }
+
+    public static String[] getLatestInterconnectPath() {
+        String[] path = new String[route.getLatestInterconnectPath().size()];
+        for (int i = 0; i < route.getLatestInterconnectPath().size(); i++)
+            path[i] = route.getLatestInterconnectPath().get(i);
+        return path;
     }
 
     public static void printCurrentRouteTemplate() {
@@ -296,7 +315,25 @@ public class InteractiveRouter {
         }
     }
 
+    public static String[] getAllNodesInRoute() {
+        int totalSize = 0;
+        for (LinkedList<String> path : route.getNodePaths())
+            totalSize += path.size();
+
+        String[] allNodes = new String[totalSize];
+        int i = 0;
+        for (LinkedList<String> path : route.getNodePaths()) {
+            for (String nodeName : path) {
+                allNodes[i] = nodeName;
+                i += 1;
+            }
+        }
+
+        return allNodes;
+    }
+
     public static void printNodeFanOut(String nodeName) {
+        /*
         if (nodeName.equals(""))
             nodeName = route.getLatestNode();
 
@@ -324,14 +361,70 @@ public class InteractiveRouter {
             }
         }
         RouterLog.indent(-1);
+        */
+
+        String[][] fanOut = getNodeFanOut(nodeName);
+        String tileName = RouteUtil.extractNodeTileName(nodeName);
+
+        RouterLog.log("Bounce nodes:", RouterLog.Level.NORMAL);
+        RouterLog.indent();
+        for (String bounceNodeName : fanOut[0]) {
+            RouterLog.log(bounceNodeName, RouterLog.Level.NORMAL);
+        }
+        RouterLog.indent(-1);
 
         RouterLog.log("Wire nodes:", RouterLog.Level.NORMAL);
         RouterLog.indent();
-        for (String wireName : outWires)
+        for (String wireName : fanOut[1])
             RouterLog.log(new ExitWireJunction(coreDesign, tileName, wireName).toString(), RouterLog.Level.NORMAL);
         RouterLog.indent(-1);
     }
 
+    public static String[][] getNodeFanOut(String nodeName) {
+        String[][] fanOut = new String[2][];
+        if (nodeName.equals(""))
+            nodeName = route.getLatestNode();
+
+        String tileName = RouteUtil.extractNodeTileName(nodeName);
+
+        HashSet<String> bounces = new HashSet<>();
+        HashSet<String> outWires = new HashSet<>();
+
+        for (PIP pip : FabricBrowser.getFwdPIPs(coreDesign, tileName, nodeName)) {
+            String nextNodeName = RouteUtil.getPIPNodeName(tileName, pip.getEndWireName());
+
+            if (RouteForge.isLocked(nextNodeName))
+                continue;
+
+            WireDirection dir = RouteUtil.extractExitWireDirection(coreDesign, tileName, pip.getEndWireName());
+            int wireLength = RouteUtil.extractExitWireLength(coreDesign, tileName, pip.getEndWireName());
+
+            if (dir != null && dir!= WireDirection.SELF && wireLength != 0 && !RouteUtil.isClkNode(nextNodeName))
+                outWires.add(pip.getEndWireName());
+
+            if (RouteUtil.isNodeBuffer(coreDesign, tileName, nextNodeName))
+                bounces.add(nextNodeName);
+        }
+
+        {
+            fanOut[0] = new String[bounces.size()];
+            int i = 0;
+            for (String bounceNodeName : bounces) {
+                fanOut[0][i] = bounceNodeName;
+                i += 1;
+            }
+        }
+        {
+            fanOut[1] = new String[outWires.size()];
+            int i = 0;
+            for (String wireName : outWires) {
+                fanOut[1][i] = wireName;
+                i += 1;
+            }
+        }
+
+        return fanOut;
+    }
 
     public static void addBounceNode(String nodeName) {
         if (nodeName.equals(route.getSnk().getNodeName())) {

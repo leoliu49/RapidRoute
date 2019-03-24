@@ -1,5 +1,14 @@
 from com.uwaterloo.watcag import InteractiveRouter as _interactive_router_api
 
+def source():
+    _interactive_router_api.printSrc()
+
+def sink():
+    _interactive_router_api.printSnk()
+
+def net():
+    _interactive_router_api.printCurrentNet()
+
 def latest_node():
     _interactive_router_api.printLatestNode()
 

@@ -227,7 +227,7 @@ public class InteractiveRouter {
             i = 0;
             for (RegisterComponent component : snkRegister.getComponents()) {
                 String tileName = coreDesign.getDevice().getSite(component.getSiteName()).getIntTile().getName();
-                for (String pipName : component.getOutPIPNames()) {
+                for (String pipName : component.getInPIPNames()) {
                     if (i == connection.getSnkRegLowestBit() + bit)
                         snk = ExitWireJunction.newSnkJunction(tileName, pipName);
                     i += 1;

@@ -1,6 +1,7 @@
 from com.uwaterloo.watcag import InteractiveRouter as _interactive_router_api
 
-from .analysis_toolkit import *
+#from .analysis_toolkit import *
+from .interconnect_path_solver import InterconnectPathSolver
 
 def source():
     _interactive_router_api.printSrc()
@@ -68,3 +69,8 @@ def roll_back_to_node(node):
 def auto_route_to_node(node):
     _interactive_router_api.autoRouteToNode(node)
 
+def commit():
+    _interactive_router_api.commit()
+
+def uncommit():
+    _interactive_router_api.uncommit()

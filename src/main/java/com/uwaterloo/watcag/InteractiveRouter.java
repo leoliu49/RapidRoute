@@ -363,6 +363,9 @@ public class InteractiveRouter {
         RouterLog.indent(-1);
         */
 
+        if (nodeName.equals(""))
+            nodeName = route.getLatestNode();
+
         String[][] fanOut = getNodeFanOut(nodeName);
         String tileName = RouteUtil.extractNodeTileName(nodeName);
 
@@ -375,8 +378,10 @@ public class InteractiveRouter {
 
         RouterLog.log("Wire nodes:", RouterLog.Level.NORMAL);
         RouterLog.indent();
-        for (String wireName : fanOut[1])
+        for (String wireNodeName : fanOut[1]) {
+            String wireName = RouteUtil.extractNodeWireName(wireNodeName);
             RouterLog.log(new ExitWireJunction(coreDesign, tileName, wireName).toString(), RouterLog.Level.NORMAL);
+        }
         RouterLog.indent(-1);
     }
 
@@ -418,7 +423,7 @@ public class InteractiveRouter {
             fanOut[1] = new String[outWires.size()];
             int i = 0;
             for (String wireName : outWires) {
-                fanOut[1][i] = wireName;
+                fanOut[1][i] = tileName + "/" + wireName;
                 i += 1;
             }
         }
@@ -539,6 +544,26 @@ public class InteractiveRouter {
 
     }
 
+    public static String[][] findInterconnectPaths(String srcNodeName, String snkNodeName, int maxDepth) {
+        String tileName = RouteUtil.extractNodeTileName(srcNodeName);
+
+        String srcWireName = RouteUtil.extractNodeWireName(srcNodeName);
+        String snkWireName = RouteUtil.extractNodeWireName(snkNodeName);
+
+        ArrayList<TilePath> paths = FabricBrowser.findTilePaths(coreDesign, maxDepth,
+                new EnterWireJunction(coreDesign, tileName, srcWireName),
+                new ExitWireJunction(coreDesign, tileName, snkWireName));
+
+        String[][] results = new String[paths.size()][];
+        for (int i = 0; i < paths.size(); i++) {
+            TilePath path = paths.get(i);
+            results[i] = new String[path.getNodePath().size()];
+            for (int j = 0; j < path.getNodePath().size(); j++)
+                results[i][j] = path.getNodeName(j);
+        }
+        return results;
+    }
+
     public static void commit() {
         RouterLog.log("Routing route on net <" + currentNet.getName() + ">.", RouterLog.Level.NORMAL);
         for (LinkedList<String> path : route.getNodePaths()) {
@@ -552,6 +577,7 @@ public class InteractiveRouter {
     public static void uncommit() {
         RouterLog.log("Physical net detached.", RouterLog.Level.NORMAL);
         currentNet.unroute();
+        route.isComplete = false;
     }
 
 }

@@ -1,7 +1,7 @@
 from com.uwaterloo.watcag import InteractiveRouter as _interactive_router_api
 
-def find_detours(path, max_deviations=1):
-    if max_deviations > 1:
+def find_detours(path, orbit=1):
+    if orbit > 1:
         print("TODO")
         return None
 

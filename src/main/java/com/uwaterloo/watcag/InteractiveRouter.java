@@ -100,52 +100,28 @@ public class InteractiveRouter {
             return dead;
         }
 
-        private Pair<Integer, Integer> getPositionOf(String targetNodeName) {
-            int pathIndex = 0;
-
-            for (LinkedList<String> path : nodePaths) {
-                pathIndex += 1;
-                for (int i = 0; i < path.size(); i++) {
-                    if (path.get(i).equals(targetNodeName)) {
-                        return new ImmutablePair<>(pathIndex, i);
-                    }
-                }
-            }
-
-            return new ImmutablePair<>(-1, -1);
-        }
-
-        /*
         public List<String> rollBackToNode(String newHeadNodeName) {
-            Pair<Integer, Integer> pos = getPositionOf(newHeadNodeName);
+
             List<String> dead = new LinkedList<>();
+            while (true) {
+                LinkedList<String> latestPath = nodePaths.getLast();
 
-            while (nodePaths.size() - 1 > pos.getLeft()) {
-                dead.addAll(nodePaths.removeLast());
-                template.removeLast();
-                template.removeLast();
-            }
+                if (latestPath.getLast().equals(newHeadNodeName))
+                    return dead;
 
-            if (pos.getRight() == nodePaths.getLast().size() - 1) {
-                nodePaths.getLast().removeLast();
-                addWireNode(new ExitWireJunction(coreDesign, RouteUtil.extractNodeTileName(newHeadNodeName),
-                        RouteUtil.extractNodeWireName(newHeadNodeName)));
-                ((LinkedList<String>) dead).removeLast();
-            }
-            else {
-                while (nodePaths.getLast().size() - 1 > pos.getRight())
-                    dead.add(nodePaths.getLast().removeLast());
-                if (nodePaths.getLast().size() == 0) {
-                    nodePaths.removeLast();
-                    dead.add(nodePaths.getLast().removeLast());
-
-                    template.removeLast();
-                    template.removeLast();
+                if (latestPath.size() == 1) {
+                    if (nodePaths.size() == 1)
+                        return dead;
+                    if (nodePaths.get(nodePaths.size() - 2).getLast().equals(newHeadNodeName))
+                        return dead;
+                    else
+                        nodePaths.removeLast();
                 }
+                else
+                    dead.add(latestPath.removeLast());
+
             }
-            return dead;
         }
-        */
     }
 
     private static Design coreDesign;
@@ -379,6 +355,9 @@ public class InteractiveRouter {
     }
 
     public static String[] getTileFanOut(String nodeName) {
+        if (nodeName.equals(""))
+            nodeName = route.getLatestNode();
+
         Set<ExitWireJunction> exits = FabricBrowser.findReachableExits(coreDesign, new EnterWireJunction(coreDesign,
                 RouteUtil.extractNodeTileName(nodeName), RouteUtil.extractNodeWireName(nodeName)));
 
@@ -437,13 +416,11 @@ public class InteractiveRouter {
         RouterLog.log("Rolling route back to <" + route.getLatestNode() + ">.", RouterLog.Level.NORMAL);
     }
 
-    /*
     public static void rollBackToNode(String nodeName) {
         for (String revert: route.rollBackToNode(nodeName))
             RouteForge.unlock(revert);
         RouterLog.log("Rolling route back to <" + route.getLatestNode() + ">.", RouterLog.Level.NORMAL);
     }
-    */
 
     public static void autoRouteToNode(String destNodeName) throws Exception {
 

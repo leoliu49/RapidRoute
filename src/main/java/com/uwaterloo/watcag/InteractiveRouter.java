@@ -30,7 +30,6 @@ public class InteractiveRouter {
         private ExitWireJunction snk;
 
         private LinkedList<LinkedList<String>> nodePaths;
-        private LinkedList<WireJunction> template;
 
         public ProgressiveSignalPath(EnterWireJunction src, ExitWireJunction snk) {
             isComplete = false;
@@ -41,9 +40,6 @@ public class InteractiveRouter {
             nodePaths = new LinkedList<>();
             nodePaths.add(new LinkedList<>());
             nodePaths.getLast().add(src.getNodeName());
-
-            template = new LinkedList<>();
-            template.add(src);
         }
 
         public boolean isComplete() {
@@ -62,32 +58,12 @@ public class InteractiveRouter {
             return nodePaths;
         }
 
-        public LinkedList<WireJunction> getTemplate() {
-            return template;
-        }
-
         public String getLatestNode() {
             return nodePaths.getLast().getLast();
         }
 
         public List<String> getLatestInterconnectPath() {
             return nodePaths.getLast();
-        }
-
-        public String getCurrentRouteTemplateString() {
-
-            if (template.size() == 1)
-                return template.get(0).toString() + " --> [stub]";
-
-            String repr = "";
-            for (int i = 0; i < template.size(); i++)
-                repr += template.get(i).toString() + " --> ";
-            repr += template.get(template.size() - 1).toString();
-
-            if (nodePaths.getLast().size() > 1)
-                repr += " --> [stub]";
-
-            return repr;
         }
 
         public void addBounceNode(String nodeName) {
@@ -99,15 +75,10 @@ public class InteractiveRouter {
 
             nodePaths.addLast(new LinkedList<>());
             nodePaths.getLast().add(wireNode.getDestJunction(coreDesign).getNodeName());
-
-            template.addLast(wireNode);
-            template.addLast(wireNode.getDestJunction(coreDesign));
         }
 
         public void tieUpRouting() {
             nodePaths.getLast().add(snk.getNodeName());
-            template.add(snk);
-
             isComplete = true;
         }
 
@@ -118,9 +89,6 @@ public class InteractiveRouter {
             if (nodePaths.getLast().size() == 0) {
                 nodePaths.removeLast();
                 dead.add(nodePaths.getLast().removeLast());
-
-                template.removeLast();
-                template.removeLast();
             }
 
             return dead;
@@ -129,10 +97,6 @@ public class InteractiveRouter {
         public List<String> rollBackInterconnectPath() {
             List<String> dead = nodePaths.removeLast();
             dead.add(nodePaths.getLast().removeLast());
-
-            template.removeLast();
-            template.removeLast();
-
             return dead;
         }
 
@@ -151,6 +115,7 @@ public class InteractiveRouter {
             return new ImmutablePair<>(-1, -1);
         }
 
+        /*
         public List<String> rollBackToNode(String newHeadNodeName) {
             Pair<Integer, Integer> pos = getPositionOf(newHeadNodeName);
             List<String> dead = new LinkedList<>();
@@ -180,6 +145,7 @@ public class InteractiveRouter {
             }
             return dead;
         }
+        */
     }
 
     private static Design coreDesign;
@@ -293,26 +259,25 @@ public class InteractiveRouter {
         return path;
     }
 
-    public static void printCurrentRouteTemplate() {
-        RouterLog.log(route.getCurrentRouteTemplateString(), RouterLog.Level.NORMAL);
-    }
-
     public static void printCurrentRoute() {
 
-        for (int i = 0; i + 1 < route.getTemplate().size(); i += 2) {
-            RouterLog.log(route.getTemplate().get(i).toString(), RouterLog.Level.NORMAL);
+        for (int i = 0; i < route.getNodePaths().size() - 1; i++) {
+            RouterLog.log(route.getNodePaths().get(i).get(0), RouterLog.Level.NORMAL);
             RouterLog.indent();
-            RouterLog.log(route.getNodePaths().get(i / 2).toString(), RouterLog.Level.NORMAL);
+            RouterLog.log(route.getNodePaths().get(i).toString(), RouterLog.Level.NORMAL);
             RouterLog.indent(-1);
-            RouterLog.log(route.getTemplate().get(i + 1).toString(), RouterLog.Level.NORMAL);
+            RouterLog.log(route.getNodePaths().get(i).get(route.getNodePaths().get(i).size() - 1), RouterLog.Level.NORMAL);
         }
-        if (!route.isComplete()) {
-            RouterLog.log(route.getTemplate().getLast().toString(), RouterLog.Level.NORMAL);
-            RouterLog.indent();
-            RouterLog.log(route.getNodePaths().getLast().toString(), RouterLog.Level.NORMAL);
-            RouterLog.indent(-1);
+        RouterLog.log(route.getNodePaths().get(route.getNodePaths().size() - 1).get(0), RouterLog.Level.NORMAL);
+        RouterLog.indent();
+        RouterLog.log(route.getNodePaths().get(route.getNodePaths().size() - 1).toString(), RouterLog.Level.NORMAL);
+        RouterLog.indent(-1);
+        if (route.isComplete()) {
+            RouterLog.log(route.getNodePaths().get(route.getNodePaths().size() - 1)
+                    .get(route.getNodePaths().get(route.getNodePaths().size() - 1).size() - 1), RouterLog.Level.NORMAL);
+        }
+        else
             RouterLog.log("[stub]", RouterLog.Level.NORMAL);
-        }
     }
 
     public static String[] getAllNodesInRoute() {
@@ -468,20 +433,24 @@ public class InteractiveRouter {
     public static void rollBackOneNode() {
         for (String revert : route.rollBackOneNode())
             RouteForge.unlock(revert);
+        route.isComplete = false;
         RouterLog.log("Rolling route back to <" + route.getLatestNode() + ">.", RouterLog.Level.NORMAL);
     }
 
     public static void rollBackInterconnectPath() {
         for(String revert : route.rollBackInterconnectPath())
             RouteForge.unlock(revert);
+        route.isComplete = false;
         RouterLog.log("Rolling route back to <" + route.getLatestNode() + ">.", RouterLog.Level.NORMAL);
     }
 
+    /*
     public static void rollBackToNode(String nodeName) {
         for (String revert: route.rollBackToNode(nodeName))
             RouteForge.unlock(revert);
         RouterLog.log("Rolling route back to <" + route.getLatestNode() + ">.", RouterLog.Level.NORMAL);
     }
+    */
 
     public static void autoRouteToNode(String destNodeName) throws Exception {
 
@@ -497,7 +466,7 @@ public class InteractiveRouter {
 
         if (result.getRoute().size() == 1) {
             for (int i = 1; i < result.getRoute().get(0).getNodePath().size() - 1; i++)
-                route.addBounceNode(result.getRoute().get(0).getNodeName(i));
+                addBounceNode(result.getRoute().get(0).getNodeName(i));
 
             String lastNodeName = result.getSnk().getNodeName();
             WireDirection dir = RouteUtil.extractExitWireDirection(coreDesign, result.getSnk().getTileName(),
@@ -506,21 +475,21 @@ public class InteractiveRouter {
                     result.getSnk().getWireName());
 
             if (dir != null && dir!= WireDirection.SELF && wireLength != 0 && !RouteUtil.isClkNode(lastNodeName))
-                route.addWireNode(new ExitWireJunction(coreDesign, result.getSnk().getTileName(), result.getSnk().getWireName()));
+                addWireNode(lastNodeName);
             else
-                route.addBounceNode(lastNodeName);
+                addBounceNode(lastNodeName);
         }
         else {
             for (int i = 1; i < result.getRoute().get(0).getNodePath().size() - 1; i++)
-                route.addBounceNode(result.getRoute().get(0).getNodeName(i));
-            route.addWireNode((ExitWireJunction) result.getTemplate().getTemplate(1));
+                addBounceNode(result.getRoute().get(0).getNodeName(i));
+            addWireNode(result.getTemplate().getTemplate(1).getNodeName());
             for (int i = 1; i < result.getRoute().size() - 1; i++) {
                 for (int j = 1; j < result.getRoute().get(i).getNodePath().size() - 1; j++)
-                    route.addBounceNode(result.getRoute().get(i).getNodeName(j));
-                route.addWireNode((ExitWireJunction) result.getTemplate().getTemplate(2 * i + 1));
+                    addBounceNode(result.getRoute().get(i).getNodeName(j));
+                addWireNode(result.getTemplate().getTemplate(2 * i + 1).getNodeName());
             }
             for (int i = 1; i < result.getRoute().get(result.getRoute().size() - 1).getNodePath().size() - 1; i++)
-                route.addBounceNode(result.getRoute().get(result.getRoute().size() - 1).getNodeName(i));
+                addBounceNode(result.getRoute().get(result.getRoute().size() - 1).getNodeName(i));
 
             String lastNodeName = result.getSnk().getNodeName();
             WireDirection dir = RouteUtil.extractExitWireDirection(coreDesign, result.getSnk().getTileName(),
@@ -529,9 +498,9 @@ public class InteractiveRouter {
                     result.getSnk().getWireName());
 
             if (dir != null && dir!= WireDirection.SELF && wireLength != 0 && !RouteUtil.isClkNode(lastNodeName))
-                route.addWireNode(new ExitWireJunction(coreDesign, result.getSnk().getTileName(), result.getSnk().getWireName()));
+                addWireNode(lastNodeName);
             else
-                route.addBounceNode(lastNodeName);
+                addBounceNode(lastNodeName);
         }
 
         for (TilePath path : result.getRoute()) {

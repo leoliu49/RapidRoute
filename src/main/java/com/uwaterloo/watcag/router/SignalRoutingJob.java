@@ -47,9 +47,10 @@ public class SignalRoutingJob {
 
         if (srcJunction.getTileName().equals(snkJunction.getTileName())) {
             RouteTemplate template = new RouteTemplate(coreDesign, srcJunction, snkJunction);
-            CustomRoute route = new CustomRoute(template);
+            route = new CustomRoute(template);
             route.setPath(0, FabricBrowser.findClosestTilePath(coreDesign, SINK_TILE_TRAVERSAL_MAX_DEPTH, srcJunction,
                     snkJunction, new HashSet<>()));
+            return;
         }
 
         Set<String> banList = new HashSet<>();

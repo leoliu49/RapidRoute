@@ -71,6 +71,11 @@ public class RouteForge {
         }
     }
 
+    public static void free(String nodeName) {
+        unlock(nodeName);
+        unOccupy(nodeName);
+    }
+
     public static void sanitizeNets(Design d) {
         EDIFNetlist n = d.getNetlist();
         Map<String, String> parentNetMap = n.getParentNetMap();

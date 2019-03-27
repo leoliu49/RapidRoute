@@ -403,22 +403,23 @@ public class InteractiveRouter {
     }
 
     public static void rollBackOneNode() {
-        for (String revert : route.rollBackOneNode())
-            RouteForge.unlock(revert);
+        for (String revert : route.rollBackOneNode()) {
+            RouteForge.free(revert);
+        }
         route.isComplete = false;
         RouterLog.log("Rolling route back to <" + route.getLatestNode() + ">.", RouterLog.Level.NORMAL);
     }
 
     public static void rollBackInterconnectPath() {
         for(String revert : route.rollBackInterconnectPath())
-            RouteForge.unlock(revert);
+            RouteForge.free(revert);
         route.isComplete = false;
         RouterLog.log("Rolling route back to <" + route.getLatestNode() + ">.", RouterLog.Level.NORMAL);
     }
 
     public static void rollBackToNode(String nodeName) {
         for (String revert: route.rollBackToNode(nodeName))
-            RouteForge.unlock(revert);
+            RouteForge.free(revert);
         RouterLog.log("Rolling route back to <" + route.getLatestNode() + ">.", RouterLog.Level.NORMAL);
     }
 

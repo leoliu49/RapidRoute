@@ -298,36 +298,6 @@ public class InteractiveRouter {
     }
 
     public static void printNodeFanOut(String nodeName) {
-        /*
-        if (nodeName.equals(""))
-            nodeName = route.getLatestNode();
-
-        String tileName = RouteUtil.extractNodeTileName(nodeName);
-
-        HashSet<String> outWires = new HashSet<>();
-
-        RouterLog.log("Bounce nodes:", RouterLog.Level.NORMAL);
-        RouterLog.indent();
-        for (PIP pip : FabricBrowser.getFwdPIPs(coreDesign, tileName, nodeName)) {
-            String nextNodeName = RouteUtil.getPIPNodeName(tileName, pip.getEndWireName());
-
-            if (RouteForge.isLocked(nextNodeName))
-                continue;
-
-            WireDirection dir = RouteUtil.extractExitWireDirection(coreDesign, tileName, pip.getEndWireName());
-            int wireLength = RouteUtil.extractExitWireLength(coreDesign, tileName, pip.getEndWireName());
-
-            if (dir != null && dir!= WireDirection.SELF && wireLength != 0 && !RouteUtil.isClkNode(nextNodeName)) {
-                outWires.add(pip.getEndWireName());
-            }
-
-            if (RouteUtil.isNodeBuffer(coreDesign, tileName, nextNodeName)) {
-                RouterLog.log(nextNodeName, RouterLog.Level.NORMAL);
-            }
-        }
-        RouterLog.indent(-1);
-        */
-
         if (nodeName.equals(""))
             nodeName = route.getLatestNode();
 
@@ -344,6 +314,22 @@ public class InteractiveRouter {
         RouterLog.log("Wire nodes:", RouterLog.Level.NORMAL);
         RouterLog.indent();
         for (String wireNodeName : fanOut[1]) {
+            String wireName = RouteUtil.extractNodeWireName(wireNodeName);
+            RouterLog.log(new ExitWireJunction(coreDesign, tileName, wireName).toString(), RouterLog.Level.NORMAL);
+        }
+        RouterLog.indent(-1);
+    }
+
+    public static void printTileFanOut(String nodeName) {
+        if (nodeName.equals(""))
+            nodeName = route.getLatestNode();
+
+        String[] fanOut = getTileFanOut(nodeName);
+        String tileName = RouteUtil.extractNodeTileName(nodeName);
+
+        RouterLog.log("Wire nodes:", RouterLog.Level.NORMAL);
+        RouterLog.indent();
+        for (String wireNodeName : fanOut) {
             String wireName = RouteUtil.extractNodeWireName(wireNodeName);
             RouterLog.log(new ExitWireJunction(coreDesign, tileName, wireName).toString(), RouterLog.Level.NORMAL);
         }
@@ -379,20 +365,27 @@ public class InteractiveRouter {
         {
             fanOut[0] = new String[bounces.size()];
             int i = 0;
-            for (String bounceNodeName : bounces) {
-                fanOut[0][i] = bounceNodeName;
-                i += 1;
-            }
+            for (String bounceNodeName : bounces)
+                fanOut[0][i++] = bounceNodeName;
         }
         {
             fanOut[1] = new String[outWires.size()];
             int i = 0;
-            for (String wireName : outWires) {
-                fanOut[1][i] = tileName + "/" + wireName;
-                i += 1;
-            }
+            for (String wireName : outWires)
+                fanOut[1][i++] = tileName + "/" + wireName;
         }
 
+        return fanOut;
+    }
+
+    public static String[] getTileFanOut(String nodeName) {
+        Set<ExitWireJunction> exits = FabricBrowser.findReachableExits(coreDesign, new EnterWireJunction(coreDesign,
+                RouteUtil.extractNodeTileName(nodeName), RouteUtil.extractNodeWireName(nodeName)));
+
+        String[] fanOut = new String[exits.size()];
+        int i = 0;
+        for (ExitWireJunction exit : exits)
+            fanOut[i++] = exit.getNodeName();
         return fanOut;
     }
 

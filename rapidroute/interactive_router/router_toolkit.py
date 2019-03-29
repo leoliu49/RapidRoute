@@ -63,6 +63,12 @@ def tile_fan_out(node=None):
     else:
         _interactive_router_api.printTileFanOut("")
 
+def reachable_entrances(node=None):
+    if node is not None:
+        _interactive_router_api.printReachableEntrances(node)
+    else:
+        _interactive_router_api.printReachableEntrances("")
+
 def get_fan_out(node=None):
     if node is not None:
         return _interactive_router_api.getNodeFanOut(node)
@@ -74,6 +80,12 @@ def get_tile_fan_out(node=None):
         return _interactive_router_api.getTileFanOut(node)
     else:
         return _interactive_router_api.getTileFanOut("")
+
+def get_reachable_entrances(node=None):
+    if node is not None:
+        return _interactive_router_api.getReachableEntrances(node)
+    else:
+        return _interactive_router_api.getReachableEntrances("")
 
 def add_bounce(node):
     _interactive_router_api.addBounceNode(node)

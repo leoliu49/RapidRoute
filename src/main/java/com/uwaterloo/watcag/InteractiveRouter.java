@@ -364,6 +364,22 @@ public class InteractiveRouter {
         RouterLog.indent(-1);
     }
 
+    public static void printReachableEntrances(String nodeName) {
+        if (nodeName.equals(""))
+            nodeName = route.getLatestNode();
+
+        String[] fanOut = getReachableEntrances(nodeName);
+        String tileName = RouteUtil.extractNodeTileName(nodeName);
+
+        RouterLog.log("Wire nodes:", RouterLog.Level.NORMAL);
+        RouterLog.indent();
+        for (String wireNodeName : fanOut) {
+            String wireName = RouteUtil.extractNodeWireName(wireNodeName);
+            RouterLog.log(new ExitWireJunction(coreDesign, tileName, wireName).toString(), RouterLog.Level.NORMAL);
+        }
+        RouterLog.indent(-1);
+    }
+
     public static String[][] getNodeFanOut(String nodeName) {
         String[][] fanOut = new String[2][];
         if (nodeName.equals(""))
@@ -417,6 +433,20 @@ public class InteractiveRouter {
         int i = 0;
         for (ExitWireJunction exit : exits)
             fanOut[i++] = exit.getNodeName();
+        return fanOut;
+    }
+
+    public static String[] getReachableEntrances(String nodeName) {
+        if (nodeName.equals(""))
+            nodeName = route.getSnk().getNodeName();
+
+        Set<EnterWireJunction> entrances = FabricBrowser.findReachableEntrances(coreDesign, FabricBrowser.TILE_TRAVERSAL_MAX_DEPTH,
+                ExitWireJunction.newSnkJunction(RouteUtil.extractNodeTileName(nodeName), RouteUtil.extractNodeWireName(nodeName)));
+
+        String[] fanOut = new String[entrances.size()];
+        int i = 0;
+        for (EnterWireJunction entrance : entrances)
+            fanOut[i++] = entrance.getNodeName();
         return fanOut;
     }
 
@@ -540,7 +570,6 @@ public class InteractiveRouter {
         RouterLog.log("Auto-routing from <" + route.getSrc().toString() + "> to <" + route.getSnk().toString() + ">.", RouterLog.Level.NORMAL);
         //SignalRoutingJob job = new SignalRoutingJob(coreDesign, route.getSrc(), route.getSnk());
         //job.run();
-
 
         TemplateSearchJob job = new TemplateSearchJob(coreDesign, route.getSrc(), route.getSnk());
         job.setLeadIns(FabricBrowser.findReachableEntrances(coreDesign, 50, route.getSnk()));

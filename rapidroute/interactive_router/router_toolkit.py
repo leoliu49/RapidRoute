@@ -30,6 +30,18 @@ def latest_path():
 def get_latest_path():
     return _interactive_router_api.getLatestInterconnectPath()
 
+def all_bounces():
+    _interactive_router_api.printAllBounceNodesInTile()
+
+def get_all_bounces():
+    return _interactive_router_api.getAllBounceNodesInTile()
+
+def all_wires():
+    _interactive_router_api.printAllWiresInTile()
+
+def get_all_wires():
+    return _interactive_router_api.getAllWiresInTile()
+
 def route_template():
     _interactive_router_api.printCurrentRouteTemplate()
 

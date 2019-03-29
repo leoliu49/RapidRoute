@@ -8,13 +8,16 @@ import com.uwaterloo.watcag.config.RegisterComponent;
 import com.uwaterloo.watcag.config.RegisterDefaults;
 import com.uwaterloo.watcag.router.RouteForge;
 import com.uwaterloo.watcag.router.SignalRoutingJob;
+import com.uwaterloo.watcag.router.TemplateSearchJob;
 import com.uwaterloo.watcag.router.browser.FabricBrowser;
 import com.uwaterloo.watcag.router.elements.*;
 import com.uwaterloo.watcag.util.RouteUtil;
 import com.uwaterloo.watcag.util.RouterLog;
 import com.xilinx.rapidwright.design.Design;
 import com.xilinx.rapidwright.design.Net;
+import com.xilinx.rapidwright.device.IntentCode;
 import com.xilinx.rapidwright.device.PIP;
+import com.xilinx.rapidwright.device.Tile;
 import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.apache.commons.lang3.tuple.Pair;
 
@@ -124,7 +127,7 @@ public class InteractiveRouter {
         }
     }
 
-    private static Design coreDesign;
+    public static Design coreDesign;
 
     private static RegisterConnection connection;
     private static ComplexRegister srcRegister;
@@ -233,6 +236,55 @@ public class InteractiveRouter {
         for (int i = 0; i < route.getLatestInterconnectPath().size(); i++)
             path[i] = route.getLatestInterconnectPath().get(i);
         return path;
+    }
+
+    public static void printAllBounceNodesInTile() {
+        for (String nodeName : getAllBounceNodesInTile())
+            RouterLog.log(nodeName, RouterLog.Level.NORMAL);
+    }
+
+    public static String[] getAllBounceNodesInTile() {
+        ArrayList<String> nodeList = new ArrayList<>();
+
+        Tile refTile = coreDesign.getDevice().getTile(route.getSrc().getTileName());
+        for (String wireName : refTile.getWireNames()) {
+            if (wireName.startsWith("QLND") || wireName.startsWith("SDND"))
+                continue;
+
+            if (refTile.getWireIntentCode(refTile.getWireIndex(wireName)).equals(IntentCode.NODE_PINBOUNCE))
+                nodeList.add(wireName);
+            else if (RouteUtil.isNodeBuffer(coreDesign, refTile.getName(), refTile.getName() + "/" + wireName))
+                nodeList.add(wireName);
+        }
+
+        String[] results = new String[nodeList.size()];
+        results = nodeList.toArray(results);
+        return results;
+    }
+
+    public static void printAllWiresInTile() {
+        for (String wireName : getAllWiresInTile())
+            RouterLog.log(wireName, RouterLog.Level.NORMAL);
+    }
+
+    public static String[] getAllWiresInTile() {
+        ArrayList<String> wireList = new ArrayList<>();
+
+        Tile refTile = coreDesign.getDevice().getTile(route.getSrc().getTileName());
+        for (String wireName : refTile.getWireNames()) {
+            if (wireName.startsWith("QLND") || wireName.startsWith("SDND"))
+                continue;
+
+            WireDirection dir = RouteUtil.extractExitWireDirection(coreDesign, refTile.getName(), wireName);
+            int wireLength = RouteUtil.extractExitWireLength(coreDesign, refTile.getName(), wireName);
+
+            if (dir != null && dir!= WireDirection.SELF && wireLength != 0 && !RouteUtil.isClkNode(wireName))
+                wireList.add(wireName);
+        }
+
+        String[] results = new String[wireList.size()];
+        results = wireList.toArray(results);
+        return results;
     }
 
     public static void printCurrentRoute() {
@@ -481,6 +533,23 @@ public class InteractiveRouter {
 
         RouterLog.log("Updating route:", RouterLog.Level.NORMAL);
         printCurrentRoute();
+
+    }
+
+    public static void routeFullyManyWays(String runPrefix) throws Exception {
+        RouterLog.log("Auto-routing from <" + route.getSrc().toString() + "> to <" + route.getSnk().toString() + ">.", RouterLog.Level.NORMAL);
+        //SignalRoutingJob job = new SignalRoutingJob(coreDesign, route.getSrc(), route.getSnk());
+        //job.run();
+
+
+        TemplateSearchJob job = new TemplateSearchJob(coreDesign, route.getSrc(), route.getSnk());
+        job.setLeadIns(FabricBrowser.findReachableEntrances(coreDesign, 50, route.getSnk()));
+        job.setBatchSize(Math.min(10, job.getLeadIns().size()));
+        job.run();
+
+        for (RouteTemplate template : job.getResults()) {
+            System.out.println(template.hopSummary());
+        }
 
     }
 

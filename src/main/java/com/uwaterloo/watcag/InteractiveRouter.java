@@ -308,6 +308,21 @@ public class InteractiveRouter {
             RouterLog.log("[stub]", RouterLog.Level.NORMAL);
     }
 
+    public static String[] getRoutingConstraint() {
+        ArrayList<String> constraint = new ArrayList<>();
+
+        constraint.addAll(route.getNodePaths().get(0));
+        for (int i = 1; i < route.getNodePaths().size(); i++) {
+            for (int j = 1; j < route.getNodePaths().get(i).size(); j++)
+                constraint.add(route.getNodePaths().get(i).get(j));
+        }
+
+        String[] results = new String[constraint.size()];
+        results = constraint.toArray(results);
+
+        return results;
+    }
+
     public static String[] getAllNodesInRoute() {
         int totalSize = 0;
         for (LinkedList<String> path : route.getNodePaths())
@@ -366,7 +381,7 @@ public class InteractiveRouter {
 
     public static void printReachableEntrances(String nodeName) {
         if (nodeName.equals(""))
-            nodeName = route.getLatestNode();
+            nodeName = route.getSnk().getNodeName();
 
         String[] fanOut = getReachableEntrances(nodeName);
         String tileName = RouteUtil.extractNodeTileName(nodeName);
@@ -375,7 +390,7 @@ public class InteractiveRouter {
         RouterLog.indent();
         for (String wireNodeName : fanOut) {
             String wireName = RouteUtil.extractNodeWireName(wireNodeName);
-            RouterLog.log(new ExitWireJunction(coreDesign, tileName, wireName).toString(), RouterLog.Level.NORMAL);
+            RouterLog.log(new EnterWireJunction(coreDesign, tileName, wireName).toString(), RouterLog.Level.NORMAL);
         }
         RouterLog.indent(-1);
     }
@@ -566,21 +581,37 @@ public class InteractiveRouter {
 
     }
 
-    public static void routeFullyManyWays(String runPrefix) throws Exception {
-        RouterLog.log("Auto-routing from <" + route.getSrc().toString() + "> to <" + route.getSnk().toString() + ">.", RouterLog.Level.NORMAL);
+    /*
+    public static void rerouteTemplateManyWays(String runPrefix) throws Exception {
         //SignalRoutingJob job = new SignalRoutingJob(coreDesign, route.getSrc(), route.getSnk());
         //job.run();
 
-        TemplateSearchJob job = new TemplateSearchJob(coreDesign, route.getSrc(), route.getSnk());
-        job.setLeadIns(FabricBrowser.findReachableEntrances(coreDesign, 50, route.getSnk()));
-        job.setBatchSize(Math.min(10, job.getLeadIns().size()));
-        job.run();
+        ArrayList<ArrayList<LinkedList<String>>> pathsDB = new ArrayList<>();
+        ArrayList<Pair<String, String>> template = new ArrayList<>();
 
-        for (RouteTemplate template : job.getResults()) {
-            System.out.println(template.hopSummary());
+        for (LinkedList<String> path : route.getNodePaths()) {
+            template.add(new ImmutablePair<>(path.getFirst(), path.getLast()));
         }
 
+        rollBackToNode(route.getSrc().getNodeName());
+
+        for (Pair<String, String> junctions : template) {
+            ArrayList<LinkedList<String>> pathChoices = new ArrayList<>();
+            ArrayList<TilePath> paths = FabricBrowser.findTilePaths(coreDesign, 8,
+                    new EnterWireJunction(coreDesign,
+                            RouteUtil.extractNodeTileName(junctions.getLeft()),
+                            RouteUtil.extractNodeWireName(junctions.getLeft())),
+                    new ExitWireJunction(coreDesign,
+                            RouteUtil.extractNodeTileName(junctions.getRight()),
+                            RouteUtil.extractNodeWireName(junctions.getRight())));
+            for (TilePath path : paths) {
+                pathChoices.add(new LinkedList<>(path.getNodePath()));
+            }
+            pathsDB.add(pathChoices);
+            System.out.println(pathChoices.size());
+        }
     }
+    */
 
     public static String[][] findInterconnectPaths(String srcNodeName, String snkNodeName, int maxDepth) {
         String tileName = RouteUtil.extractNodeTileName(srcNodeName);
@@ -600,6 +631,11 @@ public class InteractiveRouter {
                 results[i][j] = path.getNodeName(j);
         }
         return results;
+    }
+
+    public static void addPIP(String startNode, String endNode) {
+        RouteForge.findAndRoute(coreDesign, currentNet, RouteUtil.extractNodeTileName(startNode),
+                startNode, endNode);
     }
 
     public static void commit() {

@@ -51,6 +51,9 @@ def current_route():
 def get_all_nodes():
     return _interactive_router_api.getAllNodesInRoute()
 
+def get_routing_constraint():
+    return _interactive_router_api.getRoutingConstraint()
+
 def fan_out(node=None):
     if node is not None:
         _interactive_router_api.printNodeFanOut(node)

@@ -2,65 +2,52 @@ from com.uwaterloo.watcag import InteractiveRouter as _interactive_router_api
 
 class InterconnectPathSolver:
 
-    class Node:
-        def __init__(self, name):
-            self.name = name
-            self.children = set()
-            self.paths = dict()
+    def __init__(self, routing_constraint, sink_wire_nodes, max_depth=8):
+        self.keys = ["LOGIC_OUTS", "NN1", "NN2", "NN4", "NN5", "NN12", "NODE_IMUX", "BYPASS", "BOUNCE", "INT_NODE_SINGLE_DOUBLE", "INT_NODE_QUAD_LONG",
+            "INODE", "INT_INT_SINGLE", "INT_NODE_GLOBAL"]
 
-    def __init__(self, src, snk, max_depth=8):
-        self.src = src
-        self.snk = snk
+        self.base_constraint = routing_constraint
+        self.constraint_stub = self.base_constraint[:self.base_constraint.index(sink_wire_nodes[0]) + 1]
 
-        self.all_paths = find_interconnect_paths(src, snk, max_depth)
+        self.src = routing_constraint[0]
+        self.snk = routing_constraint[-1]
+
+        _interactive_router_api.rollBackToNode(sink_wire_nodes[1])
+        self.sink_paths = _interactive_router_api.findInterconnectPaths(sink_wire_nodes[1], self.snk, max_depth)
 
         self.all_nodes = set()
-        for path in self.all_paths:
+        for node in self.base_constraint:
+            self.all_nodes.add(node)
+        for path in self.sink_paths:
             for node in path:
                 self.all_nodes.add(node)
 
-        self.paths_map = dict()
-        for path in self.all_paths:
-            if len(path) not in self.paths_map:
-                self.paths_map[len(path)] = list()
-            self.paths_map[len(path)].append(path)
+        self.all_nodes.remove(sink_wire_nodes[0])
 
-        self.graph = {src : self.Node(src), snk : self.Node(snk)}
-        for i in range(len(self.all_paths)):
-            self.graph[src].paths[i] = 0
-            path = self.all_paths[i]
-            for j in range(1, len(path)):
-                node = path[j]
-                if node not in self.graph:
-                    self.graph[node] = self.Node(node)
-                self.graph[path[j - 1]].children.add(self.graph[node])
-                self.graph[node].paths[i] = j
+        self.usages = {}
+        for key in self.keys:
+            self.usages[key] = 0
+        for node in self.all_nodes:
 
-    def find_variations(self, orbit=1):
-        variations = set()
-        for i in range(len(self.all_paths)):
-            for j in range(i + 1, len(self.all_paths)):
-                variations.add((i, j))
+            is_valid = False
+            for key in self.keys:
+                if key in node:
+                    self.usages[key] = self.usages[key] + 1
+                    is_valid = True
+                    break
+            if is_valid is False:
+                print(node)
 
-        for i in range(len(self.all_paths)):
-            path = self.all_paths[i]
+    def write_out(self, prefix):
+        with open(prefix + "_nodes.txt", "w") as f:
+            for node in self.all_nodes:
+                f.write(node + "\n")
+        with open(prefix + "_routes.txt", "w") as f:
+            for path in self.sink_paths:
+                constraint = list(self.constraint_stub)
 
-            last_seen = dict()
-            for p in range(len(self.all_paths)):
-                if p != i:
-                    last_seen[p] = (0, 0)
-
-            for j in range(1, len(path)):
-                node = self.graph[path[j]]
-                for p, k in node.paths.items():
-                    if p <= i:
-                        continue
-                    orb = max(k - last_seen[p][1], j - last_seen[p][0]) - 1
-                    if orb > orbit:
-                        variations.discard((min(i, p), max(i, p)))
-                    last_seen[p] = (j, k)
-
-        return variations
-
-def find_interconnect_paths(src, snk, max_depth=8):
-    return _interactive_router_api.findInterconnectPaths(src, snk, max_depth)
+                for node in path[1:]:
+                    constraint.append(node)
+                for node in constraint:
+                    f.write(node + " ")
+                f.write("\n")

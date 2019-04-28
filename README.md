@@ -1,6 +1,6 @@
 # RapidRoute
 
-URA with Professor Kapre using [Xilinx RapidWright](http://www.rapidwright.io)
+Fast and lightweight routing of communication networks using [Xilinx RapidWright](http://www.rapidwright.io)
 
 ## Compiling
 1. gradle (https://gradle.org/install/)

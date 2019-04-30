@@ -74,7 +74,7 @@ The `routing_tests/` folder feature example scripts for generating a single regi
 
 ### Example screenshots
 6x6 Torus:
-![torus.png](https://github.com/leoliu49/RapidRoute/blob/master/screenshots/torus.png)
+![torus.png](screenshots/torus.png)
 
 ### License
 

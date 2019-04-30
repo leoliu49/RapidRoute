@@ -24,3 +24,8 @@ echo "Copying RapidWright JAR output to deps/ directory."
 cp RapidWright/build/libs/*.jar RapidRoute/deps/
 
 echo "RapidWright source is in your parent directory. Do not remove it."
+
+cd ../RapidRoute
+gradle build -p ./
+
+echo "Built RapidRoute"

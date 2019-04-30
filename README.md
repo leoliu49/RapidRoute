@@ -1,14 +1,28 @@
 # RapidRoute
 
 We provide RapidRoute, a custom greedy router built on top of the [Xilinx RapidWright](http://www.rapidwright.io) framework for fast assembly of communication networks on Xilinx FPGAs.
+> Leo Liu, Jay Weng, Nachiket Kapre
+>
+> ["RapidRoute: Fast Assembly of Communication Structures for FPGA Overlays"](https://nachiket.github.io/publications/rapid-route_fccm-2019.pdf)
+>
+> International Symposium On Field-Programmable Custom Computing Machines, Apr 2019
 
 ## How to use the tool:
 ### Installation dependencies
-1. gradle (https://gradle.org/install/)
-2. Java 1.8+ (http://www.oracle.com/technetwork/java/javase/downloads/)
-3. RapidWright (https://github.com/Xilinx/RapidWright)
-4. Vivado 2018.1+ to actually make it useful (https://www.xilinx.com/products/design-tools/vivado.html)
+#### MacOS
+```
+brew install gradle
+```
+Manually install Java 1.8+ (http://www.oracle.com/technetwork/java/javase/downloads/)
 
+#### Linux (Ubuntu)
+```
+sudo apt update
+sudo apt install default-jre
+sudo apt install default-jdk
+```
+
+**Vivado 2018.1+ is highly recommended** (https://www.xilinx.com/products/design-tools/vivado.html)
 
 ### MacOS and Linux
 A setup script is available for integrating with the latest [RapidWright source](https://github.com/Xilinx/RapidWright).

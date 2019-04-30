@@ -25,7 +25,9 @@ sudo apt install default-jdk
 **Vivado 2018.1+ is highly recommended** (https://www.xilinx.com/products/design-tools/vivado.html)
 
 ### MacOS and Linux
-A setup script is available for integrating with the latest [RapidWright source](https://github.com/Xilinx/RapidWright).
+[Manual installation](https://www.rapidwright.io/docs/Manual_Install.html#manual-install) of [RapidWright](http://rapidwright.io) is required.
+
+A setup script is available, however, for automating the manual install process. with the latest [RapidWright source](https://github.com/Xilinx/RapidWright).
 ```
 sh setup.sh
 ```

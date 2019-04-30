@@ -1,12 +1,13 @@
-#!/bin/bash
+#!/bin/zsh
 
 ROOT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null && pwd )"
 cd ../
 
 echo "Setting up RapidWright in parent directory of $ROOT_DIR ."
 git clone https://github.com/Xilinx/RapidWright.git
+cd RapidWright
+git checkout d87dd2c
 
-cd RapidWright/
 wget https://github.com/Xilinx/RapidWright/releases/download/v2018.2.5-beta/rapidwright_data.zip
 unzip rapidwright_data.zip
 rm rapidwright_data.zip

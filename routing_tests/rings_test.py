@@ -11,8 +11,8 @@ if __name__ == "__main__":
 
 
     for ys in all_ys:
-        new_design("register_pair_test", "xcku115-flva1517-1-c")
-        load_template("src/main/resources/default-templates/dcps-xcku115-flva1517-1-c")
+        new_design("register_pair_test", "xcku115-flva1517-3-e")
+        load_template("src/main/resources/default-templates/dcps-xcku115-flva1517-3-e")
 
         for i in range(len(ys)):
             add_register("reg" + str(i), [create_component("west_8b", "SLICE_X" + x + "Y" + ys[i])])

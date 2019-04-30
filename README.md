@@ -72,6 +72,10 @@ The `routing_tests/` folder feature example scripts for generating a single regi
 
 **Output DCP files will be in the** `output/` **folder**.
 
+### Example screenshots
+6x6 Torus:
+![torus.png](https://github.com/leoliu49/RapidRoute/blob/master/screenshots/torus.png)
+
 ### License
 
 This tool is distributed under MIT license.

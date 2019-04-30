@@ -16,6 +16,7 @@ rm rapidwright_jars.zip
 cd ../
 
 export RAPIDWRIGHT_PATH=$(pwd)/RapidWright
+export CLASSPATH=$RAPIDWRIGHT_PATH:$(echo $RAPIDWRIGHT_PATH/jars/*.jar | tr ' ' ':')
 gradle build -p $RAPIDWRIGHT_PATH
 
 echo "Copying RapidWright JAR output to deps/ directory."

@@ -13,8 +13,8 @@ if __name__ == "__main__":
         ["20", "60", "100", "140", "180", "220"])
 
     for size, placements in run_params.items():
-        new_design("register_pair_test", "xcku115-flva1517-1-c")
-        load_template("src/main/resources/default-templates/dcps-xcku115-flva1517-1-c")
+        new_design("register_pair_test", "xcku115-flva1517-3-e")
+        load_template("src/main/resources/default-templates/dcps-xcku115-flva1517-3-e")
 
         xs = placements[0]
         ys = placements[1]
@@ -26,10 +26,11 @@ if __name__ == "__main__":
         place_design()
         for x in xs:
             for i in range(-1, len(ys) - 1):
-                add_connection("reg_" + x + ys[i], "reg_" + x + ys[i + 1], (0, 3), (0, 3))
+                add_connection("reg_" + x + "_" + ys[i], "reg_" + x + "_" + ys[i + 1], (0, 3), (0, 3))
         for y in ys:
             for i in range(-1, len(xs) - 1):
-                add_connection("reg_" + xs[i] + y, "reg_" + xs[i + 1] + y, (4, 7), (4, 7))
+                add_connection("reg_" + xs[i] + "_" + y, "reg_" + xs[i + 1] + "_" + y, (4, 7), (4, 7))
 
         net_synthesis()
         route_design()
+
